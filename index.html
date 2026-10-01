@@ -452,7 +452,12 @@ class BleTransport{
     await this.tx.startNotifications();
     this.label='BLE '+(this.dev.name||'');
   }
-  async send(p){await this.rx.writeValue(p)}
+  // GATT erlaubt nur einen Schreibvorgang gleichzeitig → Warteschlange, bei Kollision kurz erneut versuchen
+  send(p){
+    const run=async()=>{for(let i=0;;i++){try{return await this.rx.writeValue(p)}
+      catch(e){if(i>=4||!/in progress|busy|NetworkError/i.test(e.message||''))throw e;await new Promise(r=>setTimeout(r,40*(i+1)))}}};
+    const job=(this.wq||Promise.resolve()).catch(()=>{}).then(run);this.wq=job;return job;
+  }
   async close(){this.closing=true;try{this.dev.gatt.disconnect()}catch{}}
 }
 
@@ -664,10 +669,7 @@ async function sendMsg(){
   const ts=now(),conv=S.active;
   if(conv.startsWith('ch:')){
     const m={dir:'out',from:S.self.name,text,ts:ts*1000,rx:Date.now(),status:'sending'};addMsg(conv,m);
-    const ch=S.channels.find(c=>c.idx==conv.slice(3)),rg=chanRegion(ch);m.region=rg;
-    try{try{await applyScope(rg)}catch(e){if(rg)throw new Error('Region konnte nicht gesetzt werden ('+e.message+')')}
-      await request(bytes(CMD.SEND_CHAN_TXT,0,+conv.slice(3),u32(ts),text));m.status='sent'}catch(e){m.status='fail';m.err=e.message}
-    renderSoon();scheduleSave();
+    await sendChan(conv,m);
   }else{
     const m={dir:'out',from:S.self.name,text,ts:ts*1000,rx:Date.now(),status:'sending',attempt:0};addMsg(conv,m);
     await sendDirect(conv,m);
@@ -683,7 +685,16 @@ async function sendDirect(conv,m){
   }catch(e){m.status='fail';m.err=e.message}
   renderSoon();scheduleSave();
 }
-function retryMsg(conv,id){const m=(S.msgs[conv]||[]).find(x=>x.id===id);if(!m)return;m.attempt=(m.attempt||0)+1;sendDirect(conv,m)}
+async function sendChan(conv,m){
+  const ch=S.channels.find(c=>c.idx==conv.slice(3)),rg=chanRegion(ch);m.region=rg;m.status='sending';m.err=null;renderSoon();
+  try{try{await applyScope(rg)}catch(e){if(rg)throw new Error('Region konnte nicht gesetzt werden ('+e.message+')')}
+    await request(bytes(CMD.SEND_CHAN_TXT,0,+conv.slice(3),u32(Math.floor(m.ts/1000)),m.text));m.status='sent'}
+  catch(e){m.status='fail';m.err=e.message}
+  renderSoon();scheduleSave();
+}
+function retryMsg(conv,id){const m=(S.msgs[conv]||[]).find(x=>x.id===id);if(!m)return;
+  if(conv.startsWith('ch:')){m.ts=Date.now();m.rx=Date.now();sendChan(conv,m);return}
+  m.attempt=(m.attempt||0)+1;sendDirect(conv,m)}
 function maxLen(){if(!S.active)return MAX_TXT;if(S.active.startsWith('ch:'))return MAX_TXT-enc.encode(S.self?.name||'').length-2;return MAX_TXT}
 
 // ================= Pushes =================
@@ -1141,7 +1152,7 @@ function renderConv(){
   box.innerHTML=arr.length?arr.map(m=>{
     const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(m.hops==='direkt'?'direkt':m.hops+' Hops'):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
     let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?'✓ gesendet'+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
-      if((m.status==='noack'||m.status==='fail')&&conv.startsWith('c:'))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`}
+      if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`}
     return `<div class="msg ${m.dir}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${esc(m.text)}</div>${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
   if(atBottom||arr.length<30)box.scrollTop=box.scrollHeight;
   updateCompose();
