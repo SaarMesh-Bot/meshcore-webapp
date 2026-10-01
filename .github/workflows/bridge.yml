@@ -1,0 +1,73 @@
+name: TCP-Bridge bauen
+
+on:
+  push:
+    tags: ["v*"]
+    paths-ignore: []
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: windows, goarch: amd64, name: windows-x64,  ext: .exe }
+          - { goos: windows, goarch: arm64, name: windows-arm64, ext: .exe }
+          - { goos: darwin,  goarch: arm64, name: macos-apple-silicon, ext: "" }
+          - { goos: darwin,  goarch: amd64, name: macos-intel,  ext: "" }
+          - { goos: linux,   goarch: amd64, name: linux-x64,    ext: "" }
+          - { goos: linux,   goarch: arm64, name: linux-arm64,  ext: "" }
+          - { goos: linux,   goarch: arm,   goarm: "7", name: linux-armv7, ext: "" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: bridge/go.mod
+          cache-dependency-path: bridge/go.sum
+      - name: Bauen
+        working-directory: bridge
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: "0"
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          OUT="meshcore-tcp-bridge-${{ matrix.name }}${{ matrix.ext }}"
+          go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o "../dist/${OUT}" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bridge-${{ matrix.name }}
+          path: dist/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Prüfsummen
+        run: cd dist && sha256sum * > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body: |
+            **MeshCore TCP-Bridge** – verbindet die [Meshcore Webapp](https://saarmesh-bot.github.io/meshcore-webapp/) mit WiFi-Companions.
+            Nur nötig für **TCP/WiFi**. USB und Bluetooth funktionieren ohne Bridge.
+
+            | System | Datei |
+            |---|---|
+            | Windows (normal) | `meshcore-tcp-bridge-windows-x64.exe` |
+            | Mac mit M1/M2/M3/M4 | `meshcore-tcp-bridge-macos-apple-silicon` |
+            | Mac mit Intel | `meshcore-tcp-bridge-macos-intel` |
+            | Linux PC | `meshcore-tcp-bridge-linux-x64` |
+            | Raspberry Pi (64 bit / 32 bit) | `…-linux-arm64` / `…-linux-armv7` |
+
+            Anleitung: siehe [README](https://github.com/SaarMesh-Bot/meshcore-webapp#tcp--wifi-companions).
