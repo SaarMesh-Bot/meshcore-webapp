@@ -27,6 +27,7 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 14px;
 .logo span{color:var(--accent)}
 .logo .by{font-size:12px;font-weight:500;color:var(--muted);text-decoration:none;margin-left:4px}
 .logo .by:hover{color:var(--accent2)}
+.logo .kofi{margin-left:6px;font-size:14px;opacity:.75}.logo .kofi:hover{opacity:1}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--err);display:inline-block}
 .dot.on{background:var(--accent);box-shadow:0 0 6px var(--accent)}
 .devinfo{display:flex;gap:14px;color:var(--muted);font-size:13px;flex-wrap:wrap}
@@ -117,10 +118,12 @@ canvas#spark{height:34px;width:240px}
 .frm{display:flex;gap:6px;margin:6px 0;align-items:center;flex-wrap:wrap}
 .frm input{flex:1;min-width:80px}
 .frm input[type=checkbox]{flex:0 0 auto;min-width:0}
+label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]{margin-top:3px}
 .log{max-height:320px;overflow:auto}
 #toasts{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;z-index:2000;align-items:center}
 .toast{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--accent2);padding:8px 14px;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .toast.err{border-left-color:var(--err)}.toast.ok{border-left-color:var(--accent)}
+.kofibtn{display:inline-block;background:#FF5E5B;color:#fff;text-decoration:none;font-weight:600;padding:7px 14px;border-radius:6px}.kofibtn:hover{filter:brightness(1.08)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:3000;padding:16px}
 .modal[hidden]{display:none}
 .mbox{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;width:100%;max-width:440px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
@@ -135,7 +138,7 @@ canvas#spark{height:34px;width:240px}
 <div class="app">
   <div class="warnbar" id="warn"></div>
   <header>
-    <div class="logo">Mesh<span>core</span> Webapp <a class="by" href="https://saarmesh.de" target="_blank" rel="noopener">by SaarMesh.de</a></div>
+    <div class="logo">Mesh<span>core</span> Webapp <a class="by" href="https://saarmesh.de" target="_blank" rel="noopener">by SaarMesh.de</a><a class="by kofi" href="https://ko-fi.com/saarmesh" target="_blank" rel="noopener" title="SaarMesh unterstützen – Hardware, Repeater, Server">☕</a></div>
     <span class="dot" id="dot"></span>
     <div class="devinfo" id="devinfo"><span>nicht verbunden</span></div>
     <div class="spacer"></div>
@@ -259,6 +262,11 @@ canvas#spark{height:34px;width:240px}
             <div class="kv" id="dirInfo" style="display:block;font-size:13px;line-height:1.6"></div>
             <div class="frm"><button id="btnDirReload">Jetzt aktualisieren</button></div>
             <p class="muted" style="font-size:12px">Erkennt öffentliche Kanäle (Hashtag-Kanäle und bekannte Schlüssel) im Live-Traffic und ordnet Region-Codes Namen zu. Es wird nur eine Liste heruntergeladen – nichts von dir wird hochgeladen. Regionen aus dem Verzeichnis sind mit ≈ markiert, weil 16-Bit-Codes zufällig mehrfach passen können.</p>
+          </div>
+          <div class="card"><h3>Über die Webapp</h3>
+            <p style="font-size:13px;margin-top:0"><b>Meshcore Webapp by SaarMesh.de</b> ist kostenlos und quelloffen. Sie entsteht im Umfeld von <a href="https://saarmesh.de" target="_blank" rel="noopener">SaarMesh</a>, dem MeshCore-Netz für die Region SaarLorLux – Repeater, <a href="https://live.saarmesh.de" target="_blank" rel="noopener">Live-Karte</a> und Server werden privat betrieben.</p>
+            <div class="frm"><a href="https://ko-fi.com/saarmesh" target="_blank" rel="noopener" class="kofibtn">☕ SaarMesh auf Ko-fi unterstützen</a></div>
+            <p class="muted" style="font-size:12px;margin-bottom:0">Fehler gefunden oder eine Idee? <a href="https://github.com/SaarMesh-Bot/meshcore-webapp/issues" target="_blank" rel="noopener">Issue auf GitHub</a> · <a href="https://github.com/SaarMesh-Bot/meshcore-webapp" target="_blank" rel="noopener">Quellcode</a></p>
           </div>
           <div class="card"><h3>Aktionen</h3>
             <div class="frm"><button id="btnTime" disabled>Uhrzeit synchronisieren</button><button id="btnSync" disabled>Nachrichten abrufen</button></div>
@@ -796,7 +804,7 @@ function matchRegion(p){
 const regionTag=(name,guess,cls)=>`<span class="hash${guess?'':' known'}"${guess?' title="Aus dem öffentlichen Verzeichnis – Treffer nicht eindeutig sicher"':''}>${guess?'≈':''}#${esc(name)}</span>`;
 
 // ================= Öffentliches Verzeichnis (Kanäle & Regionen) =================
-const CAT={data:null,byHash:new Map(),byName:new Map(),regions:[],state:'aus'};
+const CAT={data:null,byHash:new Map(),byName:new Map(),regions:[],state:'lädt …'};
 const CAT_URLS=['catalog.json','https://raw.githubusercontent.com/SaarMesh-Bot/meshcore-webapp/main/catalog.json'];
 const useDir=()=>store.get('mcw.useDir',true)!==false;
 async function loadCatalog(force){
