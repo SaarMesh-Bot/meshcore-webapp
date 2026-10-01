@@ -4,6 +4,8 @@ Browser-App für **MeshCore-Companions** per **USB** (Web Serial), **Bluetooth L
 
 **Live:** https://saarmesh-bot.github.io/meshcore-webapp/
 
+[![Unterstützen auf Ko-fi](https://img.shields.io/badge/Ko--fi-SaarMesh_unterst%C3%BCtzen-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/saarmesh)
+
 ## Funktionen
 
 - **Live-Traffic** – alle empfangenen Pakete mit Typ, Route, Hop-Pfad (inkl. Pfad-Hash-Größe 1/2/3 Byte), SNR/RSSI, Region; Filter, Detailansicht mit Rohdaten, CSV/JSON-Export, Pakete/Minute
@@ -80,6 +82,16 @@ Die Daten stammen vom [EU MeshCore Analyzer](https://meshcore-analyzer.eu) und w
 - TCP-Bridge in Go ([coder/websocket](https://github.com/coder/websocket)), Builds per GitHub Actions
 - Kartenkacheln: Esri (ohne API-Key); OSM/OpenTopoMap zusätzlich, wenn über http(s) ausgeliefert
 - Companion-Protokoll gemäß [MeshCore companion_radio](https://github.com/meshcore-dev/MeshCore/tree/main/examples/companion_radio)
+
+## SaarMesh unterstützen ☕
+
+Die Webapp ist kostenlos und quelloffen. Sie entsteht im Umfeld von **[SaarMesh](https://saarmesh.de)**, dem MeshCore-Netz für die Region SaarLorLux – mit Repeatern, Live-Karte ([live.saarmesh.de](https://live.saarmesh.de)), Bot und Server, die privat betrieben werden.
+
+Wenn dir die Webapp hilft und du das Projekt unterstützen möchtest (Hardware, Repeater-Standorte, Serverkosten), freuen wir uns über einen Kaffee:
+
+**[☕ ko-fi.com/saarmesh](https://ko-fi.com/saarmesh)**
+
+Genauso willkommen: Fehler melden, Ideen einbringen oder einen eigenen Repeater ins Netz stellen.
 
 ## Lizenz
 
