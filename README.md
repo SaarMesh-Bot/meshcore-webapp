@@ -9,6 +9,7 @@ Browser-App für **MeshCore-Companions** per **USB** (Web Serial), **Bluetooth L
 - **Live-Traffic** – alle empfangenen Pakete mit Typ, Route, Hop-Pfad (inkl. Pfad-Hash-Größe 1/2/3 Byte), SNR/RSSI, Region; Filter, Detailansicht mit Rohdaten, CSV/JSON-Export, Pakete/Minute
 - **Chat** – Kanäle und Direktnachrichten, Zustellbestätigung mit Laufzeit, erneut senden, Antworten per `@[Name]`, Direktnachricht an Absender
 - **Regionen** – Standard-Region des Geräts, Region **pro Kanal**, Anzeige der Region und Hash-Größe bei empfangenen Nachrichten
+- **Öffentliches Verzeichnis** – erkennt öffentliche Kanäle und Regionsnamen im Live-Traffic, liest unbekannte öffentliche Kanäle mit („Entdeckt“), Kanäle mit einem Klick zum Gerät hinzufügen
 - **Karte** – alle Companions, Repeater, Room-Server und Sensoren mit Standort aus Adverts, Nachbar-Linien nach SNR, Paketpfad auf der Karte, eigene Position per Klick
 - **Verbindung** – USB, Bluetooth LE oder TCP/WiFi (über die TCP-Bridge)
 - **Adverts** – Zero-Hop und Flood
@@ -62,6 +63,16 @@ Optionen (`meshcore-tcp-bridge -h`):
 Selbst bauen: `cd bridge && go build .` (Go ≥ 1.24).
 
 Gehörte Knoten, Chatverläufe und Kanal-Regionen werden nur lokal im Browser gespeichert.
+
+## Öffentliches Verzeichnis
+
+Die Webapp kann öffentliche Kanäle und Regionen erkennen, ähnlich wie die App KiekR:
+
+- **Kanäle:** Für jedes empfangene Kanalpaket (`GRP_TXT`) werden die eigenen Kanäle und die öffentlich bekannten Kanäle durchprobiert. Passt der Schlüssel (HMAC-Prüfung), wird die Nachricht entschlüsselt und angezeigt. Unbekannte öffentliche Kanäle erscheinen im Chat unter **„Entdeckt · nur mitlesen“** und lassen sich mit einem Klick zum Gerät hinzufügen.
+- **Regionen:** Region-Codes (`T-FLOOD`) werden erst gegen die eigenen Regionen und dann gegen alle bekannten Regionsnamen geprüft. Treffer aus dem Verzeichnis sind mit **≈** markiert – Region-Codes sind nur 16 Bit lang, bei rund 2000 Namen kann ein Treffer zufällig falsch sein.
+- **Kanal hinzufügen:** Im Chat über **＋** – Namen aus dem Verzeichnis werden vorgeschlagen, Hashtag-Kanäle (`#name`) brauchen keinen Schlüssel.
+
+Die Daten stammen vom [EU MeshCore Analyzer](https://meshcore-analyzer.eu) und werden täglich per GitHub Actions als `catalog.json` ins Repo übernommen (`tools/build_catalog.py`). Die Webapp lädt nur diese Datei herunter – es werden keine Daten hochgeladen. Abschaltbar unter *Gerät → Öffentliches Verzeichnis*.
 
 ## Technik
 
