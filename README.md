@@ -51,6 +51,12 @@ Webapp ──WebSocket──► TCP-Bridge (localhost:8765) ──TCP──► W
 3. In der Webapp auf **„TCP/WiFi“** klicken, IP-Adresse und Port (Standard `5000`) des Companions eintragen.
 4. Fragt der Browser nach Zugriff auf Geräte im lokalen Netzwerk: **Zulassen**.
 
+> **Wo stelle ich die Adresse meiner Node ein?** In der **Webapp**, nicht in der Bridge. Die Bridge braucht keine Einstellungen – sie reicht nur die Verbindung durch. IP-Adresse und Port gibst du im Dialog „TCP/WiFi“ an; die Webapp merkt sich die Angaben.
+>
+> **IP-Adresse herausfinden:** in der Geräteliste deines Routers (z. B. FritzBox: *Heimnetz → Netzwerk*) oder – bei Geräten mit Display – direkt auf der Node. Am besten der Node im Router eine feste IP geben.
+>
+> **Voraussetzungen:** Auf der Node läuft die **WiFi-Companion-Firmware**, Node und PC sind im selben Netz. Nutzt die Node einen anderen Port als 5000, die Bridge mit `-ports <port>` starten (Windows: `meshcore-tcp-bridge-windows-x64.exe -ports 5001`).
+
 **Sicherheit:** Die Bridge lauscht nur auf `127.0.0.1`, akzeptiert nur die offizielle Webapp (bzw. lokal geöffnete Dateien und `localhost`) und verbindet standardmäßig nur zu Adressen im lokalen Netz auf Port 5000. Ein Companion erlaubt immer nur eine Verbindung gleichzeitig.
 
 Optionen (`meshcore-tcp-bridge -h`):

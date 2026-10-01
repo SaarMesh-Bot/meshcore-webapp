@@ -63,8 +63,14 @@ func main() {
 		fmt.Println(" Ziele:           nur lokales Netz")
 	}
 	fmt.Println()
-	fmt.Println(" Fenster offen lassen und in der Webapp auf")
-	fmt.Println(" „TCP/WiFi“ klicken. Beenden mit Strg+C.")
+	fmt.Println(" So geht's weiter:")
+	fmt.Println("  1. Dieses Fenster offen lassen.")
+	fmt.Println("  2. In der Webapp auf „TCP/WiFi“ klicken.")
+	fmt.Println("  3. Dort IP-Adresse und Port deiner Node eintragen")
+	fmt.Println("     (z. B. 192.168.178.50, Port 5000).")
+	fmt.Println()
+	fmt.Println(" Die Adresse der Node wird in der Webapp eingetragen,")
+	fmt.Println(" nicht hier. Beenden mit Strg+C.")
 	fmt.Println("==============================================")
 
 	srv := &http.Server{Addr: *listenAddr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
@@ -95,7 +101,8 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>MeshCore TCP-Bridge</title>
 <body style="font-family:system-ui;max-width:640px;margin:40px auto;padding:0 16px">
 <h2>MeshCore TCP-Bridge läuft ✔</h2><p>Version %s</p>
-<p>Öffne die <a href="%s/meshcore-webapp/">Meshcore Webapp by SaarMesh.de</a> und klicke auf <b>„TCP/WiFi“</b>.</p></body>`,
+<p>Öffne die <a href="%s/meshcore-webapp/">Meshcore Webapp by SaarMesh.de</a>, klicke auf <b>„TCP/WiFi“</b> und trage dort IP-Adresse und Port deiner Node ein.</p>
+<p style="color:#666">Die Bridge selbst braucht keine Einstellungen – die Adresse der Node wird in der Webapp angegeben.</p></body>`,
 		version, defaultOrigin)
 }
 
