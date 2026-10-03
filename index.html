@@ -486,7 +486,7 @@ class MeshErr extends Error{constructor(code){super(ERRS[code]||('Fehler '+code)
 let waiter=null;const queue=[];
 const EXPECT={64:[28],22:[13],1:[5],5:[9],31:[18],10:[7,8,16,17,10,27],2:[6],20:[12],56:[24],30:[3]};
 function request(payload,opts={}){if(!opts.expect)opts.expect=EXPECT[payload[0]]||[RESP.OK,RESP.DISABLED];return new Promise((res,rej)=>{queue.push({payload,opts,res,rej});pump()})}
-function armTimer(){clearTimeout(waiter.timer);waiter.timer=setTimeout(()=>failWaiter(new Error('Zeitüberschreitung')),waiter.opts.timeout||5000)}
+function armTimer(){clearTimeout(waiter.timer);waiter.timer=setTimeout(()=>failWaiter(new Error('Zeitüberschreitung')),waiter.opts.timeout||(S.tr instanceof BleTransport?9000:5000))}
 async function pump(){
   if(waiter||!queue.length)return;
   if(!S.tr){while(queue.length)queue.shift().rej(new Error('nicht verbunden'));return}
@@ -510,7 +510,10 @@ function onFrame(f){
       if(c===RESP.END_CONTACTS){finishWaiter(waiter.frames);return}
     }
     if(c===RESP.ERR){failWaiter(new MeshErr(f[1]));return}
-    if(waiter.opts.multi||waiter.opts.expect.includes(c)){finishWaiter(f);return}
+    if(waiter.opts.multi||waiter.opts.expect.includes(c)){
+      // passt die Antwort auch inhaltlich (Kanalnummer, Statistik-Typ)? Sonst ist es eine verspätete Antwort → ignorieren
+      if(waiter.opts.match&&c!==RESP.ERR&&!waiter.opts.match(f)){console.warn('Verspätete Antwort 0x'+c.toString(16)+' ignoriert');return}
+      finishWaiter(f);return}
     console.warn('Unerwartete Antwort 0x'+c.toString(16)+' (erwartet '+waiter.opts.expect+') – ignoriert');
   }
   // unaufgefordert / verspätet
@@ -596,14 +599,24 @@ const lastSeen=n=>Math.max(n.heard||0,(n.advTs||0)*1000>Date.now()+86400000?0:(n
 
 // ================= Kanäle =================
 async function chanHash(secret){try{const d=new Uint8Array(await crypto.subtle.digest('SHA-256',secret));return hex(d.slice(0,1))}catch{return null}}
-async function loadChannels(){
-  S.channels=[];const max=S.dev?.maxChannels||8;
-  for(let i=0;i<max;i++){
-    try{const f=await request(bytes(CMD.GET_CHANNEL,i));const r=new R(f);r.u8();const idx=r.u8();const name=r.cstr(32);const sec=r.bytes(16);
-      if(!name&&sec.every(b=>b===0))continue;S.channels.push({idx,name:name||('Kanal '+idx),secret:hex(sec),hash:await chanHash(sec)})}
-    catch(e){if(e.code===2&&i>0)break}
-  }
-  if(!S.active&&S.channels.length)S.active='ch:'+S.channels[0].idx;
+let chLoading=null;
+function loadChannels(){
+  // nie zweimal gleichzeitig laden; Liste erst am Ende übernehmen
+  if(chLoading)return chLoading;
+  chLoading=(async()=>{
+    const list=new Map(),max=S.dev?.maxChannels||8;
+    for(let i=0;i<max;i++){
+      try{let f;
+        try{f=await request(bytes(CMD.GET_CHANNEL,i),{match:f=>f[1]===i})}
+        catch(e){if(e.code)throw e;f=await request(bytes(CMD.GET_CHANNEL,i),{match:f=>f[1]===i})} // Zeitüberschreitung → einmal wiederholen
+        const r=new R(f);r.u8();const idx=r.u8();const name=r.cstr(32);const sec=r.bytes(16);
+        if(!name&&sec.every(b=>b===0))continue;list.set(idx,{idx,name:name||('Kanal '+idx),secret:hex(sec),hash:await chanHash(sec)})}
+      catch(e){if(e.code===2&&i>0)break}
+    }
+    S.channels=[...list.values()].sort((a,b)=>a.idx-b.idx);
+    if((!S.active||(S.active.startsWith('ch:')&&!S.channels.some(c=>'ch:'+c.idx===S.active)))&&S.channels.length)S.active='ch:'+S.channels[0].idx;
+  })().finally(()=>{chLoading=null});
+  return chLoading;
 }
 
 // ================= Nachrichten =================
@@ -1277,9 +1290,9 @@ async function addContact(key){const c=S.contacts.get(key);if(!c||!c.raw)return;
 async function refreshStats(){
   if(!S.connected)return;const st=S.radio;
   try{const f=await request(bytes(CMD.GET_BATT));const r=new R(f);r.u8();st.batt=r.u16();if(r.left()>=8){st.used=r.u32();st.total=r.u32()}}catch{}
-  try{const f=await request(bytes(CMD.GET_STATS,0));const r=new R(f);r.u8();r.u8();r.u16();st.uptime=r.u32();r.u16();st.queue=r.u8()}catch{}
-  try{const f=await request(bytes(CMD.GET_STATS,1));const r=new R(f);r.u8();r.u8();st.noise=r.i16();st.lastRssi=r.i8();st.lastSnr=r.i8()/4;st.txAir=r.u32();st.rxAir=r.u32()}catch{}
-  try{const f=await request(bytes(CMD.GET_STATS,2));const r=new R(f);r.u8();r.u8();st.recv=r.u32();st.sent=r.u32();st.sFlood=r.u32();st.sDirect=r.u32();st.rFlood=r.u32();st.rDirect=r.u32();st.rErr=r.u32()}catch{}
+  try{const f=await request(bytes(CMD.GET_STATS,0),{match:f=>f[1]===0});const r=new R(f);r.u8();r.u8();r.u16();st.uptime=r.u32();r.u16();st.queue=r.u8()}catch{}
+  try{const f=await request(bytes(CMD.GET_STATS,1),{match:f=>f[1]===1});const r=new R(f);r.u8();r.u8();st.noise=r.i16();st.lastRssi=r.i8();st.lastSnr=r.i8()/4;st.txAir=r.u32();st.rxAir=r.u32()}catch{}
+  try{const f=await request(bytes(CMD.GET_STATS,2),{match:f=>f[1]===2});const r=new R(f);r.u8();r.u8();st.recv=r.u32();st.sent=r.u32();st.sFlood=r.u32();st.sDirect=r.u32();st.rFlood=r.u32();st.rDirect=r.u32();st.rErr=r.u32()}catch{}
   updateHeader();renderDevice();
 }
 const dur=s=>s==null?'–':s>=86400?Math.floor(s/86400)+' d '+Math.floor(s%86400/3600)+' h':s>=3600?Math.floor(s/3600)+' h '+Math.floor(s%3600/60)+' min':Math.floor(s/60)+' min '+(s%60)+' s';
