@@ -16,6 +16,7 @@ Browser-App für **MeshCore-Companions** per **USB** (Web Serial), **Bluetooth L
 - **Verbindung** – USB, Bluetooth LE oder TCP/WiFi (über die TCP-Bridge)
 - **Adverts** – Zero-Hop und Flood
 - **Kontakte** – speichern, löschen, teilen, Pfad zurücksetzen, Entfernung
+- **Repeater-Admin** – Fernverwaltung von Repeatern und Room-Servern: Login mit Admin- oder Gast-Passwort, Status (Akku, Laufzeit, Uhr, Rauschen, Airtime, Paketzähler), Nachbarn mit SNR (auch auf der Karte), Zugriffsliste, Einstellungen als Formular, Uhr synchronisieren, Adverts, Neustart und ein Terminal für alle CLI-Befehle
 - **Gerät** – Name, Position, TX-Leistung, Pfad-Hash-Größe, Batterie, Rauschpegel, Airtime, Paketstatistik, Neustart, Protokoll-Log
 
 ## Nutzung

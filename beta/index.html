@@ -1457,11 +1457,18 @@ async function admOwner(){
 
 // ---- CLI ----
 const cliWaiters=[];
+// Ausgabe von „neighbors“ (PREFIX:sekunden:snr×4) lesbar machen
+function fmtCliNeighbors(text){
+  const lines=text.split('\n');if(!lines.length||!lines.every(l=>/^[0-9A-Fa-f]{8}:\d+:-?\d+$/.test(l.trim())))return text;
+  return lines.map(l=>{const [h,sec,snr]=l.trim().split(':');const nm=nodeName(h.toLowerCase());
+    return `${(nm||'?').padEnd(26).slice(0,26)} ${h}  SNR ${(snr/4).toFixed(1).padStart(5)} dB  vor ${ago(Date.now()-sec*1000)}`}).join('\n')+
+    '\n(Die Firmware zeigt hier höchstens 8 – die vollständige Liste gibt es oben unter „Nachbarn“.)';
+}
 function onCliReply(prefix,text){
   const key=[...ADM.sess.keys()].find(k=>k.startsWith(prefix))||(findContactByPrefix(prefix)||{}).key;
-  if(key)admLog(admS(key),'in',text);
-  const i=cliWaiters.findIndex(w=>w.prefix===prefix);
-  if(i>=0){const w=cliWaiters.splice(i,1)[0];clearTimeout(w.timer);w.res(text)}
+  const i=cliWaiters.findIndex(w=>w.prefix===prefix),w=i>=0?cliWaiters.splice(i,1)[0]:null;
+  if(key&&!(w&&w.quiet))admLog(admS(key),'in',fmtCliNeighbors(text));
+  if(w){clearTimeout(w.timer);w.res(text)}
 }
 // Befehle nacheinander senden – Antworten tragen keine Kennung, deshalb immer nur einer offen
 function cli(key,cmd,{log=true}={}){
@@ -1469,7 +1476,7 @@ function cli(key,cmd,{log=true}={}){
     const s=admS(key);if(log)admLog(s,'out',cmd);
     const prefix=key.slice(0,12);
     const sent=parseSent(await request(bytes(CMD.SEND_TXT,1,0,u32(now()),unhex(prefix),cmd)));
-    return await new Promise((res,rej)=>{const w={prefix,res};w.timer=setTimeout(()=>{const i=cliWaiters.indexOf(w);if(i>=0)cliWaiters.splice(i,1);rej(new Error('keine Antwort auf „'+cmd+'“'))},replyTimeout(sent.est));cliWaiters.push(w)});
+    return await new Promise((res,rej)=>{const w={prefix,res,quiet:!log};w.timer=setTimeout(()=>{const i=cliWaiters.indexOf(w);if(i>=0)cliWaiters.splice(i,1);rej(new Error('keine Antwort auf „'+cmd+'“'))},replyTimeout(sent.est));cliWaiters.push(w)});
   };
   const p=ADM.cliQ.then(run,run);ADM.cliQ=p.catch(()=>{});return p;
 }
@@ -1497,7 +1504,9 @@ async function admLoadSettings(){
   const s=admCur();if(!s)return;admBusy(true,'Einstellungen laden …');const vals={};
   try{
     for(let i=0;i<ADM_FIELDS.length;i++){const f=ADM_FIELDS[i];admBusy(true,'Einstellungen laden … '+(i+1)+'/'+ADM_FIELDS.length);
-      try{const r=await cli(s.key,'get '+f.k,{log:false});vals[f.k]=cliVal(r).trim()}catch(e){vals[f.k]=null}}
+      try{const r=await cli(s.key,'get '+f.k,{log:false});let v=cliVal(r).trim();
+        if(f.k==='radio'){const p=v.split(',');if(p.length>=4&&!isNaN(+p[0]))v=[(+p[0]).toFixed(3),+p[1],p[2],p[3]].join(',')}
+        vals[f.k]=v}catch(e){vals[f.k]=null}}
     s.settings=vals;admLog(s,'ok','Einstellungen geladen');
   }finally{admBusy(false);ADM.lastKey=null;renderAdmin()}
 }

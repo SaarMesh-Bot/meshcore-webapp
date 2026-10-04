@@ -124,6 +124,10 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
 .toast{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--accent2);padding:8px 14px;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .toast.err{border-left-color:var(--err)}.toast.ok{border-left-color:var(--accent)}
 .kofibtn{display:inline-block;background:#FF5E5B;color:#fff;text-decoration:none;font-weight:600;padding:7px 14px;border-radius:6px}.kofibtn:hover{filter:brightness(1.08)}
+.admhead{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}.admhead h2{margin:0;font-size:18px}
+.admf{display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:center;margin:5px 0;font-size:13px}.admf small{display:block;font-size:11px}.admf input,.admf select{min-width:0;width:100%}
+.admlog{max-height:260px;min-height:80px}.admlog .al-out{color:var(--accent2)}.admlog .al-err{color:var(--err)}.admlog .al-ok{color:var(--accent)}.admlog .al-sys{color:var(--muted)}
+#sec-admin .chatmain{overflow:hidden}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:3000;padding:16px}
 .modal[hidden]{display:none}
 .mbox{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;width:100%;max-width:440px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
@@ -158,6 +162,7 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
     <button data-tab="chat">Chat<span class="badge" id="unreadBadge" style="display:none"></span></button>
     <button data-tab="map">Karte</button>
     <button data-tab="contacts">Kontakte</button>
+    <button data-tab="admin">Repeater-Admin</button>
     <button data-tab="device">Gerät</button>
   </nav>
   <main>
@@ -234,6 +239,11 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
       <div class="tablewrap">
         <table><thead><tr><th>Name</th><th>Typ</th><th>Schlüssel</th><th>Zuletzt</th><th>Pfad</th><th>SNR</th><th>Entf.</th><th>Aktionen</th></tr></thead><tbody id="ctable"></tbody></table>
       </div>
+    </section>
+    <!-- ADMIN -->
+    <section id="sec-admin">
+      <div class="chatside"><input id="admSearch" placeholder="Repeater suchen…"><div class="chatlist" id="admList"></div></div>
+      <div class="chatmain"><div class="scroll" id="admMain"></div></div>
     </section>
     <!-- DEVICE -->
     <section id="sec-device">
@@ -558,6 +568,7 @@ async function disconnect(){const tr=S.tr;S.tr=null;if(tr)await tr.close();onDis
 function onDisconnected(msg){
   if(S.tr){const tr=S.tr;S.tr=null;tr.close&&tr.close()}
   if(waiter)failWaiter(new Error('getrennt'));while(queue.length)queue.shift().rej(new Error('getrennt'));
+  for(const s of ADM.sess.values())s.logged=false;
   const was=S.connected;S.connected=false;clearInterval(S.statTimer);setEnabled(false);updateHeader();
   if(was&&msg)toast(msg,'err');
 }
@@ -650,6 +661,7 @@ function handleMsgFrame(f){
     const prefix=hex(r.bytes(6)),pl=r.u8(),tt=r.u8(),ts=r.u32();let author=null;if(tt===2)author=hex(r.bytes(4));
     const text=dec.decode(r.rest());const ct=findContactByPrefix(prefix);
     let from=ct?ct.name:prefix;if(author){from=(nodeName(author)||author)+(ct?' @ '+ct.name:'')}
+    if(tt===1){onCliReply(prefix,text);return}
     const msg={dir:'in',from,text,ts:ts*1000,rx:Date.now(),snr,hops:pl===0xFF?'direkt':(pl&63),cli:tt===1};
     linkPacket(msg,findRxPacket([2],pl,snr,p=>!p.dec.src||prefix.startsWith(p.dec.src)),pl);
     addMsg('c:'+prefix,msg);
@@ -714,6 +726,7 @@ function maxLen(){if(!S.active)return MAX_TXT;if(S.active.startsWith('ch:'))retu
 // ================= Pushes =================
 function handlePush(f){
   const c=f[0];
+  if(c!==PUSH.LOG_RX&&checkPushWaiters(f))return;
   switch(c){
     case PUSH.LOG_RX:{const snr=(new DataView(f.buffer,f.byteOffset).getInt8(1))/4,rssi=new DataView(f.buffer,f.byteOffset).getInt8(2);onRawPacket(f.slice(3),snr,rssi);break}
     case PUSH.MSG_WAITING:syncMessages();break;
@@ -1216,7 +1229,7 @@ function popupHtml(n){
    (nb?`<b>Direkter Nachbar</b> (${nb[1].n}× gehört, Ø SNR ${(nb[1].snrSum/nb[1].n).toFixed(1)})<br>`:'')+
    (dist!=null?`Entfernung: ${dist.toFixed(1)} km<br>`:'')+
    `${n.lat.toFixed(5)}, ${n.lon.toFixed(5)}<br>`+
-   (ct?(ct.type===1||ct.type===3?`<button class="sm" onclick="openChat('${n.key}')">💬 Chat</button> `:'')+'<span class="muted">im Gerät gespeichert</span>':'<span class="muted">nicht in Kontakten</span>');
+   (ct?(ct.type===1||ct.type===3?`<button class="sm" onclick="openChat('${n.key}')">💬 Chat</button> `:'')+(ADM_TYPES.includes(ct.type)?`<button class="sm" onclick="openAdmin('${n.key}')">🛠 Admin</button> `:'')+'<span class="muted">im Gerät gespeichert</span>':'<span class="muted">nicht in Kontakten</span>');
 }
 let mapT=null;function renderMapSoon(){if(!mapT)mapT=setTimeout(()=>{mapT=null;renderMap()},800)}
 function renderMap(){
@@ -1276,6 +1289,7 @@ function renderContacts(){
     if(c){if(c.type===1||c.type===3)act+=`<button class="sm" onclick="openChat('${n.key}')">💬</button> `;
       if(!c.saved)act+=`<button class="sm" onclick="addContact('${n.key}')" title="Im Gerät speichern">＋</button> `;
       else act+=`<button class="sm" onclick="resetPath('${n.key}')" title="Pfad zurücksetzen">↺</button> <button class="sm" onclick="shareContact('${n.key}')" title="Per Zero-Hop teilen">⇪</button> <button class="sm danger" onclick="removeContact('${n.key}')" title="Löschen">🗑</button> `}
+    if(c&&ADM_TYPES.includes(c.type))act+=`<button class="sm" onclick="openAdmin('${n.key}')" title="Repeater-Admin">🛠</button> `;
     if(hasPos(n))act+=`<button class="sm" onclick="zoomTo('${n.key}')">🗺</button>`;
     return `<tr><td>${esc(n.name||'?')}${c&&!c.saved?' <span class="muted">(neu)</span>':''}${!c?' <span class="muted">(gehört)</span>':''}</td><td>${NTYPE[n.type??0]}</td><td class="mono">${n.key.slice(0,12)}</td><td>${ago(lastSeen(n))}</td><td class="mono">${pd?(pd.flood?'Flood':pd.hops.length?pd.hops.join('→'):'direkt'):'–'}</td><td class="mono ${snrCls(n.snr)}">${n.snr!=null?n.snr.toFixed(1):'–'}</td><td>${dist}</td><td style="white-space:nowrap">${act}</td></tr>`}).join('')||'<tr><td colspan="8" class="muted">Keine Einträge</td></tr>';
 }
@@ -1326,9 +1340,315 @@ function logFrame(dir,f){if(!$('#logOn').checked)return;rawlog.push(`${tfmt(Date
 // ================= Tabs & Rendering =================
 let curTab='live',rT=null;
 function switchTab(t){curTab=t;$$('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));$$('main section').forEach(s=>s.classList.toggle('active',s.id==='sec-'+t));
+  if(t==='admin'){ADM.shown=S.connected;renderAdmin()}
   if(t==='map'){initMap();setTimeout(()=>{map&&map.invalidateSize();renderMap()},30)}renderAll()}
 function renderSoon(){if(!rT)rT=setTimeout(()=>{rT=null;renderAll()},150)}
-function renderAll(){if(curTab==='chat')renderChat();else updateBadge();if(curTab==='contacts')renderContacts();if(curTab==='device'){renderDevice();$('#rawlog').textContent=rawlog.slice().reverse().join('\n')}if(curTab==='map')renderMapSoon();}
+function renderAll(){if(curTab==='chat')renderChat();else updateBadge();if(curTab==='contacts')renderContacts();if(curTab==='device'){renderDevice();$('#rawlog').textContent=rawlog.slice().reverse().join('\n')}if(curTab==='map')renderMapSoon();if(curTab==='admin'){if(ADM.shown!==S.connected){ADM.shown=S.connected;renderAdmin()}else renderAdminList()}}
+
+// ================= Repeater-Admin =================
+// Login, Status, Nachbarn, Zugriffsliste und CLI über die Companion (Remote-Verwaltung).
+Object.assign(CMD,{SEND_LOGIN:26,STATUS_REQ:27,LOGOUT:29,BINARY_REQ:50});
+Object.assign(EXPECT,{26:[6],27:[6],50:[6]});
+PUSH.BINARY=0x8C;
+const REQ={STATUS:1,TELEMETRY:3,ACL:5,NEIGHBOURS:6,OWNER:7};
+const ROLE=['Gast','Nur lesen','Lesen/Schreiben','Admin'];
+const ADM_TYPES=[2,3,4];
+const pushWaiters=[];
+function waitPush(match,ms){return new Promise((res,rej)=>{const w={match,res,timer:null};
+  w.timer=setTimeout(()=>{const i=pushWaiters.indexOf(w);if(i>=0)pushWaiters.splice(i,1);rej(new Error('keine Antwort (Zeitüberschreitung)'))},ms);pushWaiters.push(w)})}
+function checkPushWaiters(f){for(const w of [...pushWaiters]){let ok=false;try{ok=w.match(f)}catch{}if(ok){clearTimeout(w.timer);pushWaiters.splice(pushWaiters.indexOf(w),1);w.res(f);return true}}return false}
+// Wartezeit aus der vom Gerät geschätzten Laufzeit (ms) ableiten
+const replyTimeout=est=>Math.min(Math.max(est*1.5+4000,12000),90000);
+function parseSent(f){const r=new R(f);r.u8();return {flood:!!r.u8(),tag:r.u32(),est:r.u32()}}
+
+const ADM={key:null,sess:new Map(),busy:false,cliQ:Promise.resolve()};
+function admS(key){let s=ADM.sess.get(key);if(!s){s={key,log:[],status:null,neigh:null,acl:null,owner:null,settings:null,logged:false};ADM.sess.set(key,s)}return s}
+const admCur=()=>ADM.key?admS(ADM.key):null;
+const admName=k=>(S.contacts.get(k)||S.nodes.get(k)||{}).name||k.slice(0,8);
+function admLog(s,kind,text){s.log.push({t:Date.now(),kind,text});if(s.log.length>300)s.log.splice(0,s.log.length-300);if(s===admCur())renderAdminLog()}
+
+async function ensureContact(key){
+  const c=S.contacts.get(key);if(!c)throw new Error('Knoten ist nicht in den Kontakten');
+  if(!c.saved){const f=unhex(c.raw);f[0]=CMD.ADD_UPDATE_CONTACT;await request(f);c.saved=true}
+}
+
+// ---- Login ----
+async function admLogin(){
+  const s=admCur();if(!s)return;const pw=$('#admPw').value;
+  const remember=$('#admRemember').checked;
+  if(remember)store.set('mcw.admpw.'+s.key.slice(0,12),pw);else store.del('mcw.admpw.'+s.key.slice(0,12));
+  admBusy(true,'Anmelden …');
+  try{
+    await ensureContact(s.key);
+    const sent=parseSent(await request(bytes(CMD.SEND_LOGIN,unhex(s.key),pw)));
+    admLog(s,'sys','Login gesendet ('+(sent.flood?'Flood':'direkt')+')');
+    const pre=s.key.slice(0,12);
+    const f=await waitPush(x=>(x[0]===PUSH.LOGIN_OK||x[0]===PUSH.LOGIN_FAIL)&&hex(x.slice(2,8))===pre,replyTimeout(sent.est));
+    if(f[0]===PUSH.LOGIN_FAIL){s.logged=false;admLog(s,'err','Login abgelehnt – Passwort falsch?');toast('Login abgelehnt – Passwort falsch?','err');return}
+    const r=new R(f);r.u8();const isAdmin=r.u8();r.bytes(6);
+    s.logged=true;s.isAdmin=!!isAdmin;s.perms=null;s.fwLevel=null;s.clockDiff=null;
+    if(r.left()>=4){const st=r.u32();s.clockDiff=st-now()}
+    if(r.left()>=1)s.perms=r.u8();if(r.left()>=1)s.fwLevel=r.u8();
+    s.role=s.perms!=null?ROLE[s.perms&3]:(s.isAdmin?'Admin':'Gast');
+    admLog(s,'ok','Angemeldet als '+s.role);toast('Angemeldet bei '+admName(s.key)+' ('+s.role+')','ok');
+    renderAdmin();
+    await admStatus(true);
+  }catch(e){admLog(s,'err','Login: '+e.message);toast('Login fehlgeschlagen: '+e.message,'err')}
+  finally{admBusy(false);renderAdmin()}
+}
+async function admLogout(){
+  const s=admCur();if(!s)return;
+  try{await request(bytes(CMD.LOGOUT,unhex(s.key)))}catch{}
+  s.logged=false;s.status=s.neigh=s.acl=s.settings=null;admLog(s,'sys','Abgemeldet');renderAdmin();
+}
+
+// ---- Status ----
+function parseRepStats(b){
+  const dv=new DataView(b.buffer,b.byteOffset,b.byteLength),n=b.length,o={};
+  const g16=(p,s)=>p+2<=n?(s?dv.getInt16(p,true):dv.getUint16(p,true)):null,g32=p=>p+4<=n?dv.getUint32(p,true):null;
+  o.batt=g16(0);o.queue=g16(2);o.noise=g16(4,1);o.rssi=g16(6,1);o.recv=g32(8);o.sent=g32(12);o.air=g32(16);o.up=g32(20);
+  o.sFlood=g32(24);o.sDirect=g32(28);o.rFlood=g32(32);o.rDirect=g32(36);o.err=g16(40);
+  const snr=g16(42,1);o.snr=snr==null?null:snr/4;o.dDup=g16(44);o.fDup=g16(46);o.rxAir=g32(48);o.rErr=g32(52);
+  return o}
+async function admStatus(quiet){
+  const s=admCur();if(!s)return;if(!quiet)admBusy(true,'Status abrufen …');
+  try{
+    const sent=parseSent(await request(bytes(CMD.STATUS_REQ,unhex(s.key))));const pre=s.key.slice(0,12);
+    const f=await waitPush(x=>x[0]===PUSH.STATUS&&hex(x.slice(2,8))===pre,replyTimeout(sent.est));
+    s.status=parseRepStats(f.slice(8));s.statusT=Date.now();admLog(s,'ok','Status empfangen');
+  }catch(e){admLog(s,'err','Status: '+e.message);if(!quiet)toast('Status: '+e.message,'err')}
+  finally{if(!quiet)admBusy(false);renderAdmin()}
+}
+
+// ---- Binäre Anfragen (Nachbarn, Zugriffsliste, Owner-Info) ----
+async function binReq(key,data){
+  const sent=parseSent(await request(bytes(CMD.BINARY_REQ,unhex(key),data)));
+  const f=await waitPush(x=>x[0]===PUSH.BINARY&&new DataView(x.buffer,x.byteOffset+2,4).getUint32(0,true)===sent.tag,replyTimeout(sent.est));
+  return f.slice(6);
+}
+const rnd4=()=>crypto.getRandomValues(new Uint8Array(4));
+async function admNeighbours(){
+  const s=admCur();if(!s)return;admBusy(true,'Nachbarn abrufen …');
+  try{
+    const PL=6,list=[];let total=null,off=0;
+    for(let page=0;page<8;page++){
+      const d=await binReq(s.key,bytes(REQ.NEIGHBOURS,0,20,off&255,off>>8,2,PL,rnd4()));
+      const r=new R(d);total=r.u16();const cnt=r.u16();
+      for(let i=0;i<cnt&&r.left()>=PL+5;i++){const k=hex(r.bytes(PL)),ago=r.u32(),snr=r.i8()/4;list.push({k,ago,snr})}
+      off+=cnt;if(!cnt||off>=total)break;
+    }
+    s.neigh={t:Date.now(),total,list};admLog(s,'ok',list.length+' Nachbarn empfangen');
+  }catch(e){admLog(s,'err','Nachbarn: '+e.message);toast('Nachbarn: '+e.message,'err')}
+  finally{admBusy(false);renderAdmin()}
+}
+async function admAcl(){
+  const s=admCur();if(!s)return;admBusy(true,'Zugriffsliste abrufen …');
+  try{const d=await binReq(s.key,bytes(REQ.ACL,0,0));const list=[];for(let o=0;o+7<=d.length;o+=7)list.push({k:hex(d.slice(o,o+6)),perm:d[o+6]});
+    s.acl={t:Date.now(),list};admLog(s,'ok',list.length+' Einträge in der Zugriffsliste')}
+  catch(e){admLog(s,'err','Zugriffsliste: '+e.message);toast('Zugriffsliste: '+e.message,'err')}
+  finally{admBusy(false);renderAdmin()}
+}
+async function admOwner(){
+  const s=admCur();if(!s)return;admBusy(true,'Infos abrufen …');
+  try{const d=await binReq(s.key,bytes(REQ.OWNER,0,0,0,rnd4()));const [ver,name,...own]=dec.decode(d).split('\n');s.owner={ver,name,info:own.join('\n')};admLog(s,'ok','Firmware '+ver)}
+  catch(e){admLog(s,'err','Infos: '+e.message);toast('Infos: '+e.message,'err')}
+  finally{admBusy(false);renderAdmin()}
+}
+
+// ---- CLI ----
+const cliWaiters=[];
+// Ausgabe von „neighbors“ (PREFIX:sekunden:snr×4) lesbar machen
+function fmtCliNeighbors(text){
+  const lines=text.split('\n');if(!lines.length||!lines.every(l=>/^[0-9A-Fa-f]{8}:\d+:-?\d+$/.test(l.trim())))return text;
+  return lines.map(l=>{const [h,sec,snr]=l.trim().split(':');const nm=nodeName(h.toLowerCase());
+    return `${(nm||'?').padEnd(26).slice(0,26)} ${h}  SNR ${(snr/4).toFixed(1).padStart(5)} dB  vor ${ago(Date.now()-sec*1000)}`}).join('\n')+
+    '\n(Die Firmware zeigt hier höchstens 8 – die vollständige Liste gibt es oben unter „Nachbarn“.)';
+}
+function onCliReply(prefix,text){
+  const key=[...ADM.sess.keys()].find(k=>k.startsWith(prefix))||(findContactByPrefix(prefix)||{}).key;
+  const i=cliWaiters.findIndex(w=>w.prefix===prefix),w=i>=0?cliWaiters.splice(i,1)[0]:null;
+  if(key&&!(w&&w.quiet))admLog(admS(key),'in',fmtCliNeighbors(text));
+  if(w){clearTimeout(w.timer);w.res(text)}
+}
+// Befehle nacheinander senden – Antworten tragen keine Kennung, deshalb immer nur einer offen
+function cli(key,cmd,{log=true}={}){
+  const run=async()=>{
+    const s=admS(key);if(log)admLog(s,'out',cmd);
+    const prefix=key.slice(0,12);
+    const sent=parseSent(await request(bytes(CMD.SEND_TXT,1,0,u32(now()),unhex(prefix),cmd)));
+    return await new Promise((res,rej)=>{const w={prefix,res,quiet:!log};w.timer=setTimeout(()=>{const i=cliWaiters.indexOf(w);if(i>=0)cliWaiters.splice(i,1);rej(new Error('keine Antwort auf „'+cmd+'“'))},replyTimeout(sent.est));cliWaiters.push(w)});
+  };
+  const p=ADM.cliQ.then(run,run);ADM.cliQ=p.catch(()=>{});return p;
+}
+const cliVal=t=>t.startsWith('> ')?t.slice(2):t.startsWith('>')?t.slice(1):t;
+async function admCmd(cmd,{confirmMsg,quiet}={}){
+  const s=admCur();if(!s||!cmd)return;if(confirmMsg&&!confirm(confirmMsg))return;
+  try{const r=await cli(s.key,cmd);if(!quiet)toast(admName(s.key)+': '+r,/^(err|error|unknown)/i.test(r)?'err':'ok');return r}
+  catch(e){admLog(s,'err',e.message);if(!quiet)toast(e.message,'err')}
+}
+
+// ---- Einstellungen ----
+const ADM_FIELDS=[
+  {k:'name',l:'Name',max:31},
+  {k:'lat',l:'Breite',num:1},{k:'lon',l:'Länge',num:1},
+  {k:'owner.info',l:'Owner-Info',max:119,hint:'Zeilenumbruch als |'},
+  {k:'tx',l:'TX-Leistung (dBm)',num:1},
+  {k:'repeat',l:'Weiterleiten',sel:['on','off']},
+  {k:'advert.interval',l:'Zero-Hop-Advert (min)',num:1,hint:'0 = aus, sonst 60–240'},
+  {k:'flood.advert.interval',l:'Flood-Advert (h)',num:1,hint:'0 = aus, sonst 3–168'},
+  {k:'flood.max',l:'Max. Flood-Hops',num:1,hint:'0–64'},
+  {k:'guest.password',l:'Gast-Passwort',max:15},
+  {k:'radio',l:'Funk (MHz,BW,SF,CR)',ro:1,hint:'Nur ansehen – Änderung über das Terminal'},
+];
+async function admLoadSettings(){
+  const s=admCur();if(!s)return;admBusy(true,'Einstellungen laden …');const vals={};
+  try{
+    for(let i=0;i<ADM_FIELDS.length;i++){const f=ADM_FIELDS[i];admBusy(true,'Einstellungen laden … '+(i+1)+'/'+ADM_FIELDS.length);
+      try{const r=await cli(s.key,'get '+f.k,{log:false});let v=cliVal(r).trim();
+        if(f.k==='radio'){const p=v.split(',');if(p.length>=4&&!isNaN(+p[0]))v=[(+p[0]).toFixed(3),+p[1],p[2],p[3]].join(',')}
+        vals[f.k]=v}catch(e){vals[f.k]=null}}
+    s.settings=vals;admLog(s,'ok','Einstellungen geladen');
+  }finally{admBusy(false);ADM.lastKey=null;renderAdmin()}
+}
+async function admSaveSettings(){
+  const s=admCur();if(!s||!s.settings)return;const ch=[];
+  for(const f of ADM_FIELDS){if(f.ro)continue;const el=$('#adm_'+f.k.replace(/\./g,'_'));if(!el)continue;
+    const v=el.value.trim(),old=s.settings[f.k];if(old==null||v===old)continue;
+    if(f.num&&v!==''&&isNaN(parseFloat(v.replace(',','.'))))return toast(f.l+': keine Zahl','err');
+    ch.push([f,f.num?v.replace(',','.'):v])}
+  if(!ch.length)return toast('Keine Änderungen');
+  if(!confirm('Folgende Einstellungen am Repeater „'+admName(s.key)+'“ ändern?\n\n'+ch.map(([f,v])=>f.l+': '+s.settings[f.k]+' → '+v).join('\n')))return;
+  admBusy(true,'Speichern …');let ok=0;
+  try{for(const [f,v] of ch){try{const r=await cli(s.key,'set '+f.k+' '+v);if(/^ok/i.test(r)){s.settings[f.k]=v;ok++}else toast(f.l+': '+r,'err')}catch(e){toast(f.l+': '+e.message,'err')}}}
+  finally{admBusy(false);renderAdmin()}
+  if(ok)toast(ok+' Einstellung(en) gespeichert'+(ch.some(([f])=>['name','lat','lon'].includes(f.k))?' – Advert senden, damit andere es sehen':''),'ok');
+}
+
+// ---- Karte ----
+function admNeighMap(){
+  const s=admCur();if(!s||!s.neigh)return;const me=S.nodes.get(s.key);
+  if(!hasPos(me))return toast('Position des Repeaters unbekannt','err');
+  switchTab('map');
+  setTimeout(()=>{if(!map)return;pathLayer.clearLayers();const pts=[[me.lat,me.lon]];let miss=0;
+    for(const n of s.neigh.list){const l=nodesByHash(n.k).filter(hasPos);if(l.length!==1){miss++;continue}const t=l[0];
+      L.polyline([[me.lat,me.lon],[t.lat,t.lon]],{color:n.snr>=5?'#2da44e':n.snr>=-5?'#d29922':'#cf222e',weight:3,opacity:.85}).bindTooltip(`${esc(admName(s.key))} ↔ ${esc(t.name)}: SNR ${n.snr.toFixed(1)} dB`).addTo(pathLayer);pts.push([t.lat,t.lon])}
+    L.circleMarker([me.lat,me.lon],{radius:9,color:'#bf3989',fillOpacity:.3}).bindTooltip(esc(admName(s.key)),{permanent:true,direction:'top'}).addTo(pathLayer);
+    map.fitBounds(L.latLngBounds(pts).pad(.2),{maxZoom:13});
+    if(miss)toast(miss+' Nachbar(n) ohne bekannte Position nicht eingezeichnet')},80);
+}
+
+// ---- UI ----
+function admBusy(on,txt){ADM.busy=on;ADM.busyTxt=on?txt:'';const b=$('#admBusy');if(b){b.textContent=on?txt||'…':'';b.style.display=on?'':'none'}$$('#admMain button[data-a]').forEach(x=>x.disabled=on||!S.connected)}
+function openAdmin(key){ADM.key=key;switchTab('admin')}
+function renderAdminList(){
+  const q=($('#admSearch').value||'').trim().toLowerCase();
+  const list=[...S.contacts.values()].filter(c=>ADM_TYPES.includes(c.type)&&(!q||(c.name||'').toLowerCase().includes(q)||c.key.startsWith(q)))
+    .sort((a,b)=>(ADM.sess.get(b.key)?.logged?1:0)-(ADM.sess.get(a.key)?.logged?1:0)||(a.name||'').localeCompare(b.name||''));
+  $('#admList').innerHTML=list.map(c=>{const s=ADM.sess.get(c.key);
+    return `<div class="citem${ADM.key===c.key?' active':''}" data-key="${c.key}"><div class="mk mk-${c.type}" style="width:18px;height:18px;font-size:10px">${NLETTER[c.type]}</div><span class="nm">${esc(c.name||c.key.slice(0,8))}</span>${s&&s.logged?'<span title="angemeldet">🔓</span>':''}</div>`}).join('')
+    ||'<div class="empty" style="font-size:13px">Keine Repeater oder Rooms in den Kontakten.<br>Unter „Kontakte“ mit „auch nur gehörte Knoten“ einen Repeater hinzufügen.</div>';
+}
+function kvRows(rows){return rows.filter(r=>r[1]!=null&&r[1]!=='').map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('')}
+const fmtN=v=>v==null?null:v.toLocaleString('de-DE');
+function clockTxt(d){if(d==null)return null;const a=Math.abs(d);const t=a<60?a+' s':a<3600?Math.round(a/60)+' min':a<86400?Math.round(a/3600)+' h':Math.round(a/86400)+' Tage';
+  return a<=120?'<span class="snr-g">stimmt</span>':`<span class="snr-r">${d>0?'geht '+t+' vor':'geht '+t+' nach'}</span>`}
+function renderAdmin(){
+  renderAdminList();const s=admCur(),el=$('#admMain');
+  if(!S.connected){el.innerHTML='<div class="empty">Nicht verbunden. Zuerst eine Companion per USB, Bluetooth oder TCP verbinden.</div>';return}
+  if(!s){el.innerHTML='<div class="empty">Links einen Repeater oder Room wählen.<br><span class="muted" style="font-size:13px">Anmelden mit Admin- oder Gast-Passwort. Alle Abfragen laufen über Funk – bitte sparsam nutzen.</span></div>';return}
+  const c=S.contacts.get(s.key)||{},n=S.nodes.get(s.key)||{},st=s.status;
+  const pw=store.get('mcw.admpw.'+s.key.slice(0,12),null);
+  let h=`<div class="admhead"><div><h2>${esc(admName(s.key))}</h2><div class="muted mono">${NTYPE[c.type]||''} · ${s.key.slice(0,16)}… ${s.logged?'· <b class="snr-g">angemeldet als '+esc(s.role)+'</b>':''}</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>`;
+  if(s.logged)h+=`<button data-a="logout">Abmelden</button>`;
+  h+=`</div>`;
+  if(!s.logged){
+    h+=`<div class="card" style="max-width:440px"><h3>Anmelden</h3>
+      <div class="frm"><input id="admPw" type="password" placeholder="Passwort (leer = Gast ohne Passwort)" autocomplete="off" value="${esc(pw||'')}"><button class="primary" data-a="login">Anmelden</button></div>
+      <label class="frm"><input type="checkbox" id="admRemember"${pw!=null?' checked':''}> Passwort in diesem Browser merken</label>
+      <p class="muted" style="font-size:12px">Mit dem Admin-Passwort sind alle Funktionen verfügbar, mit dem Gast-Passwort nur Status und Nachbarn. Ein gemerktes Passwort liegt unverschlüsselt im Browser-Speicher.</p><div class="hex log admlog" id="admLog" style="min-height:0"></div></div>`;
+  }else{
+    h+=`<div class="cards">`;
+    h+=`<div class="card"><h3>Status <button class="sm" data-a="status" style="float:right">↻</button></h3>`+
+      (st?`<div class="kv">${kvRows([['Akku',st.batt!=null?(st.batt/1000).toFixed(2)+' V':null],['Laufzeit',dur(st.up)],['Uhr',clockTxt(s.clockDiff)],
+        ['Rauschen',st.noise!=null?st.noise+' dBm':null],['Letztes Paket',st.rssi!=null?`RSSI ${st.rssi} dBm · SNR ${st.snr!=null?st.snr.toFixed(1):'–'} dB`:null],
+        ['Airtime TX',st.air!=null?dur(st.air)+(st.up?' ('+(st.air/st.up*100).toFixed(1)+' %)':''):null],['Airtime RX',st.rxAir!=null?dur(st.rxAir)+(st.up?' ('+(st.rxAir/st.up*100).toFixed(1)+' %)':''):null],
+        ['Empfangen',st.recv!=null?`${fmtN(st.recv)} (Flood ${fmtN(st.rFlood)}, direkt ${fmtN(st.rDirect)})`:null],['Gesendet',st.sent!=null?`${fmtN(st.sent)} (Flood ${fmtN(st.sFlood)}, direkt ${fmtN(st.sDirect)})`:null],
+        ['Duplikate',st.fDup!=null?`Flood ${fmtN(st.fDup)}, direkt ${fmtN(st.dDup)}`:null],['Empfangsfehler',fmtN(st.rErr)],['Warteschlange',st.queue],['Fehler-Flags',st.err?'0x'+st.err.toString(16):null]])}</div>
+        <div class="muted" style="font-size:12px">Stand ${tfmt(s.statusT)}</div>`:'<div class="muted">Noch nicht abgerufen.</div>')+`</div>`;
+    h+=`<div class="card"><h3>Aktionen</h3>
+      ${s.isAdmin?`<div class="frm"><button data-a="clock" title="Uhr des Repeaters auf die Zeit der Companion stellen">🕑 Uhr synchronisieren</button><button data-a="info">ℹ Firmware & Owner</button></div>
+      <div class="frm"><button data-a="adv0">📣 Advert Zero-Hop</button><button data-a="advf">📡 Advert Flood</button></div>
+      <div class="frm"><button data-a="clrstats">Statistik zurücksetzen</button><button class="danger" data-a="reboot">Neustart</button></div>`
+      :`<div class="frm"><button data-a="info">ℹ Firmware & Owner</button></div><p class="muted" style="font-size:12px">Uhr, Adverts, Neustart, Einstellungen und Terminal gibt es nur mit dem Admin-Passwort.</p>`}
+      ${s.owner?`<div class="kv">${kvRows([['Firmware',esc(s.owner.ver)],['Name',esc(s.owner.name)],['Owner',esc(s.owner.info).replace(/\|/g,'<br>')]])}</div>`:''}
+      ${s.clockDiff!=null&&s.clockDiff>120?'<p class="muted" style="font-size:12px">Die Uhr geht vor. MeshCore stellt die Uhr nur vorwärts, zurückstellen geht nur über „clkreboot“ im Terminal.</p>':''}</div>`;
+    // Nachbarn
+    h+=`<div class="card"><h3>Nachbarn <span style="float:right"><button class="sm" data-a="neighmap"${s.neigh?'':' disabled'}>🗺 Karte</button> <button class="sm" data-a="neigh">↻</button></span></h3>`+
+      (s.neigh?`<div class="tablewrap" style="max-height:260px"><table><thead><tr><th>Name</th><th>SNR</th><th>Gehört</th></tr></thead><tbody>`+
+        s.neigh.list.map(x=>{const nm=nodeName(x.k);return `<tr><td>${esc(nm||'?')} <span class="muted mono">${x.k.slice(0,6)}</span></td><td class="mono ${snrCls(x.snr)}">${x.snr.toFixed(1)}</td><td>${ago(Date.now()-x.ago*1000)}</td></tr>`}).join('')+
+        `</tbody></table></div><div class="muted" style="font-size:12px">${s.neigh.list.length} von ${s.neigh.total} · Stand ${tfmt(s.neigh.t)}</div>`:'<div class="muted">Noch nicht abgerufen.</div>')+`</div>`;
+    if(s.isAdmin){
+      // Einstellungen
+      h+=`<div class="card"><h3>Einstellungen <button class="sm" data-a="loadset" style="float:right">${s.settings?'↻':'Laden'}</button></h3>`;
+      if(s.settings){h+=ADM_FIELDS.map(f=>{const id='adm_'+f.k.replace(/\./g,'_'),v=s.settings[f.k];
+          const inp=f.sel?`<select id="${id}"${v==null?' disabled':''}>${f.sel.map(o=>`<option${o===v?' selected':''}>${o}</option>`).join('')}</select>`
+            :`<input id="${id}" value="${esc(v??'')}"${f.ro||v==null?' disabled':''}${f.max?` maxlength="${f.max}"`:''}${v==null?' placeholder="nicht verfügbar"':''}>`;
+          return `<label class="admf"><span>${f.l}${f.hint?`<small class="muted">${f.hint}</small>`:''}</span>${inp}</label>`}).join('')+
+        `<div class="frm" style="justify-content:flex-end"><button class="primary" data-a="saveset">Änderungen speichern</button></div>`}
+      else h+='<div class="muted">Lädt Name, Standort, Sendeleistung, Advert-Intervalle u. a. einzeln per Funk (11 Abfragen).</div>';
+      h+=`</div>`;
+      // ACL
+      h+=`<div class="card"><h3>Zugriffsliste <button class="sm" data-a="acl" style="float:right">↻</button></h3>`+
+        (s.acl?(s.acl.list.length?`<table><tbody>${s.acl.list.map(a=>`<tr><td>${esc(nodeName(a.k)||'?')} <span class="muted mono">${a.k.slice(0,8)}</span></td><td>${ROLE[a.perm&3]}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">Leer.</div>'):'<div class="muted">Noch nicht abgerufen.</div>')+`</div>`;
+    }
+    // Terminal (nur Admin – Repeater beantworten CLI-Befehle nur von Admins)
+    if(!s.isAdmin)h+=`<div class="card" style="grid-column:1/-1"><h3>Protokoll</h3><div class="hex log admlog" id="admLog"></div></div>`;
+    else h+=`<div class="card" style="grid-column:1/-1"><h3>Terminal</h3><div class="hex log admlog" id="admLog"></div>
+      <div class="frm"><input id="admCmd" list="dlCli" placeholder="CLI-Befehl, z. B. get radio, ver, region" autocomplete="off"><button data-a="send">Senden</button></div>
+      <div class="frm">${['ver','board','clock','get radio','get repeat','region','neighbors'].map(x=>`<button class="sm" data-cli="${x}">${x}</button>`).join('')}</div>
+      <p class="muted" style="font-size:12px;margin-bottom:0">Befehlsübersicht: <a href="https://github.com/meshcore-dev/MeshCore/blob/main/docs/cli_commands.md" target="_blank" rel="noopener">MeshCore CLI-Befehle</a>. Jeder Befehl ist ein Funkpaket hin und eins zurück.</p></div>`;
+    h+=`</div>`;
+  }
+  // Eingaben beim Neuzeichnen behalten
+  const keep=ADM.lastKey===s.key?Object.fromEntries($$('#admMain input,#admMain select').filter(x=>x.id&&x.type!=='checkbox').map(x=>[x.id,x.value])):{};
+  el.innerHTML=h;ADM.lastKey=s.key;
+  for(const [id,v] of Object.entries(keep)){const x=document.getElementById(id);if(x&&!x.disabled)x.value=v}
+  renderAdminLog();admBusy(ADM.busy,ADM.busyTxt);
+}
+function renderAdminLog(){const s=admCur(),el=$('#admLog');if(!s||!el)return;
+  el.innerHTML=s.log.map(l=>`<div class="al-${l.kind}"><span class="muted">${tfmt(l.t)}</span> ${l.kind==='out'?'&gt; ':l.kind==='in'?'&lt; ':''}${esc(l.text)}</div>`).join('')||'<span class="muted">Noch keine Befehle.</span>';
+  el.scrollTop=el.scrollHeight}
+const CLI_SUGGEST=['ver','board','clock','clock sync','clkreboot','reboot','advert','advert.zerohop','neighbors','neighbor.remove ','discover.neighbors','clear stats','powersaving','powersaving on','powersaving off',
+  'region','region list','region get ','region home','region home ','region default','region default ','region put ','region allowf ','region denyf ','region save','region remove ',
+  'log start','log stop','log erase','password ','tempradio ','sensor list','sensor get ','gps','gps on','gps off','gps sync',
+  ...['name','lat','lon','tx','radio','freq','repeat','owner.info','guest.password','advert.interval','flood.advert.interval','flood.max','flood.max.unscoped','path.hash.mode','loop.detect','rxdelay','txdelay','direct.txdelay','af','dutycycle','multi.acks','allow.read.only','cad','int.thresh','agc.reset.interval','radio.rxgain','acl','role','public.key','bridge.enabled']
+    .flatMap(k=>['get '+k,'set '+k+' '])];
+$('#dlCli')||document.body.insertAdjacentHTML('beforeend','<datalist id="dlCli">'+CLI_SUGGEST.map(x=>`<option value="${esc(x)}">`).join('')+'</datalist>');
+const admHist=[];let admHi=-1;
+$('#admList').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;ADM.key=it.dataset.key;renderAdmin()});
+$('#admSearch').oninput=renderAdminList;
+$('#admMain').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;
+  if(b.dataset.cli){$('#admCmd').value=b.dataset.cli;admSendCmd();return}
+  const a=b.dataset.a,nm=admCur()?admName(admCur().key):'';
+  ({login:admLogin,logout:admLogout,status:()=>admStatus(),neigh:admNeighbours,neighmap:admNeighMap,acl:admAcl,info:admOwner,loadset:admLoadSettings,saveset:admSaveSettings,send:admSendCmd,
+    clock:()=>admCmd('clock sync'),adv0:()=>admCmd('advert.zerohop'),advf:()=>admCmd('advert'),clrstats:()=>admCmd('clear stats',{confirmMsg:'Statistik von „'+nm+'“ zurücksetzen?'}),
+    reboot:()=>admRebootCmd(nm)}[a]||(()=>{}))()});
+$('#admMain').addEventListener('keydown',e=>{
+  if(e.target.id==='admPw'&&e.key==='Enter'){e.preventDefault();admLogin()}
+  if(e.target.id!=='admCmd')return;
+  if(e.key==='Enter'){e.preventDefault();admSendCmd()}
+  else if(e.key==='ArrowUp'&&admHist.length){e.preventDefault();admHi=Math.max(0,(admHi<0?admHist.length:admHi)-1);e.target.value=admHist[admHi]}
+  else if(e.key==='ArrowDown'&&admHi>=0){e.preventDefault();admHi++;if(admHi>=admHist.length){admHi=-1;e.target.value=''}else e.target.value=admHist[admHi]}});
+async function admSendCmd(){const inp=$('#admCmd');const v=inp.value.trim();if(!v)return;
+  if(/^(reboot|clkreboot|erase|start ota|poweroff|shutdown)\b/.test(v)&&!confirm('„'+v+'“ wirklich an „'+admName(admCur().key)+'“ senden?'))return;
+  if(/^set (radio|freq) /.test(v)&&!confirm('Achtung: Mit geänderten Funkparametern ist der Repeater nach dem Neustart für das restliche Netz nicht mehr erreichbar. Trotzdem senden?'))return;
+  inp.value='';if(admHist[admHist.length-1]!==v)admHist.push(v);admHi=-1;await admCmd(v,{quiet:true})}
+async function admRebootCmd(nm){
+  const s=admCur();if(!s||!confirm('Repeater „'+nm+'“ neu starten?'))return;
+  // Auf reboot kommt keine Antwort – nur senden
+  try{admLog(s,'out','reboot');await request(bytes(CMD.SEND_TXT,1,0,u32(now()),unhex(s.key.slice(0,12)),'reboot'));toast('Neustart an '+nm+' gesendet','ok');s.logged=false;admLog(s,'sys','Neustart gesendet – danach neu anmelden');renderAdmin()}
+  catch(e){toast(e.message,'err')}
+}
 
 // ================= Events =================
 PT.forEach(t=>{if(!/^T1/.test(t)){const o=document.createElement('option');o.textContent=t;$('#fType').appendChild(o)}});
