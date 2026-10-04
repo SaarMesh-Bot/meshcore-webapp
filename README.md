@@ -55,18 +55,29 @@ Webapp ──WebSocket──► TCP-Bridge (localhost:8765) ──TCP──► W
 >
 > **IP-Adresse herausfinden:** in der Geräteliste deines Routers (z. B. FritzBox: *Heimnetz → Netzwerk*) oder – bei Geräten mit Display – direkt auf der Node. Am besten der Node im Router eine feste IP geben.
 >
-> **Voraussetzungen:** Auf der Node läuft die **WiFi-Companion-Firmware**, Node und PC sind im selben Netz. Nutzt die Node einen anderen Port als 5000, die Bridge mit `-ports <port>` starten (Windows: `meshcore-tcp-bridge-windows-x64.exe -ports 5001`).
+> **Voraussetzungen:** Auf der Node läuft die **WiFi-Companion-Firmware**, Node und PC sind im selben Netz. Die Bridge erlaubt ab v1.0.2 die Ports **5000–5005**. Nutzt die Node einen anderen Port, die Bridge mit `-ports <port>` starten (Windows: `meshcore-tcp-bridge-windows-x64.exe -ports 5000-5005,6000`).
 
-**Sicherheit:** Die Bridge lauscht nur auf `127.0.0.1`, akzeptiert nur die offizielle Webapp (bzw. lokal geöffnete Dateien und `localhost`) und verbindet standardmäßig nur zu Adressen im lokalen Netz auf Port 5000. Ein Companion erlaubt immer nur eine Verbindung gleichzeitig.
+**Sicherheit:** Die Bridge lauscht nur auf `127.0.0.1`, akzeptiert nur die offizielle Webapp (bzw. lokal geöffnete Dateien und `localhost`) und verbindet standardmäßig nur zu Adressen im lokalen Netz auf den Ports 5000–5005. Ein Companion erlaubt immer nur eine Verbindung gleichzeitig.
 
 Optionen (`meshcore-tcp-bridge -h`):
 
 | Option | Bedeutung |
 |---|---|
-| `-ports 5000,5001` | weitere Ziel-Ports erlauben (`*` = alle) |
+| `-ports 5000-5005` | erlaubte Ziel-Ports, einzeln oder als Bereich, komma-getrennt (`*` = alle) |
 | `-listen 127.0.0.1:8765` | Adresse/Port der Bridge |
 | `-allow-origin https://…` | eigene Webseite mit der Webapp zulassen |
 | `-any-host` | auch Ziele außerhalb des lokalen Netzes erlauben |
+
+### Mehrere Apps gleichzeitig (meshcore-tcp-mux)
+
+Ein Companion erlaubt nur eine TCP-Verbindung. Sollen Webapp, Handy-App und andere Clients gleichzeitig verbunden sein, hilft der [meshcore-tcp-mux](https://github.com/compumike/meshcore-tcp-mux). Er verbindet sich als einziger mit der Node und verteilt die Verbindung an mehrere Clients.
+
+- In der Webapp unter **„TCP/WiFi“** die **IP des Rechners mit dem Mux** und einen **Port des Mux** eintragen, nicht IP und Port der Node.
+- **Empfohlen:** ein eigener Port nur für die Webapp, z. B. `5003` (im Mux `--listen-dedicated-client-port 5003`). Dann hält der Mux Nachrichten vor, die eingehen, während die Webapp geschlossen ist.
+- Alternativ der gemeinsame Port `5001`. Dort kommen nur Nachrichten an, solange die Webapp verbunden ist.
+- Die Mux-Ports liegen im Standardbereich 5000–5005 der Bridge, `-ports` ist also nicht nötig. Läuft der Mux außerhalb des lokalen Netzes (z. B. über Tailscale), die Bridge mit `-any-host` starten.
+
+Der Mux verteilt Live-Traffic und Adverts an alle Clients und setzt die Region pro Kanal nur für die eigene Nachricht. Einstellungen wie Name, Kanäle und Standard-Region gelten aber für alle Clients gemeinsam.
 
 Selbst bauen: `cd bridge && go build .` (Go ≥ 1.24).
 

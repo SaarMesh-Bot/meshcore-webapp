@@ -32,7 +32,7 @@ const defaultOrigin = "https://saarmesh-bot.github.io"
 
 var (
 	listenAddr   = flag.String("listen", "127.0.0.1:8765", "Adresse, auf der die Bridge lauscht")
-	allowedPorts = flag.String("ports", "5000", "Erlaubte Ziel-Ports, komma-getrennt (\"*\" = alle)")
+	allowedPorts = flag.String("ports", "5000-5005", "Erlaubte Ziel-Ports, komma-getrennt, auch Bereiche wie 5000-5005 (\"*\" = alle)")
 	anyHost      = flag.Bool("any-host", false, "Auch öffentliche Ziel-Adressen erlauben (Standard: nur lokales Netz)")
 	extraOrigins = flag.String("allow-origin", "", "Zusätzlich erlaubte Webseiten-Origins, komma-getrennt (z. B. https://meine-seite.de)")
 	showVersion  = flag.Bool("version", false, "Version anzeigen")
@@ -170,7 +170,7 @@ func handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !portAllowed(port) {
-		fail(fmt.Sprintf("Port %d ist nicht freigegeben. Bridge mit -ports %d starten.", port, port))
+		fail(fmt.Sprintf("Port %d ist nicht freigegeben. Bridge mit -ports %s,%d starten.", port, *allowedPorts, port))
 		return
 	}
 	if host == "" {
@@ -274,6 +274,14 @@ func portAllowed(p int) bool {
 		s = strings.TrimSpace(s)
 		if s == "*" {
 			return true
+		}
+		if lo, hi, ok := strings.Cut(s, "-"); ok {
+			a, errA := strconv.Atoi(strings.TrimSpace(lo))
+			b, errB := strconv.Atoi(strings.TrimSpace(hi))
+			if errA == nil && errB == nil && a <= p && p <= b {
+				return true
+			}
+			continue
 		}
 		if v, err := strconv.Atoi(s); err == nil && v == p {
 			return true
