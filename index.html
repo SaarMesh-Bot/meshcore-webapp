@@ -128,6 +128,8 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
 .admf{display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:center;margin:5px 0;font-size:13px}.admf small{display:block;font-size:11px}.admf input,.admf select{min-width:0;width:100%}
 .admlog{max-height:260px;min-height:80px}.admlog .al-out{color:var(--accent2)}.admlog .al-err{color:var(--err)}.admlog .al-ok{color:var(--accent)}.admlog .al-sys{color:var(--muted)}
 #sec-admin .chatmain{overflow:hidden}
+.tseries{margin-top:10px}.tsname{font-size:12px;color:var(--muted)}.tspark{width:100%;height:60px;display:block;background:var(--panel2);border-radius:6px}
+.tsrange{display:flex;justify-content:space-between;gap:6px;font-size:11px;margin-top:2px}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:3000;padding:16px}
 .modal[hidden]{display:none}
 .mbox{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;width:100%;max-width:440px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
@@ -267,6 +269,14 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
             <p class="muted" style="font-size:12px;margin:2px 0 10px">Größe der Knoten-Kennung pro Hop in ausgehenden Flood-Paketen. Mehr Bytes bedeuten weniger Verwechslungen, aber auch weniger mögliche Hops. Ältere Repeater-Firmware kann mit 2 oder 3 Byte nichts anfangen.</p>
             <div class="frm"><input id="extraRegions" placeholder="Weitere Regionen im Live-Traffic erkennen (Komma-getrennt)"></div>
           </div>
+          <div class="card"><h3>Telemetrie</h3>
+            <div class="frm"><button id="btnSelfTel" disabled>📊 Eigene Telemetrie</button></div>
+            <p class="muted" style="font-size:12px;margin:6px 0">Wer darf die Telemetrie dieses Geräts abfragen?</p>
+            <div class="admf"><span>Basis (Akku, Temperatur)</span><select id="telBase" disabled></select></div>
+            <div class="admf"><span>Standort (GPS)</span><select id="telLoc" disabled></select></div>
+            <div class="admf"><span>Umweltsensoren</span><select id="telEnv" disabled></select></div>
+            <p class="muted" style="font-size:12px">„Nur markierte Kontakte“ nutzt die Freigaben, die pro Kontakt in der MeshCore-App gesetzt sind. Ohne Basis-Freigabe antwortet das Gerät gar nicht.</p>
+          </div>
           <div class="card"><h3>Öffentliches Verzeichnis</h3>
             <label class="frm"><input type="checkbox" id="useDir"> Kanäle & Regionen aus dem öffentlichen Verzeichnis erkennen</label>
             <div class="kv" id="dirInfo" style="display:block;font-size:13px;line-height:1.6"></div>
@@ -291,6 +301,14 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
 </div>
 <div id="toasts"></div>
 <datalist id="dlRegions"></datalist><datalist id="dlChannels"></datalist>
+<div class="modal" id="telModal" hidden>
+  <div class="mbox" style="max-width:520px;max-height:90vh;overflow:auto">
+    <h3 id="telTitle">📊 Telemetrie</h3>
+    <div id="telBody"></div>
+    <p class="muted" id="telNote" style="font-size:12px"></p>
+    <div class="mrow"><span class="spacer"></span><button id="telClose">Schließen</button></div>
+  </div>
+</div>
 <div class="modal" id="chModal" hidden>
   <div class="mbox">
     <h3>＋ Kanal hinzufügen</h3>
@@ -573,7 +591,7 @@ function onDisconnected(msg){
   if(was&&msg)toast(msg,'err');
 }
 function setEnabled(on){
-  ['#btnDisc','#btnAdv0','#btnAdvF','#btnPick','#btnReloadC','#btnStats','#btnSetName','#btnSetPos','#btnSetTx','#setLocAdv','#setAutoAdd','#btnTime','#btnSync','#btnReboot','#btnSetRegion','#btnClrRegion','#setHashMode','#btnSetHash'].forEach(s=>$(s).disabled=!on);
+  ['#btnDisc','#btnAdv0','#btnAdvF','#btnPick','#btnReloadC','#btnStats','#btnSetName','#btnSetPos','#btnSetTx','#setLocAdv','#setAutoAdd','#btnTime','#btnSync','#btnReboot','#btnSetRegion','#btnClrRegion','#setHashMode','#btnSetHash','#btnSelfTel','#telBase','#telLoc','#telEnv'].forEach(s=>$(s).disabled=!on);
   $('#btnUsb').disabled=on;$('#btnBle').disabled=on;$('#btnTcp').disabled=on;
   updateCompose();
 }
@@ -1290,6 +1308,7 @@ function renderContacts(){
       if(!c.saved)act+=`<button class="sm" onclick="addContact('${n.key}')" title="Im Gerät speichern">＋</button> `;
       else act+=`<button class="sm" onclick="resetPath('${n.key}')" title="Pfad zurücksetzen">↺</button> <button class="sm" onclick="shareContact('${n.key}')" title="Per Zero-Hop teilen">⇪</button> <button class="sm danger" onclick="removeContact('${n.key}')" title="Löschen">🗑</button> `}
     if(c&&ADM_TYPES.includes(c.type))act+=`<button class="sm" onclick="openAdmin('${n.key}')" title="Repeater-Admin">🛠</button> `;
+    else if(c&&(c.type===1||c.type===4))act+=`<button class="sm" onclick="openTelemetry('${n.key}')" title="Telemetrie">📊</button> `;
     if(hasPos(n))act+=`<button class="sm" onclick="zoomTo('${n.key}')">🗺</button>`;
     return `<tr><td>${esc(n.name||'?')}${c&&!c.saved?' <span class="muted">(neu)</span>':''}${!c?' <span class="muted">(gehört)</span>':''}</td><td>${NTYPE[n.type??0]}</td><td class="mono">${n.key.slice(0,12)}</td><td>${ago(lastSeen(n))}</td><td class="mono">${pd?(pd.flood?'Flood':pd.hops.length?pd.hops.join('→'):'direkt'):'–'}</td><td class="mono ${snrCls(n.snr)}">${n.snr!=null?n.snr.toFixed(1):'–'}</td><td>${dist}</td><td style="white-space:nowrap">${act}</td></tr>`}).join('')||'<tr><td colspan="8" class="muted">Keine Einträge</td></tr>';
 }
@@ -1318,7 +1337,7 @@ function renderDevice(){
   const hm=d?.pathHashMode;
   $('#kvRegion').innerHTML=s?kv([['Region',S.scope==null?'<span class="muted">nicht unterstützt</span>':S.scope.name?'<b>#'+esc(S.scope.name)+'</b>':'keine (ungefiltert)'],['Pfad-Hash',hm!=null?(hm+1)+' Byte':'<span class="muted">unbekannt</span>'],['Erkannte Regionen',S.regions.length?S.regions.map(r=>'#'+esc(r.name)).join(', '):'–']]):'';
   if(s&&document.activeElement!==$('#setHashMode')&&hm!=null)$('#setHashMode').value=hm;
-  if(s){if(document.activeElement!==$('#setName'))$('#setName').value=s.name;$('#setTx').placeholder='TX dBm ('+s.tx+')';$('#setLocAdv').checked=!!s.locPolicy;$('#setAutoAdd').checked=!(s.manualAdd&1);
+  if(s){if(document.activeElement!==$('#setName'))$('#setName').value=s.name;$('#setTx').placeholder='TX dBm ('+s.tx+')';$('#setLocAdv').checked=!!s.locPolicy;renderTelPerm();$('#setAutoAdd').checked=!(s.manualAdd&1);
     if(hasPos(s)&&!$('#setLat').value){$('#setLat').value=s.lat.toFixed(5);$('#setLon').value=s.lon.toFixed(5)}}
 }
 function updateHeader(){
@@ -1333,7 +1352,7 @@ async function setPosition(lat,lon){
   try{await request(bytes(CMD.SET_LATLON,i32(Math.round(lat*1e6)),i32(Math.round(lon*1e6))));await reloadSelf();$('#setLat').value=lat.toFixed(5);$('#setLon').value=lon.toFixed(5);
     toast('Position gesetzt'+(S.self.locPolicy?' – mit dem nächsten Advert sichtbar':' – Hinweis: „Standort in Adverts mitsenden“ ist aus'),'ok')}catch(e){toast(e.message,'err')}
 }
-async function setOther(manualAdd,locPolicy){const s=S.self;try{await request(bytes(CMD.SET_OTHER,manualAdd,s.telem,locPolicy,s.multiAcks));await reloadSelf();toast('Gespeichert','ok')}catch(e){toast(e.message,'err');renderDevice()}}
+async function setOther(manualAdd,locPolicy,telem){const s=S.self;try{await request(bytes(CMD.SET_OTHER,manualAdd,telem??s.telem,locPolicy,s.multiAcks));await reloadSelf();toast('Gespeichert','ok')}catch(e){toast(e.message,'err');renderDevice()}}
 const rawlog=[];
 function logFrame(dir,f){if(!$('#logOn').checked)return;rawlog.push(`${tfmt(Date.now())} ${dir} ${hex(f)}`);if(rawlog.length>300)rawlog.shift();if(curTab==='device'){const el=$('#rawlog');el.textContent=rawlog.slice().reverse().join('\n')}}
 
@@ -1587,6 +1606,7 @@ function renderAdmin(){
       (s.neigh?`<div class="tablewrap" style="max-height:260px"><table><thead><tr><th>Name</th><th>SNR</th><th>Gehört</th></tr></thead><tbody>`+
         s.neigh.list.map(x=>{const nm=nodeName(x.k);return `<tr><td>${esc(nm||'?')} <span class="muted mono">${x.k.slice(0,6)}</span></td><td class="mono ${snrCls(x.snr)}">${x.snr.toFixed(1)}</td><td>${ago(Date.now()-x.ago*1000)}</td></tr>`}).join('')+
         `</tbody></table></div><div class="muted" style="font-size:12px">${s.neigh.list.length} von ${s.neigh.total} · Stand ${tfmt(s.neigh.t)}</div>`:'<div class="muted">Noch nicht abgerufen.</div>')+`</div>`;
+    h+=`<div class="card"><h3>Telemetrie</h3><div class="telbox" data-key="${s.key}">${telHtml(s.key)}</div></div>`;
     if(s.isAdmin){
       // Einstellungen
       h+=`<div class="card"><h3>Einstellungen <button class="sm" data-a="loadset" style="float:right">${s.settings?'↻':'Laden'}</button></h3>`;
@@ -1650,6 +1670,115 @@ async function admRebootCmd(nm){
   catch(e){toast(e.message,'err')}
 }
 
+// ================= Telemetrie =================
+// Cayenne LPP von Repeatern, Sensoren, Kontakten und dem eigenen Gerät; Verlauf lokal im Browser.
+CMD.TELEMETRY_REQ=39;EXPECT[39]=[6];
+// Typ → [Name, Einheit, Bytes, Teiler, vorzeichenbehaftet]
+const LPP={0:['Digitaleingang','',1,1],1:['Digitalausgang','',1,1],2:['Analogeingang','',2,100,1],3:['Analogausgang','',2,100,1],
+  100:['Sensorwert','',4,1],101:['Helligkeit','lx',2,1],102:['Anwesenheit','',1,1],103:['Temperatur','°C',2,10,1],104:['Luftfeuchte','%',1,2],
+  113:['Beschleunigung','g',6,1000,1],115:['Luftdruck','hPa',2,10],116:['Spannung','V',2,100,1],117:['Strom','A',2,1000,1],118:['Frequenz','Hz',4,1],
+  120:['Anteil','%',1,1],121:['Höhe','m',2,1,1],125:['Konzentration','ppm',2,1],128:['Leistung','W',2,1],130:['Entfernung','m',4,1000],
+  131:['Energie','kWh',4,1000],132:['Richtung','°',2,1],133:['Zeit','',4,1],134:['Drehrate','°/s',6,100,1],135:['Farbe','',3,1],136:['GPS','',9,1],142:['Schalter','',1,1]};
+function parseLPP(b){
+  const out=[];let o=0;const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+  const rd=(p,n,s)=>{let v=0;for(let i=0;i<n;i++)v=v*256+b[p+i];if(s&&v>=2**(8*n-1))v-=2**(8*n);return v};
+  while(o+2<=b.length){
+    const ch=b[o],t=b[o+1];if(ch===0&&t===0)break;const d=LPP[t];if(!d||o+2+d[2]>b.length)break;o+=2;
+    let v;
+    if(t===136)v={lat:rd(o,3,1)/1e4,lon:rd(o+3,3,1)/1e4,alt:rd(o+6,3,1)/100};
+    else if(t===113||t===134)v=[0,2,4].map(i=>rd(o+i,2,1)/d[3]);
+    else if(t===135)v=[b[o],b[o+1],b[o+2]];
+    else v=rd(o,d[2],d[4])/d[3];
+    out.push({ch,t,v});o+=d[2];
+  }
+  return out;
+}
+const telName=x=>(LPP[x.t]||['Typ '+x.t])[0]+(x.ch>1?' ('+x.ch+')':'');
+function telVal(x){const d=LPP[x.t]||['','',0,1];
+  if(x.t===136)return `${x.v.lat.toFixed(4)}, ${x.v.lon.toFixed(4)} · ${x.v.alt.toFixed(0)} m`;
+  if(Array.isArray(x.v))return x.v.map(n=>n.toFixed(2)).join(' / ')+' '+d[1];
+  if(x.t===133)return new Date(x.v*1000).toLocaleString('de-DE');
+  if(x.t===142||x.t===102)return x.v?'an':'aus';
+  const dec=d[3]>=1000?3:d[3]>=100?2:d[3]>=2?1:0;return x.v.toLocaleString('de-DE',{minimumFractionDigits:dec,maximumFractionDigits:dec})+(d[1]?' '+d[1]:'')}
+const TEL={auto:store.get('mcw.telAuto',{})||{},busy:new Set()};
+const telKey=k=>'mcw.tel.'+k.slice(0,12);
+const telLabel=k=>S.self&&k===S.self.key?S.self.name:admName(k);
+const telHist=k=>store.get(telKey(k),[])||[];
+async function telRequest(key,{quiet}={}){
+  if(!S.connected)throw new Error('nicht verbunden');
+  if(TEL.busy.has(key))return;TEL.busy.add(key);renderTelemetry(key);
+  try{
+    const self=S.self&&key===S.self.key,pre=key.slice(0,12);let f;
+    if(self){const p=waitPush(x=>x[0]===PUSH.TELEMETRY&&hex(x.slice(2,8))===pre,8000);await S.tr.send(bytes(CMD.TELEMETRY_REQ,0,0,0));logFrame('TX',bytes(CMD.TELEMETRY_REQ,0,0,0));f=await p}
+    else{await ensureContact(key);const sent=parseSent(await request(bytes(CMD.TELEMETRY_REQ,0,0,0,unhex(key))));
+      f=await waitPush(x=>x[0]===PUSH.TELEMETRY&&hex(x.slice(2,8))===pre,replyTimeout(sent.est))}
+    const vals=parseLPP(f.slice(8));
+    const h=telHist(key);h.push({t:Date.now(),v:vals});if(h.length>500)h.splice(0,h.length-500);store.set(telKey(key),h);
+    const s=ADM.sess.get(key);if(s)admLog(s,'ok','Telemetrie empfangen ('+vals.length+' Werte)');
+    // GPS aus der Telemetrie als Position übernehmen, wenn der Knoten noch keine hat
+    const g=vals.find(x=>x.t===136),n=S.nodes.get(key);if(g&&n&&!hasPos(n)&&(g.v.lat||g.v.lon)){n.lat=g.v.lat;n.lon=g.v.lon;scheduleSave()}
+    return vals;
+  }catch(e){const s=ADM.sess.get(key);if(s)admLog(s,'err','Telemetrie: '+e.message);if(!quiet)toast('Telemetrie: '+e.message,'err');throw e}
+  finally{TEL.busy.delete(key);renderTelemetry(key)}
+}
+// Kleines Liniendiagramm (SVG) für eine Messgröße
+function telSpark(pts,unit){
+  if(pts.length<2)return '';const W=300,H=60,P=4;
+  const t0=pts[0][0],t1=pts[pts.length-1][0]||t0+1;let lo=Math.min(...pts.map(p=>p[1])),hi=Math.max(...pts.map(p=>p[1]));const rlo=lo,rhi=hi;if(hi-lo<1e-9){hi+=.5;lo-=.5}
+  const X=t=>P+(W-2*P)*(t-t0)/Math.max(1,t1-t0),Y=v=>H-P-(H-2*P)*(v-lo)/(hi-lo);
+  const d=pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('');
+  return `<svg class="tspark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="var(--accent2)" stroke-width="1.8" vector-effect="non-scaling-stroke"/>${pts.length<40?pts.map(p=>`<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="2" fill="var(--accent2)"/>`).join(''):''}</svg>
+    <div class="tsrange muted"><span>${dtfmt(t0)}</span><span>${rlo===rhi?rlo.toLocaleString('de-DE',{maximumFractionDigits:2}):rlo.toLocaleString('de-DE',{maximumFractionDigits:2})+' – '+rhi.toLocaleString('de-DE',{maximumFractionDigits:2})} ${unit}</span><span>${dtfmt(t1)}</span></div>`;
+}
+function telHtml(key){
+  const h=telHist(key),last=h[h.length-1],busy=TEL.busy.has(key),auto=TEL.auto[key]||0;
+  let x=`<div class="frm"><button data-tel="req" data-key="${key}"${busy||!S.connected?' disabled':''}>${busy?'Frage ab …':'📊 Jetzt abfragen'}</button>
+    <select data-tel="auto" data-key="${key}" title="Automatisch abfragen, solange die Webapp offen ist">${[[0,'nicht automatisch'],[30,'alle 30 min'],[60,'jede Stunde'],[180,'alle 3 h'],[720,'alle 12 h']].map(([v,l])=>`<option value="${v}"${v==auto?' selected':''}>${l}</option>`).join('')}</select>
+    ${h.length?`<button class="sm" data-tel="csv" data-key="${key}" title="Verlauf als CSV">CSV</button> <button class="sm danger" data-tel="clr" data-key="${key}" title="Verlauf löschen">🗑</button>`:''}</div>`;
+  if(!last)return x+'<div class="muted">Noch keine Telemetrie abgerufen.</div>';
+  x+=`<div class="kv">${last.v.map(v=>`<div>${esc(telName(v))}</div><div>${esc(telVal(v))}</div>`).join('')||'<div>–</div><div>keine Werte</div>'}</div><div class="muted" style="font-size:12px">Stand ${dtfmt(last.t)} · ${h.length} Messung${h.length>1?'en':''} gespeichert</div>`;
+  // Verlauf je numerischer Messgröße
+  const series=new Map();
+  for(const m of h)for(const v of m.v){if(typeof v.v!=='number'||[133,142,102,0,1].includes(v.t))continue;const id=v.ch+':'+v.t;if(!series.has(id))series.set(id,{v,pts:[]});series.get(id).pts.push([m.t,v.v])}
+  for(const {v,pts} of series.values())if(pts.length>=2)x+=`<div class="tseries"><div class="tsname">${esc(telName(v))}</div>${telSpark(pts.slice(-200),(LPP[v.t]||[])[1]||'')}</div>`;
+  return x;
+}
+function renderTelemetry(key){
+  $$(`.telbox[data-key="${key}"]`).forEach(el=>el.innerHTML=telHtml(key));
+  if(!$('#telModal').hidden&&$('#telModal').dataset.key===key)$('#telBody').innerHTML=`<div class="telbox" data-key="${key}">${telHtml(key)}</div>`;
+}
+function openTelemetry(key){
+  const self=S.self&&key===S.self.key;
+  $('#telTitle').textContent='📊 Telemetrie – '+(self?S.self.name+' (dieses Gerät)':admName(key));
+  $('#telModal').dataset.key=key;$('#telModal').hidden=false;renderTelemetry(key);
+  const c=S.contacts.get(key);
+  $('#telNote').textContent=self?'Eigene Werte werden direkt vom Gerät gelesen, ohne Funk.':c&&ADM_TYPES.includes(c.type)?'Repeater und Rooms antworten nur nach einem Login (Repeater-Admin). Jede Abfrage ist ein Funkpaket hin und zurück.':'Antwortet nur, wenn der Kontakt seine Telemetrie freigegeben hat. Jede Abfrage ist ein Funkpaket hin und zurück.';
+}
+function telCsv(key){
+  const h=telHist(key),cols=[...new Set(h.flatMap(m=>m.v.filter(v=>typeof v.v==='number').map(v=>telName(v)+((LPP[v.t]||[])[1]?' ['+LPP[v.t][1]+']':''))))];
+  const rows=[['Zeit',...cols].join(';')].concat(h.map(m=>{const r={};m.v.forEach(v=>{if(typeof v.v==='number')r[telName(v)+((LPP[v.t]||[])[1]?' ['+LPP[v.t][1]+']':'')]=String(v.v).replace('.',',')});return [new Date(m.t).toISOString(),...cols.map(c=>r[c]??'')].join(';')}));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download='telemetrie-'+telLabel(key).replace(/[^\w-]+/g,'_')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+document.addEventListener('click',e=>{const b=e.target.closest('button[data-tel]');if(!b||b.disabled)return;const k=b.dataset.key;
+  if(b.dataset.tel==='req')telRequest(k).catch(()=>{});
+  else if(b.dataset.tel==='csv')telCsv(k);
+  else if(b.dataset.tel==='clr'){if(confirm('Gespeicherten Telemetrie-Verlauf von „'+telLabel(k)+'“ löschen?')){store.del(telKey(k));renderTelemetry(k)}}});
+document.addEventListener('change',e=>{const s=e.target.closest('select[data-tel=auto]');if(!s)return;const k=s.dataset.key,v=+s.value;
+  if(v)TEL.auto[k]=v;else delete TEL.auto[k];store.set('mcw.telAuto',TEL.auto);
+  if(v)toast('Telemetrie von „'+telLabel(k)+'“ wird '+s.selectedOptions[0].textContent+' abgefragt, solange die Webapp verbunden ist','ok')});
+$('#telClose').onclick=()=>{$('#telModal').hidden=true};
+// Automatische Abfragen – höchstens eine pro Minute, damit das Netz nicht belastet wird
+setInterval(()=>{if(!S.connected)return;const nowMs=Date.now();
+  for(const [k,min] of Object.entries(TEL.auto)){const h=telHist(k),last=h.length?h[h.length-1].t:0;if(nowMs-last<min*60000||TEL.busy.has(k))continue;
+    const c=S.contacts.get(k),self=S.self&&k===S.self.key;if(!self&&!c)continue;
+    if(!self&&ADM_TYPES.includes(c.type)&&!(ADM.sess.get(k)||{}).logged)continue; // Repeater nur mit Login
+    telRequest(k,{quiet:true}).catch(()=>{});break}},60000);
+
+const TEL_MODES=[[0,'Niemand'],[1,'Nur markierte Kontakte'],[2,'Alle']];
+function renderTelPerm(){const s=S.self;if(!s)return;const m=s.telem||0;
+  [['#telBase',m&3],['#telLoc',(m>>2)&3],['#telEnv',(m>>4)&3]].forEach(([id,v])=>{const el=$(id);if(!el.options.length)el.innerHTML=TEL_MODES.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');el.value=v})}
+['#telBase','#telLoc','#telEnv'].forEach(id=>$(id).onchange=()=>{const v=(+$('#telBase').value)|(+$('#telLoc').value<<2)|(+$('#telEnv').value<<4);setOther(S.self.manualAdd,S.self.locPolicy,v)});
+$('#btnSelfTel').onclick=()=>{openTelemetry(S.self.key);telRequest(S.self.key).catch(()=>{})};
 // ================= Events =================
 PT.forEach(t=>{if(!/^T1/.test(t)){const o=document.createElement('option');o.textContent=t;$('#fType').appendChild(o)}});
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)switchTab(b.dataset.tab)});
