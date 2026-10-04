@@ -138,6 +138,64 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
 .mrow{display:flex;gap:8px;align-items:center;margin-top:14px}
 .warnbar{background:var(--warn);color:#000;padding:6px 14px;font-size:13px;display:none}
 @media (max-width:800px){.chatside{width:180px}.detail{position:absolute;right:0;top:0;bottom:0;width:100%;z-index:5}.mappanel{width:190px}}
+.mback,.mapfab,nav#tabs .ls{display:none}
+@media (max-width:700px){
+  input,select,textarea{font-size:16px}
+  header{padding:6px 10px;gap:6px}
+  .logo{font-size:15px}.logo .by:not(.kofi){display:none}
+  header .spacer{display:none}
+  .devinfo{gap:4px 10px;font-size:12px;order:5;width:100%}
+  .devinfo span:nth-child(n+4){display:none}
+  header .grp{gap:5px;flex-wrap:wrap}
+  header .grp button{padding:5px 9px;font-size:13px}
+  body.connected #btnUsb,body.connected #btnBle,body.connected #btnTcp{display:none}
+  body.noserial #btnUsb,body.noble #btnBle{display:none}
+  .warnbar{font-size:12px;padding:5px 10px}
+  body:not(.connected) #btnDisc,body:not(.connected) #btnAdv0,body:not(.connected) #btnAdvF{display:none}
+  nav#tabs{position:fixed;left:0;right:0;bottom:0;z-index:1500;padding:0 0 env(safe-area-inset-bottom);border-top:1px solid var(--border);border-bottom:none;overflow:visible;gap:0;box-shadow:0 -2px 10px rgba(0,0,0,.15)}
+  nav#tabs button{flex:1 1 0;min-width:0;padding:5px 0 4px;font-size:10px;line-height:1.1;display:flex;flex-direction:column;align-items:center;gap:2px;border-bottom:none;border-top:2px solid transparent;position:relative}
+  nav#tabs button.active{border-top-color:var(--accent)}
+  nav#tabs button::before{content:attr(data-ic);font-size:19px;line-height:1.1}
+  nav#tabs .ll{display:none}nav#tabs .ls{display:inline}
+  nav#tabs .badge{position:absolute;top:1px;left:55%;margin:0;font-size:10px}
+  .app{padding-bottom:calc(50px + env(safe-area-inset-bottom))}
+  #toasts{bottom:calc(64px + env(safe-area-inset-bottom));width:calc(100% - 24px)}
+  .toast{text-align:center}
+  /* Liste → Detail */
+  #sec-chat .chatside,#sec-admin .chatside{width:100%;border-right:none}
+  #sec-chat:not(.mdet) .chatmain,#sec-admin:not(.mdet) .chatmain{display:none}
+  #sec-chat.mdet .chatside,#sec-admin.mdet .chatside{display:none}
+  .mback{display:inline-flex;font-size:18px;line-height:1;padding:4px 10px}
+  .chathead{flex-wrap:wrap;padding:8px 10px;gap:6px}
+  .msgs{padding:10px}.msg{max-width:88%}
+  .compose{padding:8px;gap:6px}
+  .citem{padding:11px 14px}
+  /* Tabellen */
+  th,td{padding:5px 6px}
+  #sec-live th:nth-child(3),#sec-live td:nth-child(3),#sec-live th:nth-child(6),#sec-live td:nth-child(6),#sec-live th:nth-child(7),#sec-live td:nth-child(7){display:none}
+  #sec-contacts th:nth-child(3),#sec-contacts td:nth-child(3),#sec-contacts th:nth-child(5),#sec-contacts td:nth-child(5),#sec-contacts th:nth-child(7),#sec-contacts td:nth-child(7){display:none}
+  #ctable button.sm{padding:5px 8px;margin:1px 0}
+  #ctable td:last-child{white-space:normal!important;min-width:86px}
+  #sec-contacts th:nth-child(2),#sec-contacts td:nth-child(2){display:none}
+  #sec-contacts td:nth-child(4){white-space:nowrap}
+  .toolbar{padding:6px 8px;gap:6px}
+  #fText,#cSearch{width:100%!important;flex:1 1 100%}
+  .statsbar{gap:8px 12px;padding:5px 10px}canvas#spark{display:none}
+  /* Karte */
+  .mapfab{display:block;position:absolute;top:10px;right:10px;z-index:600;box-shadow:0 2px 8px rgba(0,0,0,.3);background:var(--panel)}
+  .mappanel{display:none;top:52px;right:10px;left:auto;width:min(260px,calc(100% - 20px));max-height:calc(100% - 64px);overflow:auto}
+  #sec-map.mpanel .mappanel{display:block}
+  /* Karten, Formulare, Dialoge */
+  .scroll{padding:10px}
+  .cards{grid-template-columns:1fr;gap:10px}
+  .card{padding:12px}
+  .admf{grid-template-columns:1fr;gap:3px}
+  .kv{grid-template-columns:110px 1fr}
+  .admhead h2{font-size:17px}
+  .modal{align-items:flex-end;padding:0}
+  .mbox{max-width:none!important;border-radius:14px 14px 0 0;max-height:92vh;overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+  .detail{padding-bottom:70px}
+}
 </style>
 </head>
 <body>
@@ -160,13 +218,13 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
     </div>
   </header>
   <nav id="tabs">
-    <button data-tab="live" class="active">Live-Traffic</button>
-    <button data-tab="chat">Chat<span class="badge" id="unreadBadge" style="display:none"></span></button>
-    <button data-tab="map">Karte</button>
-    <button data-tab="contacts">Kontakte</button>
-    <button data-tab="admin">Repeater-Admin</button>
-    <button data-tab="tools">Netz-Tools</button>
-    <button data-tab="device">Gerät</button>
+    <button data-tab="live" class="active" data-ic="📶"><span class="ll">Live-Traffic</span><span class="ls">Live</span></button>
+    <button data-tab="chat" data-ic="💬"><span class="ll">Chat</span><span class="ls">Chat</span><span class="badge" id="unreadBadge" style="display:none"></span></button>
+    <button data-tab="map" data-ic="🗺️"><span class="ll">Karte</span><span class="ls">Karte</span></button>
+    <button data-tab="contacts" data-ic="👥"><span class="ll">Kontakte</span><span class="ls">Kontakte</span></button>
+    <button data-tab="admin" data-ic="🛠️"><span class="ll">Repeater-Admin</span><span class="ls">Admin</span></button>
+    <button data-tab="tools" data-ic="🧭"><span class="ll">Netz-Tools</span><span class="ls">Tools</span></button>
+    <button data-tab="device" data-ic="⚙️"><span class="ll">Gerät</span><span class="ls">Gerät</span></button>
   </nav>
   <main>
     <!-- LIVE -->
@@ -212,6 +270,7 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
     <!-- MAP -->
     <section id="sec-map">
       <div id="map"></div>
+      <button class="mapfab" id="btnMapPanel">⚙ Filter</button>
       <div class="mappanel">
         <div class="legend"><span><i style="background:#0969da"></i>Companion</span><span><i style="background:#2da44e;border-radius:2px"></i>Repeater</span><span><i style="background:#8250df"></i>Room</span><span><i style="background:#9a6700"></i>Sensor</span></div>
         <h4>Anzeigen</h4>
@@ -604,6 +663,7 @@ function onDisconnected(msg){
 }
 function setEnabled(on){
   ['#btnDisc','#btnAdv0','#btnAdvF','#btnPick','#btnReloadC','#btnStats','#btnSetName','#btnSetPos','#btnSetTx','#setLocAdv','#setAutoAdd','#btnTime','#btnSync','#btnReboot','#btnSetRegion','#btnClrRegion','#setHashMode','#btnSetHash','#btnSelfTel','#telBase','#telLoc','#telEnv'].forEach(s=>$(s).disabled=!on);
+  document.body.classList.toggle('connected',on);
   $('#btnUsb').disabled=on;$('#btnBle').disabled=on;$('#btnTcp').disabled=on;
   updateCompose();
 }
@@ -1188,7 +1248,7 @@ function renderConv(){
   const conv=S.active,box=$('#msgs');
   if(!conv){$('#chathead').innerHTML='<span class="muted">Kanal oder Kontakt wählen</span>';box.innerHTML='<div class="empty">💬</div>';updateCompose();return}
   if(curTab==='chat'&&S.unread[conv]){delete S.unread[conv];updateBadge()}
-  let head=`<span class="t">${esc(convTitle(conv))}</span>`;
+  let head=`<button class="sm mback" onclick="mBack('chat')" title="Zurück">‹</button><span class="t">${esc(convTitle(conv))}</span>`;
   if(conv.startsWith('dc:')){const d=S.disc[conv.slice(3)];
     head+=`<span class="muted">Öffentlicher Kanal aus dem Verzeichnis – nur mitlesen</span><span class="spacer"></span><button class="primary sm" id="btnAdoptCh" ${S.connected?'':'disabled'}>＋ Zum Gerät hinzufügen</button>`;
     setTimeout(()=>{const b=$('#btnAdoptCh');if(b&&d)b.onclick=()=>addChannelToDevice(d.name,unhex(d.secret))},0)}
@@ -1306,7 +1366,9 @@ function showPathOnMap(id){
     if(unres)toast(unres+' Hop(s) ohne bekannte Position übersprungen');
   },60);
 }
-function openChat(key){S.active='c:'+key.slice(0,12);switchTab('chat')}
+function openChat(key){S.active='c:'+key.slice(0,12);$('#sec-chat').classList.add('mdet');switchTab('chat')}
+const isMobile=()=>matchMedia('(max-width:700px)').matches;
+function mBack(t){$('#sec-'+t).classList.remove('mdet');if(t==='chat'){S.active=null;renderChat()}if(t==='admin'){ADM.key=null;renderAdmin()}}
 
 // ================= Kontakte-UI =================
 function renderContacts(){
@@ -1572,7 +1634,7 @@ function admNeighMap(){
 
 // ---- UI ----
 function admBusy(on,txt){ADM.busy=on;ADM.busyTxt=on?txt:'';const b=$('#admBusy');if(b){b.textContent=on?txt||'…':'';b.style.display=on?'':'none'}$$('#admMain button[data-a]').forEach(x=>x.disabled=on||!S.connected)}
-function openAdmin(key){ADM.key=key;switchTab('admin')}
+function openAdmin(key){ADM.key=key;$('#sec-admin').classList.add('mdet');switchTab('admin')}
 function renderAdminList(){
   const q=($('#admSearch').value||'').trim().toLowerCase();
   const list=[...S.contacts.values()].filter(c=>ADM_TYPES.includes(c.type)&&(!q||(c.name||'').toLowerCase().includes(q)||c.key.startsWith(q)))
@@ -1591,7 +1653,7 @@ function renderAdmin(){
   if(!s){el.innerHTML='<div class="empty">Links einen Repeater oder Room wählen.<br><span class="muted" style="font-size:13px">Anmelden mit Admin- oder Gast-Passwort. Alle Abfragen laufen über Funk – bitte sparsam nutzen.</span></div>';return}
   const c=S.contacts.get(s.key)||{},n=S.nodes.get(s.key)||{},st=s.status;
   const pw=store.get('mcw.admpw.'+s.key.slice(0,12),null);
-  let h=`<div class="admhead"><div><h2>${esc(admName(s.key))}</h2><div class="muted mono">${NTYPE[c.type]||''} · ${s.key.slice(0,16)}… ${s.logged?'· <b class="snr-g">angemeldet als '+esc(s.role)+'</b>':''}</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>`;
+  let h=`<div class="admhead"><button class="sm mback" onclick="mBack('admin')" title="Zurück">‹</button><div><h2>${esc(admName(s.key))}</h2><div class="muted mono">${NTYPE[c.type]||''} · ${s.key.slice(0,16)}… ${s.logged?'· <b class="snr-g">angemeldet als '+esc(s.role)+'</b>':''}</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>`;
   if(s.logged)h+=`<button data-a="logout">Abmelden</button>`;
   h+=`</div>`;
   if(!s.logged){
@@ -1659,7 +1721,7 @@ const CLI_SUGGEST=['ver','board','clock','clock sync','clkreboot','reboot','adve
     .flatMap(k=>['get '+k,'set '+k+' '])];
 $('#dlCli')||document.body.insertAdjacentHTML('beforeend','<datalist id="dlCli">'+CLI_SUGGEST.map(x=>`<option value="${esc(x)}">`).join('')+'</datalist>');
 const admHist=[];let admHi=-1;
-$('#admList').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;ADM.key=it.dataset.key;renderAdmin()});
+$('#admList').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;ADM.key=it.dataset.key;$('#sec-admin').classList.add('mdet');renderAdmin()});
 $('#admSearch').oninput=renderAdminList;
 $('#admMain').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;
   if(b.dataset.cli){$('#admCmd').value=b.dataset.cli;admSendCmd();return}
@@ -1936,7 +1998,7 @@ $('#btnPause').onclick=()=>{S.paused=!S.paused;$('#btnPause').textContent=S.paus
 $('#btnClear').onclick=()=>{S.packets=[];S.stats={total:0,byType:{}};minutes.clear();renderLive();renderStats();$('#detail').classList.remove('show')};
 $('#btnCsv').onclick=()=>exportPkts('csv');$('#btnJson').onclick=()=>exportPkts('json');
 $('#pkts').addEventListener('click',e=>{const tr=e.target.closest('tr');if(tr)showDetail(+tr.dataset.id)});
-$('#chatlist').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;S.active=it.dataset.conv;delete S.unread[S.active];renderChat();$('#msgIn').focus()});
+$('#chatlist').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;S.active=it.dataset.conv;delete S.unread[S.active];$('#sec-chat').classList.add('mdet');renderChat();if(!isMobile())$('#msgIn').focus()});
 $('#chatSearch').oninput=renderChat;
 $('#chatlist').addEventListener('click',e=>{if(e.target.closest('#btnAddCh')){e.stopPropagation();addChannelDialog()}},true);
 $('#msgs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
@@ -1944,7 +2006,7 @@ $('#msgs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
   else if(b.dataset.dm){openChat(b.dataset.dm);setTimeout(()=>$('#msgIn').focus(),50)}});
 $('#msgIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});$('#msgIn').oninput=updateLen;$('#btnSend').onclick=sendMsg;
 $$('.mf').forEach(x=>x.onchange=renderMap);['#mLabels','#mNeigh','#mAge'].forEach(s=>$(s).onchange=renderMap);
-$('#btnFit').onclick=fitAll;$('#btnClrPath').onclick=()=>pathLayer&&pathLayer.clearLayers();
+$('#btnFit').onclick=fitAll;$('#btnMapPanel').onclick=()=>$('#sec-map').classList.toggle('mpanel');$('#btnClrPath').onclick=()=>pathLayer&&pathLayer.clearLayers();
 $('#btnPick').onclick=()=>{picking=true;document.body.classList.add('picking');toast('Klicke auf die Karte, um die eigene Position zu setzen')};
 ['#cSearch'].forEach(s=>$(s).oninput=renderContacts);['#cType','#cHeard'].forEach(s=>$(s).onchange=renderContacts);
 $('#btnReloadC').onclick=async()=>{await loadContacts();toast(S.contacts.size+' Kontakte geladen','ok')};
@@ -1971,7 +2033,8 @@ $('#btnWipe').onclick=()=>{if(!confirm('Gespeicherte Knoten und Chatverläufe in
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderSoon()});
 setInterval(()=>{drawSpark();if(curTab==='contacts')renderContacts()},10000);
 if(navigator.serial)navigator.serial.addEventListener('disconnect',()=>{if(S.tr instanceof SerialTransport)onDisconnected('USB-Gerät getrennt')});
-if(!('serial' in navigator)){const w=$('#warn');w.style.display='block';w.textContent=window.isSecureContext?'Dein Browser unterstützt kein USB (Web Serial). Für USB/BLE bitte Chrome, Edge oder Opera am Desktop verwenden – TCP/WiFi über die Bridge funktioniert auch hier.':'Web Serial braucht einen sicheren Kontext: Seite über https:// oder http://localhost öffnen.'}
+{const hasS='serial' in navigator,hasB='bluetooth' in navigator;document.body.classList.toggle('noserial',!hasS);document.body.classList.toggle('noble',!hasB);
+  if(!hasS){const w=$('#warn');w.style.display='block';w.textContent=!window.isSecureContext?'Web Serial braucht einen sicheren Kontext: Seite über https:// oder http://localhost öffnen.':hasB?'USB (Web Serial) gibt es in diesem Browser nicht – verbinde per Bluetooth oder TCP/WiFi.':'Dieser Browser kann weder USB noch Bluetooth. Verbinden geht hier nur per TCP/WiFi (Bridge) – für USB/Bluetooth Chrome, Edge oder Opera nutzen (auf dem Handy: Chrome für Android).'}}
 renderStats();renderChat();buildRegions();renderDirInfo();setTimeout(()=>loadCatalog(),300);
 </script>
 </body>
