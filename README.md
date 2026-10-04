@@ -18,6 +18,8 @@ Browser-App für **MeshCore-Companions** per **USB** (Web Serial), **Bluetooth L
 - **Kontakte** – speichern, löschen, teilen, Pfad zurücksetzen, Entfernung
 - **Repeater-Admin** – Fernverwaltung von Repeatern und Room-Servern: Login mit Admin- oder Gast-Passwort, Status (Akku, Laufzeit, Uhr, Rauschen, Airtime, Paketzähler), Nachbarn mit SNR (auch auf der Karte), Zugriffsliste, Einstellungen als Formular, Uhr synchronisieren, Adverts, Neustart und ein Terminal für alle CLI-Befehle
 - **Telemetrie** – von Repeatern, Sensoren, Kontakten und dem eigenen Gerät (Spannung, Temperatur, Luftfeuchte, Luftdruck, GPS u. a.), Verlauf mit Diagrammen und CSV-Export, optional automatisch in großen Abständen, Freigaben für die eigene Telemetrie
+- **Netz-Tools** – Trace-Route mit SNR pro Strecke (auch auf der Karte), Repeater in der Nähe per Zero-Hop-Suche mit SNR hin/zurück
+- **Mobil** – eigene Handy-Ansicht mit Reiterleiste unten; auf Android per Bluetooth oder TCP/WiFi, auf iOS per TCP/WiFi
 - **Gerät** – Name, Position, TX-Leistung, Pfad-Hash-Größe, Batterie, Rauschpegel, Airtime, Paketstatistik, Neustart, Protokoll-Log
 
 ## Nutzung
