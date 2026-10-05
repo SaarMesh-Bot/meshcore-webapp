@@ -87,6 +87,7 @@ canvas#spark{height:34px;width:240px}
 .msg .meta{font-size:11px;color:var(--muted);margin-bottom:2px}
 .msg .from{font-weight:600;color:var(--accent2)}
 .msg .txt{white-space:pre-wrap;word-wrap:break-word}
+.msg .txt a{color:var(--accent2);text-decoration:underline;text-underline-offset:2px;word-break:break-all}.msg .txt a.chlink{text-decoration:none;font-weight:600;word-break:normal}.msg .txt a.chlink:hover{text-decoration:underline}
 .msg .st{font-size:11px;color:var(--muted);margin-top:3px;text-align:right}
 .rbtn{padding:0 6px;font-size:11px;line-height:16px;margin-left:4px;opacity:.6}.msg:hover .rbtn{opacity:1}
 .msg .st.ok{color:var(--accent)}.msg .st.fail{color:var(--warn)}
@@ -1060,6 +1061,32 @@ function parseSecret(str){
   try{const b=Uint8Array.from(atob(str),c=>c.charCodeAt(0));if(b.length===16||b.length===32)return b.slice(0,16)}catch{}
   return undefined;
 }
+// Links und #kanäle in Nachrichten anklickbar machen
+const LINK_RE=/(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+\.[^\s<>"]+|#[\p{L}\p{N}_-]{2,31})/gu;
+function linkify(text){
+  text=String(text??'');let out='',last=0;
+  for(const m of text.matchAll(LINK_RE)){
+    let t=m[0];const i=m.index;
+    if(t[0]==='#'){const pre=i?text[i-1]:' ';if(!/[\s(\[,;:!?"'„“]/.test(pre))continue}
+    else{const cnt=c=>t.split(c).length-1;for(;;){const l=t.slice(-1);if(/[.,;:!?\]'"]/.test(l)||(l===')'&&cnt(')')>cnt('(')))t=t.slice(0,-1);else break}}
+    out+=esc(text.slice(last,i));
+    if(t[0]==='#')out+=`<a href="#" class="chlink" data-ch="${esc(t.toLowerCase())}" title="Kanal ${esc(t.toLowerCase())} öffnen">${esc(t)}</a>`;
+    else{const href=t.startsWith('www.')?'https://'+t:t;out+=`<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(t)}</a>`}
+    last=i+t.length;
+  }
+  return out+esc(text.slice(last));
+}
+async function openHashChannel(tag){
+  const bare=tag.replace(/^#/,'').toLowerCase();
+  const ch=S.channels.find(c=>c.name.replace(/^#/,'').toLowerCase()===bare);
+  if(ch){S.active='ch:'+ch.idx;delete S.unread[S.active];$('#sec-chat').classList.add('mdet');renderChat();return}
+  const e=CAT.byName&&CAT.byName.get('#'+bare);
+  if(!S.connected)return toast('Kanal #'+bare+' ist nicht auf dem Gerät – zum Hinzufügen erst verbinden','err');
+  if(!confirm('Kanal #'+bare+' ist noch nicht auf deinem Gerät.\n\nAls Hashtag-Kanal hinzufügen?'+(e?'\n(Bekannt aus dem öffentlichen Verzeichnis)':'')))return;
+  await addChannelToDevice(e?e.name:'#'+bare,e?e.secret:MC.sha256(enc.encode('#'+bare)).slice(0,16));
+  $('#sec-chat').classList.add('mdet');
+}
+document.addEventListener('click',e=>{const a=e.target.closest('a.chlink');if(!a)return;e.preventDefault();openHashChannel(a.dataset.ch)});
 function addChannelDialog(){
   $('#chName').value='';$('#chSecret').value='';$('#chHint').textContent='';$('#chModal').hidden=false;setTimeout(()=>$('#chName').focus(),30);
   const upd=()=>{const n=$('#chName').value.trim();const e=CAT.byName.get(n.toLowerCase());
@@ -1323,7 +1350,7 @@ function renderConv(){
     const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(m.hops==='direkt'?'direkt':m.hops+' Hops'):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
     let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?'✓ gesendet'+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
       if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`}
-    return `<div class="msg ${m.dir}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${esc(m.text)}</div>${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
+    return `<div class="msg ${m.dir}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
   if(atBottom||arr.length<30)box.scrollTop=box.scrollHeight;
   updateCompose();
 }
