@@ -167,6 +167,11 @@ table.dash td{white-space:nowrap}table.dash tbody tr{cursor:pointer}
 #btnInstall[hidden]{display:none}
 .citem .mute{opacity:.6}
 a{color:var(--accent2)}
+.hops{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:8px 0;font-size:13px}.hops .arr{color:var(--muted)}
+.hop{display:inline-flex;gap:4px;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:2px 4px 2px 9px}.hop.me{padding:2px 9px;color:var(--muted)}.hop button{padding:0 5px;line-height:16px;border-radius:10px}
+.pathbar{position:absolute;top:10px;left:56px;right:10px;z-index:700;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;background:var(--panel);border:2px solid #bf3989;border-radius:8px;padding:7px 10px;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,.3)}.pathbar[hidden]{display:none}
+body.pathpick .mappanel,body.pathpick .mapfab{display:none!important}
+.admpath{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin:-6px 0 12px}
 a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{color:var(--accent2);text-decoration:underline}
 .mback,.mapfab,nav#tabs .ls{display:none}
 @media (max-width:700px){
@@ -305,6 +310,7 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
     <section id="sec-map">
       <div id="map"></div>
       <button class="mapfab" id="btnMapPanel">⚙ Filter</button>
+      <div class="pathbar" id="pathBar" hidden></div>
       <div class="mappanel">
         <div class="legend"><span><i style="background:#0969da"></i>Companion</span><span><i style="background:#2da44e;border-radius:2px"></i>Repeater</span><span><i style="background:#8250df"></i>Room</span><span><i style="background:#9a6700"></i>Sensor</span></div>
         <h4>Anzeigen</h4>
@@ -441,6 +447,13 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
     <div class="frm"><input id="scanPaste" placeholder="oder meshcore://… Link einfügen" autocomplete="off"><button id="scanOk">Übernehmen</button></div>
     <p class="muted" style="font-size:12px">Erkennt Kanal- und Kontakt-QR-Codes der MeshCore-App und dieser Webapp.</p>
     <div class="mrow"><span class="spacer"></span><button id="scanCancel">Schließen</button></div>
+  </div>
+</div>
+<div class="modal" id="pathModal" hidden>
+  <div class="mbox" style="max-width:560px;max-height:92vh;overflow:auto">
+    <h3 id="pathTitle">Pfad festlegen</h3>
+    <div id="pathBody"></div>
+    <div class="mrow"><button id="peCancel">Abbrechen</button><span class="spacer"></span><button id="peFlood" title="Gespeicherten Pfad löschen – die nächste Nachricht sucht den Weg per Flood">Flood</button><button class="primary" id="peSave">Speichern</button></div>
   </div>
 </div>
 <div class="modal" id="nodeModal" hidden>
@@ -1416,7 +1429,7 @@ function renderConv(){
   if(conv.startsWith('dc:')){const d=S.disc[conv.slice(3)];
     head+=`<span class="muted">Öffentlicher Kanal aus dem Verzeichnis – nur mitlesen</span><span class="spacer"></span>${qrb}<button class="primary sm" id="btnAdoptCh" ${S.connected?'':'disabled'}>＋ Zum Gerät hinzufügen</button>`;
     setTimeout(()=>{const b=$('#btnAdoptCh');if(b&&d)b.onclick=()=>addChannelToDevice(d.name,unhex(d.secret))},0)}
-  else if(conv.startsWith('c:')){const c=findContactByPrefix(conv.slice(2));if(c){const pd=pathDesc(c.outPathLen,c.outPath);head+=`<span class="muted">${NTYPE[c.type]} · Pfad: ${pd.flood?'Flood':pd.hops.length?pd.hops.join('→'):'direkt'}</span><span class="spacer"></span>${bell}<button class="sm" onclick="openNode('${c.key}')" title="Details">ℹ</button>${qrb}<button class="sm" onclick="resetPath('${c.key}')">Pfad zurücksetzen</button>`}}
+  else if(conv.startsWith('c:')){const c=findContactByPrefix(conv.slice(2));if(c){const pd=pathDesc(c.outPathLen,c.outPath);head+=`<span class="muted">${NTYPE[c.type]} · Pfad: ${pd.flood?'Flood':pd.hops.length?pd.hops.join('→'):'direkt'}</span><span class="spacer"></span>${bell}<button class="sm" onclick="openNode('${c.key}')" title="Details">ℹ</button>${qrb}<button class="sm" onclick="openPathEditor('${c.key}')" title="Pfad festlegen">✎ Pfad</button><button class="sm" onclick="resetPath('${c.key}')">Pfad zurücksetzen</button>`}}
   else{const ch=S.channels.find(c=>c.idx==conv.slice(3));const cur=chanRegion(ch);
     const names=new Set(knownRegionNames());if(cur&&cur!=='-')names.add(cur);
     let opts=`<option value="">Standard (${S.scope&&S.scope.name?'#'+esc(S.scope.name):'keine Region'})</option><option value="-">Ohne Region (ungefiltert)</option>`;
@@ -1498,7 +1511,7 @@ function renderMap(){
     const ls=lastSeen(n);if(age&&ls&&Date.now()-ls>age*1000)continue;if(age&&!ls)continue;
     const old=ls&&Date.now()-ls>86400000;seen.add(n.key);cnt++;
     let m=markers.get(n.key);
-    if(!m){m=L.marker([n.lat,n.lon],{icon:icon(n,old)}).addTo(map);m.bindPopup('');m.on('popupopen',()=>m.setPopupContent(popupHtml(n)));markers.set(n.key,m)}
+    if(!m){m=L.marker([n.lat,n.lon],{icon:icon(n,old)}).addTo(map);m.bindPopup('');m.on('popupopen',()=>{if(PE.picking){m.closePopup();return}m.setPopupContent(popupHtml(n))});m.on('click',()=>{const nn=S.nodes.get(m._mk);if(nn&&pathPickNode(nn))m.closePopup()});m._mk=n.key;markers.set(n.key,m)}
     else{m.setLatLng([n.lat,n.lon]);m.setIcon(icon(n,old))}
     m.unbindTooltip();if(labels)m.bindTooltip(esc(n.name||n.key.slice(0,6)),{permanent:true,direction:'right',offset:[10,0],className:'lbl'});
   }
@@ -1653,7 +1666,8 @@ async function admLogin(key,pwArg,quiet){
     admLog(s,'ok','Angemeldet als '+s.role);if(!quiet)toast('Angemeldet bei '+admName(s.key)+' ('+s.role+')','ok');rdSet(s.key,{role:s.role});
     renderAdmin();
     await admStatus(true,s.key);
-  }catch(e){admLog(s,'err','Login: '+e.message);toast((quiet?admName(s.key)+': ':'')+'Login fehlgeschlagen: '+e.message,'err')}
+  }catch(e){admLog(s,'err','Login: '+e.message);toast((quiet?admName(s.key)+': ':'')+'Login fehlgeschlagen: '+e.message,'err');
+    const cc=S.contacts.get(s.key);if(cc&&cc.outPathLen===0xFF&&!quiet)admLog(s,'sys','Tipp: Mit „✎ Pfad festlegen“ oben den Weg über bekannte Repeater vorgeben – dann geht die Anfrage gezielt statt per Flood.')}
   finally{admBusy(false);renderAdmin()}
 }
 async function admLogout(){
@@ -1821,7 +1835,7 @@ function renderAdmin(){
   const pw=store.get('mcw.admpw.'+s.key.slice(0,12),null);
   let h=`<div class="admhead"><button class="sm mback" onclick="mBack('admin')" title="Zurück">‹</button><div><h2>${esc(admName(s.key))}</h2><div class="muted mono">${NTYPE[c.type]||''} · ${s.key.slice(0,16)}… ${s.logged?'· <b class="snr-g">angemeldet als '+esc(s.role)+'</b>':''}</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>`;
   if(s.logged)h+=`<button data-a="logout">Abmelden</button>`;
-  h+=`</div>`;
+  h+=`</div><div class="admpath"><span class="muted">Pfad:</span> <span>${pathText(c.key?c:null)}</span><button class="sm" data-a="path">✎ Pfad festlegen</button></div>`;
   if(!s.logged){
     h+=`<div class="card" style="max-width:440px"><h3>Anmelden</h3>
       <div class="frm"><input id="admPw" type="password" placeholder="Passwort (leer = Gast ohne Passwort)" autocomplete="off" value="${esc(pw||'')}"><button class="primary" data-a="login">Anmelden</button></div>
@@ -1897,7 +1911,7 @@ $('#admMain').addEventListener('click',e=>{const b=e.target.closest('button');
   if(b.dataset.dash){e.stopPropagation();dashRun(b.dataset.dash);return}
   if(b.dataset.reg){const n=b.dataset.n,r=b.dataset.reg;admRegionCmd('region '+r+' '+n,r==='remove'?'Region #'+n+' vom Repeater entfernen?':null);return}
   const a=b.dataset.a,nm=admCur()?admName(admCur().key):'';
-  ({login:()=>admLogin(),logout:admLogout,status:()=>admStatus(),dashrun:()=>dashRun(),anon:admAnon,regload:admRegions,regsave:()=>admRegionCmd('region save'),
+  ({path:()=>openPathEditor(admCur().key),login:()=>admLogin(),logout:admLogout,status:()=>admStatus(),dashrun:()=>dashRun(),anon:admAnon,regload:admRegions,regsave:()=>admRegionCmd('region save'),
     regadd:()=>{const n=($('#regNew').value||'').trim().replace(/^#/,'').toLowerCase(),p=$('#regParent').value;if(!/^[\p{L}\p{N}_-]{1,30}$/u.test(n))return toast('Regionsname: Buchstaben, Ziffern, - und _','err');admRegionCmd('region put '+n+(p&&p!=='*'?' '+p:''))},neigh:admNeighbours,neighmap:admNeighMap,acl:admAcl,info:()=>admOwner(),loadset:admLoadSettings,saveset:admSaveSettings,send:admSendCmd,
     clock:()=>admCmd('clock sync'),adv0:()=>admCmd('advert.zerohop'),advf:()=>admCmd('advert'),clrstats:()=>admCmd('clear stats',{confirmMsg:'Statistik von „'+nm+'“ zurücksetzen?'}),
     reboot:()=>admRebootCmd(nm)}[a]||(()=>{}))()});
@@ -2364,6 +2378,7 @@ function renderNode(){
   if(c&&ADM_TYPES.includes(c.type))b+=`<button class="sm" data-nd="admin">🛠 Admin</button>`;
   if(c||telN)b+=`<button class="sm" data-nd="tel">📊 Telemetrie${telN?' ('+telN+')':''}</button>`;
   if(c&&c.saved&&(c.type===1||c.type===2||c.type===3))b+=`<button class="sm" data-nd="trace">📍 Trace</button>`;
+  if(c&&c.saved)b+=`<button class="sm" data-nd="path">✎ Pfad</button>`;
   if(hasPos(n))b+=`<button class="sm" data-nd="map">🗺 Karte</button>`;
   b+=`<button class="sm" data-nd="qr">⧉ QR-Code</button>`;
   if(c&&!c.saved)b+=`<button class="sm primary" data-nd="add">＋ Speichern</button>`;
@@ -2373,7 +2388,7 @@ function renderNode(){
 $('#nodeModal').addEventListener('click',e=>{const b=e.target.closest('[data-nd]');if(!b)return;const k=NODEV.key,a=b.dataset.nd;
   const close=()=>{$('#nodeModal').hidden=true};
   ({copy:()=>copyText(k),chat:()=>{close();openChat(k)},admin:()=>{close();openAdmin(k)},tel:()=>{close();openTelemetry(k)},trace:()=>{close();traceTo(k)},
-    map:()=>{close();zoomTo(k)},qr:()=>qrNode(k),add:async()=>{await addContact(k);renderNode()}}[a]||(()=>{}))()});
+    map:()=>{close();zoomTo(k)},qr:()=>qrNode(k),path:()=>{close();openPathEditor(k)},add:async()=>{await addContact(k);renderNode()}}[a]||(()=>{}))()});
 $('#nodeClose').onclick=()=>{$('#nodeModal').hidden=true};
 
 // ================= Kartenebene: eigener Empfang =================
@@ -2671,6 +2686,90 @@ $('#setNotify').onchange=async e=>{let v=e.target.value;
   NOTIF.mode=v;e.target.value=v;store.set('mcw.notify',v)};
 $('#setSound').checked=!!NOTIF.sound;$('#setSound').onchange=e=>{NOTIF.sound=e.target.checked;store.set('mcw.sound',NOTIF.sound);if(NOTIF.sound)beep()};
 $('#setCs').value=CS.base();$('#setCs').onchange=e=>{const v=e.target.value.trim();if(v&&!/^https?:\/\//.test(v)){toast('Adresse muss mit https:// beginnen','err');return}store.set('mcw.corescope',v);toast(v?'CoreScope-Links zeigen auf '+v:'CoreScope-Links ausgeblendet','ok')};
+
+// ================= Pfad zu einem Kontakt festlegen =================
+// Der Pfad ist die Liste der Repeater vom eigenen Companion bis kurz vor das Ziel (erster Eintrag = direkter Nachbar).
+const PE={key:null,hops:[],hs:1,picking:false};
+const peNode=h=>{const l=nodesByHash(h).filter(n=>n.type===2||n.type===3);return l.length===1?l[0]:l.length?l:null};
+function pathText(c){if(!c)return '–';const pd=pathDesc(c.outPathLen,c.outPath);return pd.flood?'unbekannt (Flood)':pd.hops.length?pd.hops.map(x=>esc(nodeName(x)||x)).join(' → '):'direkt (Nachbar)'}
+function openPathEditor(key){
+  const c=S.contacts.get(key);if(!c)return toast('Nur für gespeicherte Kontakte','err');
+  const pd=pathDesc(c.outPathLen,c.outPath);
+  PE.key=key;PE.hops=pd.flood?[]:pd.hops.slice();PE.hs=pd.hops.length?pd.hops[0].length/2:Math.min(3,((S.dev&&S.dev.pathHashMode)||0)+1);
+  $('#pathModal').hidden=false;renderPathEditor();
+}
+function advertPath(key){const n=S.nodes.get(key);return n&&Array.isArray(n.path)&&n.path.length?n.path.slice().reverse():null}
+function renderPathEditor(){
+  const key=PE.key,c=S.contacts.get(key);if(!c)return;
+  $('#pathTitle').textContent='Pfad zu „'+(c.name||key.slice(0,8))+'“';
+  const chip=(h,i)=>{const n=peNode(h),nm=n&&!Array.isArray(n)?n.name:Array.isArray(n)?n.map(x=>x.name).join(' / ')+' (mehrdeutig)':'unbekannt';
+    return `<span class="hop" title="${esc(nm)}"><b class="mono">${h}</b> ${esc(nm)} <button class="sm" data-pe="del" data-i="${i}" title="Entfernen">✕</button></span>`};
+  const reps=[...S.nodes.values()].filter(n=>(n.type===2||n.type===3)&&n.key!==key);
+  const last=PE.hops.length?peNode(PE.hops[PE.hops.length-1]):null,ref=last&&!Array.isArray(last)&&hasPos(last)?last:hasPos(S.self)?S.self:null;
+  reps.sort((a,b)=>ref&&hasPos(a)&&hasPos(b)?hav(ref.lat,ref.lon,a.lat,a.lon)-hav(ref.lat,ref.lon,b.lat,b.lon):(a.name||'').localeCompare(b.name||''));
+  const ap=advertPath(key),maxHops=Math.floor(64/PE.hs);
+  $('#pathBody').innerHTML=`<p class="muted" style="font-size:12px;margin-top:0">Gespeichert: ${pathText(c)}</p>
+    <div class="hops"><span class="hop me">Ich</span>${PE.hops.map((h,i)=>'<span class="arr">→</span>'+chip(h,i)).join('')}<span class="arr">→</span><span class="hop me">${esc(c.name||'Ziel')}</span></div>
+    <div class="frm"><select id="peAdd"><option value="">+ Repeater hinzufügen …</option>${reps.map(n=>`<option value="${n.key}">${esc(n.name||'?')} (${n.key.slice(0,PE.hs*2)})${ref&&hasPos(n)?' · '+hav(ref.lat,ref.lon,n.lat,n.lon).toFixed(1)+' km':''}</option>`).join('')}</select>
+      <input id="peHex" placeholder="oder Kennung, z. B. 6a" class="mono" style="max-width:150px" autocomplete="off"><button class="sm" data-pe="hex">＋</button></div>
+    <div class="frm"><button class="sm" data-pe="map">🗺 Auf der Karte anklicken</button>${ap?`<button class="sm" data-pe="adv" title="Umgekehrter Weg, über den das letzte Advert ankam">↺ Weg des letzten Adverts (${ap.length} Hop${ap.length>1?'s':''})</button>`:''}<button class="sm" data-pe="clear"${PE.hops.length?'':' disabled'}>Leeren</button>
+      <label class="muted" style="font-size:12px;display:flex;gap:4px;align-items:center">Kennung <select id="peHs">${[1,2,3].map(v=>`<option value="${v}"${v===PE.hs?' selected':''}>${v} Byte</option>`).join('')}</select></label></div>
+    <p class="muted" style="font-size:12px">Reihenfolge von dir aus: zuerst der Repeater, den dein Companion direkt erreicht, zuletzt der, der das Ziel hört. Ohne Einträge gilt das Ziel als direkter Nachbar. „Flood“ lässt den Weg neu suchen.${PE.hops.length>maxHops?` <b class="snr-r">Maximal ${maxHops} Hops.</b>`:''}</p>`;
+}
+$('#pathModal').addEventListener('click',e=>{const b=e.target.closest('[data-pe]');if(!b||b.disabled)return;const a=b.dataset.pe;
+  if(a==='del'){PE.hops.splice(+b.dataset.i,1)}
+  else if(a==='hex'){const v=($('#peHex').value||'').trim().toLowerCase().replace(/[^0-9a-f,\s>→-]/g,'');const hs=v.split(/[\s,>→-]+/).filter(Boolean);
+    if(!hs.length)return;for(const h of hs){if(h.length!==PE.hs*2)return toast('Jede Kennung braucht '+PE.hs*2+' Hex-Zeichen','err')}PE.hops.push(...hs)}
+  else if(a==='adv'){const ap=advertPath(PE.key);if(ap){PE.hs=ap[0].length/2;PE.hops=ap}}
+  else if(a==='clear')PE.hops=[];
+  else if(a==='map'){startPathPick();return}
+  renderPathEditor()});
+$('#pathModal').addEventListener('change',e=>{
+  if(e.target.id==='peAdd'&&e.target.value){PE.hops.push(e.target.value.slice(0,PE.hs*2));renderPathEditor()}
+  else if(e.target.id==='peHs'){const hs=+e.target.value;PE.hops=PE.hops.map(h=>{const n=peNode(h);return n&&!Array.isArray(n)?n.key.slice(0,hs*2):h.slice(0,hs*2).padEnd(hs*2,'0')});PE.hs=hs;renderPathEditor()}});
+document.addEventListener('keydown',e=>{if(e.target.id==='peHex'&&e.key==='Enter'){e.preventDefault();$('#pathModal [data-pe=hex]').click()}});
+async function savePath(){
+  const c=S.contacts.get(PE.key);if(!c||!c.raw)return;
+  if(PE.hops.some(h=>h.length!==PE.hs*2))return toast('Kennungen passen nicht zur gewählten Byte-Größe','err');
+  if(PE.hops.length*PE.hs>64)return toast('Pfad zu lang','err');
+  const f=unhex(c.raw);f[0]=CMD.ADD_UPDATE_CONTACT;const op=new Uint8Array(64);op.set(unhex(PE.hops.join('')));
+  f[35]=((PE.hs-1)<<6)|PE.hops.length;f.set(op,36);
+  try{await request(f);c.saved=true;await refreshContact(PE.key);$('#pathModal').hidden=true;
+    toast('Pfad gespeichert: '+(PE.hops.length?PE.hops.length+' Hop'+(PE.hops.length>1?'s':''):'direkt'),'ok');
+    const s=ADM.sess.get(PE.key);if(s)admLog(s,'sys','Pfad festgelegt: '+(PE.hops.length?PE.hops.join(' → '):'direkt'));renderAll();if(curTab==='admin')renderAdmin();renderNode()}
+  catch(e){toast('Pfad speichern fehlgeschlagen: '+e.message,'err')}
+}
+$('#peSave').onclick=savePath;
+$('#peFlood').onclick=async()=>{await resetPath(PE.key);$('#pathModal').hidden=true;if(curTab==='admin')renderAdmin()};
+$('#peCancel').onclick=()=>{$('#pathModal').hidden=true};
+// ---- Auswahl auf der Karte ----
+function startPathPick(){
+  PE.picking=true;PE.back=curTab;$('#pathModal').hidden=true;switchTab('map');$('#sec-map').classList.remove('mpanel');
+  setTimeout(()=>{renderPathPick();toast('Repeater auf der Karte in Reihenfolge anklicken – von dir aus')},120);
+}
+function renderPathPick(){
+  const bar=$('#pathBar');document.body.classList.toggle('pathpick',PE.picking);if(!PE.picking){bar.hidden=true;return}
+  const c=S.contacts.get(PE.key)||{};bar.hidden=false;
+  bar.innerHTML=`<b>Pfad zu ${esc(c.name||'?')}:</b> <span>Ich → ${PE.hops.map(h=>{const n=peNode(h);return esc(n&&!Array.isArray(n)?n.name:h)}).join(' → ')}${PE.hops.length?' → ':''}${esc(c.name||'Ziel')}</span><span class="spacer"></span>
+    <button class="sm" data-pp="undo"${PE.hops.length?'':' disabled'}>↶</button><button class="sm" data-pp="cancel">Abbrechen</button><button class="sm primary" data-pp="done">Fertig</button>`;
+  if(!map||!pathLayer)return;pathLayer.clearLayers();
+  const pts=[];if(hasPos(S.self))pts.push([S.self.lat,S.self.lon]);
+  PE.hops.forEach(h=>{const n=peNode(h);if(n&&!Array.isArray(n)&&hasPos(n))pts.push([n.lat,n.lon])});
+  const t=S.nodes.get(PE.key);if(hasPos(t))pts.push([t.lat,t.lon]);
+  if(pts.length>=2)L.polyline(pts,{color:'#bf3989',weight:4,dashArray:'8 6'}).addTo(pathLayer);
+  if(hasPos(t))L.circleMarker([t.lat,t.lon],{radius:10,color:'#bf3989',fillOpacity:.25}).bindTooltip('Ziel: '+esc(t.name||''),{permanent:true,direction:'top'}).addTo(pathLayer);
+}
+function pathPickNode(n){
+  if(!PE.picking)return false;
+  if(!(n.type===2||n.type===3)){toast('Nur Repeater oder Rooms können weiterleiten','err');return true}
+  if(n.key===PE.key){toast('Das ist das Ziel selbst');return true}
+  PE.hops.push(n.key.slice(0,PE.hs*2));renderPathPick();return true;
+}
+$('#pathBar').addEventListener('click',e=>{const b=e.target.closest('button[data-pp]');if(!b)return;const a=b.dataset.pp;
+  if(a==='undo'){PE.hops.pop();renderPathPick();return}
+  PE.picking=false;renderPathPick();pathLayer&&pathLayer.clearLayers();
+  if(PE.back&&PE.back!=='map')switchTab(PE.back);
+  if(a==='done'){$('#pathModal').hidden=false;renderPathEditor()}});
 
 // ================= Events =================
 PT.forEach(t=>{if(!/^T1/.test(t)){const o=document.createElement('option');o.textContent=t;$('#fType').appendChild(o)}});
