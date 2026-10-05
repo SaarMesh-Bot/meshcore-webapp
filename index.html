@@ -130,6 +130,8 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
 #sec-admin .chatmain{overflow:hidden}
 .tseries{margin-top:10px}.tsname{font-size:12px;color:var(--muted)}.tspark{width:100%;height:60px;display:block;background:var(--panel2);border-radius:6px}
 .tsrange{display:flex;justify-content:space-between;gap:6px;font-size:11px;margin-top:2px}
+.cnt{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;background:var(--accent2);color:#fff;font-size:11px;font-weight:600}
+.obs{font-size:12px}.obs tr[data-obs]{cursor:pointer}.obs tr.sel td{background:color-mix(in srgb,var(--accent2) 15%,transparent)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:3000;padding:16px}
 .modal[hidden]{display:none}
 .mbox{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;width:100%;max-width:440px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
@@ -235,6 +237,7 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
         <input id="fText" placeholder="Suche (Name, Hash, Info)" style="width:200px">
         <button id="btnPause">⏸ Pause</button>
         <button id="btnClear">Leeren</button>
+        <button id="btnGroup" title="Gleiche Pakete, die über verschiedene Wege ankommen, zu einer Zeile zusammenfassen">⧉ Nach Hash gruppieren</button>
         <div class="spacer"></div>
         <button id="btnCsv" class="sm">CSV</button>
         <button id="btnJson" class="sm">JSON</button>
@@ -1126,7 +1129,10 @@ function parsePacket(raw){
   const pl=raw[o++];p.plByte=pl;p.hs=(pl>>6)+1;p.hopCount=pl&63;p.path=[];
   for(let i=0;i<p.hopCount;i++)p.path.push(hex(raw.slice(o+i*p.hs,o+(i+1)*p.hs)));
   o+=p.hopCount*p.hs;if(o>raw.length)throw new Error('kaputt');
-  p.payload=raw.slice(o);decodePayload(p);return p;
+  p.payload=raw.slice(o);
+  const hb=new Uint8Array(p.payload.length+(p.ptype===9?2:1));hb[0]=p.ptype;if(p.ptype===9)hb[1]=pl;hb.set(p.payload,p.ptype===9?2:1);
+  p.phash=hex(MC.sha256(hb).slice(0,8));
+  decodePayload(p);return p;
 }
 function decodePayload(p){
   const b=p.payload,d=p.dec={};
@@ -1201,12 +1207,27 @@ function rowHtml(p){
   const ty=PT[p.ptype];
   return `<td class="mono">${tfmt(p.t)}</td><td><span class="pt pt-${ty}">${ty}</span></td><td class="mono">${ROUTES[p.route]}${p.region?' '+regionTag(p.region,p.regionGuess):p.tc?' <span class="hash" title="unbekannte Region">?'+p.tc[0].toString(16).padStart(4,'0')+'</span>':''}</td><td>${pathHtml(p)}</td><td class="mono ${snrCls(p.snr)}">${p.snr.toFixed(1)}</td><td class="mono">${p.rssi}</td><td class="mono">${p.len}</td><td>${pktInfo(p)}</td>`;
 }
+let groupMode=store.get('mcw.groupHash',false);
+const obsOf=p=>p.phash?S.packets.filter(x=>x.phash===p.phash):[p];
+function groupRowHtml(g){
+  const p=g[0],best=g.reduce((a,x)=>x.snr>a.snr?x:a,g[0]),ty=PT[p.ptype],paths=new Set(g.map(x=>x.path.join('>')));
+  const cnt=g.length>1?` <span class="cnt" title="${g.length}× empfangen über ${paths.size} Weg${paths.size>1?'e':''}">×${g.length}</span>`:'';
+  return `<td class="mono">${tfmt(p.t)}</td><td><span class="pt pt-${ty}">${ty}</span>${cnt}</td><td class="mono">${ROUTES[p.route]}${p.region?' '+regionTag(p.region,p.regionGuess):p.tc?' <span class="hash" title="unbekannte Region">?'+p.tc[0].toString(16).padStart(4,'0')+'</span>':''}</td><td>${pathHtml(best)}${paths.size>1?` <span class="muted" style="font-size:11px">+${paths.size-1} Weg${paths.size>2?'e':''}</span>`:''}</td><td class="mono ${snrCls(best.snr)}" title="bester Empfang">${best.snr.toFixed(1)}</td><td class="mono">${best.rssi}</td><td class="mono">${p.len}</td><td>${pktInfo(p)}</td>`;
+}
+function groups(list){const m=new Map();for(const p of list){const k=p.phash||('#'+p.id);let g=m.get(k);if(!g){g=[];m.set(k,g)}g.push(p)}return [...m.values()]}
+let grpT=null;function renderLiveSoon(){if(!grpT)grpT=setTimeout(()=>{grpT=null;renderLive()},300)}
 function prependRow(p){
+  if(groupMode){renderLiveSoon();return}
   const tb=$('#pkts'),tr=document.createElement('tr');tr.dataset.id=p.id;tr.innerHTML=rowHtml(p);tb.prepend(tr);
   while(tb.children.length>MAX_ROWS)tb.lastChild.remove();$('#liveEmpty').style.display='none';
 }
 function renderLive(){
-  const tb=$('#pkts');const list=S.packets.filter(passFilter).slice(-MAX_ROWS).reverse();
+  const tb=$('#pkts');$('#btnGroup').classList.toggle('blue',groupMode);
+  if(groupMode){
+    const gs=groups(S.packets.filter(passFilter)).slice(-MAX_ROWS).reverse();
+    tb.innerHTML=gs.map(g=>`<tr data-id="${g[0].id}"${g.some(p=>p.id===S.selPkt)?' class="sel"':''}>${groupRowHtml(g)}</tr>`).join('');
+    $('#liveEmpty').style.display=S.packets.length?'none':'';return}
+  const list=S.packets.filter(passFilter).slice(-MAX_ROWS).reverse();
   tb.innerHTML=list.map(p=>`<tr data-id="${p.id}"${S.selPkt===p.id?' class="sel"':''}>${rowHtml(p)}</tr>`).join('');
   $('#liveEmpty').style.display=S.packets.length?'none':'';
 }
@@ -1214,6 +1235,7 @@ function showDetail(id){
   const p=S.packets.find(x=>x.id===id);if(!p)return;S.selPkt=id;
   $$('#pkts tr').forEach(tr=>tr.classList.toggle('sel',+tr.dataset.id===id));
   const d=p.dec||{},kv=[['Zeit',new Date(p.t).toLocaleString('de-DE')],['Typ',PT[p.ptype]+' (v'+(p.ver+1)+')'],['Route',ROUTES[p.route]],['SNR / RSSI',p.snr.toFixed(2)+' dB / '+p.rssi+' dBm'],['Größe',p.len+' Byte'],['Hash-Größe',p.hs+' Byte']];
+  if(p.phash)kv.push(['Paket-Hash','<span class="mono">'+p.phash+'</span>']);
   if(p.tc)kv.push(['Region',p.region?regionTag(p.region,p.regionGuess)+(p.regionGuess?' <span class="muted">(Verzeichnis, unsicher)</span>':''):'unbekannt (Code '+p.tc[0].toString(16).padStart(4,'0')+')']);
   if(d.chName&&(p.ptype===5||p.ptype===6)){kv.push(['Kanal',esc(chTitle(d.chName))+(d.chSrc==='dir'?' <span class="muted">(öffentliches Verzeichnis)</span>':'')]);
     if(d.ts)kv.push(['Gesendet',new Date(d.ts*1000).toLocaleString('de-DE')]);if(d.from)kv.push(['Absender',esc(d.from)]);if(d.text!=null)kv.push(['Text',esc(d.text)])}
@@ -1226,6 +1248,9 @@ function showDetail(id){
   const canMap=(p.hopCount&&p.ptype!==9)||hasPos(d);
   $('#detail').innerHTML=`<h3>Paket #${p.id} <button class="sm" style="float:right" onclick="$('#detail').classList.remove('show')">✕</button></h3><div class="kv">${kv.map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('')}</div>
    ${canMap?`<button class="blue sm" onclick="showPathOnMap(${p.id})">🗺 Pfad auf Karte</button>`:''}
+   ${(()=>{const g=obsOf(p);if(g.length<2)return '';const t0=g[0].t;
+     return `<h4 class="muted" style="margin:12px 0 4px;font-size:12px">${g.length}× empfangen</h4><table class="obs"><thead><tr><th>+Zeit</th><th>Pfad</th><th>SNR</th><th>RSSI</th></tr></thead><tbody>`+
+       g.map(x=>`<tr data-obs="${x.id}"${x.id===p.id?' class="sel"':''}><td class="mono">+${((x.t-t0)/1000).toFixed(1)} s</td><td>${pathHtml(x)}</td><td class="mono ${snrCls(x.snr)}">${x.snr.toFixed(1)}</td><td class="mono">${x.rssi}</td></tr>`).join('')+'</tbody></table>'})()}
    <h4 class="muted" style="margin:12px 0 4px;font-size:12px">Rohdaten</h4><div class="hex">${hex(p.raw).match(/.{1,2}/g).join(' ')}</div>`;
   $('#detail').classList.add('show');
 }
@@ -1246,7 +1271,7 @@ function drawSpark(){
   g.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');vals.forEach((v,i)=>{const h=Math.max(v?2:0,v/mx*(c.height-2));g.fillRect(i*w,c.height-h,w-1,h)});
 }
 function exportPkts(kind){
-  const rows=S.packets.map(p=>({zeit:new Date(p.t).toISOString(),typ:PT[p.ptype],route:ROUTES[p.route],hops:p.hopCount,pfad:p.path.join(' '),snr:p.snr,rssi:p.rssi,laenge:p.len,name:p.dec.name||'',key:p.dec.key||'',lat:p.dec.lat??'',lon:p.dec.lon??'',hex:hex(p.raw)}));
+  const rows=S.packets.map(p=>({zeit:new Date(p.t).toISOString(),hash:p.phash||'',typ:PT[p.ptype],route:ROUTES[p.route],hops:p.hopCount,pfad:p.path.join(' '),snr:p.snr,rssi:p.rssi,laenge:p.len,name:p.dec.name||'',key:p.dec.key||'',lat:p.dec.lat??'',lon:p.dec.lon??'',hex:hex(p.raw)}));
   let data,mime,ext;
   if(kind==='json'){data=JSON.stringify(rows,null,1);mime='application/json';ext='json'}
   else{const h=Object.keys(rows[0]||{zeit:1});data=[h.join(';')].concat(rows.map(r=>h.map(k=>String(r[k]).replace(/;/g,',')).join(';'))).join('\n');mime='text/csv';ext='csv'}
@@ -2023,6 +2048,9 @@ $('#btnAdv0').onclick=()=>advert(false);$('#btnAdvF').onclick=()=>advert(true);
 ['#fType','#fRoute'].forEach(s=>$(s).onchange=renderLive);$('#fText').oninput=renderLive;
 $('#btnPause').onclick=()=>{S.paused=!S.paused;$('#btnPause').textContent=S.paused?'▶ Weiter':'⏸ Pause';if(!S.paused)renderLive()};
 $('#btnClear').onclick=()=>{S.packets=[];S.stats={total:0,byType:{}};minutes.clear();renderLive();renderStats();$('#detail').classList.remove('show')};
+$('#btnGroup').classList.toggle('blue',groupMode);
+$('#btnGroup').onclick=()=>{groupMode=!groupMode;store.set('mcw.groupHash',groupMode);renderLive()};
+$('#detail').addEventListener('click',e=>{const tr=e.target.closest('tr[data-obs]');if(tr)showDetail(+tr.dataset.obs)});
 $('#btnCsv').onclick=()=>exportPkts('csv');$('#btnJson').onclick=()=>exportPkts('json');
 $('#pkts').addEventListener('click',e=>{const tr=e.target.closest('tr');if(tr)showDetail(+tr.dataset.id)});
 $('#chatlist').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;S.active=it.dataset.conv;delete S.unread[S.active];$('#sec-chat').classList.add('mdet');renderChat();if(!isMobile())$('#msgIn').focus()});
