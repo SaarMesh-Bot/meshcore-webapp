@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BETA · Meshcore Webapp by SaarMesh.de</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#161c23">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meshcore β">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -141,6 +148,24 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
 .mrow{display:flex;gap:8px;align-items:center;margin-top:14px}
 .warnbar{background:var(--warn);color:#000;padding:6px 14px;font-size:13px;display:none}
 @media (max-width:800px){.chatside{width:180px}.detail{position:absolute;right:0;top:0;bottom:0;width:100%;z-index:5}.mappanel{width:190px}}
+.sres{padding:7px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px}.sres:hover{background:var(--panel2)}.sres .sh{display:flex;justify-content:space-between;gap:8px;font-size:12px}.sres .sb{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+mark{background:color-mix(in srgb,var(--warn) 45%,transparent);color:inherit;border-radius:2px;padding:0 1px}
+.msg.flash{animation:flash 2s ease-out}@keyframes flash{0%,30%{box-shadow:0 0 0 3px var(--warn)}100%{box-shadow:0 0 0 0 transparent}}
+.msg.mention{border-left:3px solid var(--warn)}
+.badge.mute{background:var(--muted)}
+.chathead select.nsel{max-width:150px}
+.qrbox{display:flex;justify-content:center;margin:6px 0}.qrbox svg{width:min(300px,78vw);height:auto;background:#fff;border-radius:8px}
+.qrurl{font-family:var(--mono);font-size:11px;word-break:break-all;background:var(--panel2);padding:6px 8px;border-radius:6px;max-height:70px;overflow:auto;user-select:all}
+#scanVideo{width:100%;max-height:50vh;background:#000;border-radius:8px;object-fit:cover}
+.btnlink{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px;color:inherit;text-decoration:none}.btnlink:hover{border-color:var(--accent2)}
+.upd{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;background:var(--warn);color:#000;font-size:11px;font-weight:600;text-decoration:none}
+table.dash td{white-space:nowrap}table.dash tbody tr{cursor:pointer}
+.regt td{padding:3px 6px}.regt button.ok{color:var(--accent)}
+.newbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:7px 12px;background:color-mix(in srgb,var(--accent2) 12%,var(--panel));border-bottom:1px solid var(--border);font-size:13px}.newbar[hidden]{display:none}
+.wzsteps{display:flex;flex-wrap:wrap;gap:4px;margin:-2px 0 12px;font-size:11px}.wzsteps span{padding:2px 7px;border-radius:9px;background:var(--panel2);color:var(--muted)}.wzsteps span.on{background:var(--accent2);color:#fff}.wzsteps span.done{color:var(--accent)}
+.wzch{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;margin:6px 0;font-size:13px}.wzch label{display:flex;gap:5px;align-items:center}
+#btnInstall[hidden]{display:none}
+.citem .mute{opacity:.6}
 .mback,.mapfab,nav#tabs .ls{display:none}
 @media (max-width:700px){
   input,select,textarea{font-size:16px}
@@ -198,6 +223,8 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
   .modal{align-items:flex-end;padding:0}
   .mbox{max-width:none!important;border-radius:14px 14px 0 0;max-height:92vh;overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
   .detail{padding-bottom:70px}
+  .wzch{grid-template-columns:1fr}
+  table.dash th:nth-child(4),table.dash td:nth-child(4),table.dash th:nth-child(5),table.dash td:nth-child(5),table.dash th:nth-child(8),table.dash td:nth-child(8){display:none}
 }
 </style>
 </head>
@@ -214,6 +241,7 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
       <button id="btnBle" title="Experimentell: Bluetooth LE">ᛒ BLE</button>
       <button id="btnTcp" title="WiFi-Companion per TCP – benötigt die MeshCore TCP-Bridge auf diesem PC">📶 TCP/WiFi</button>
       <button id="btnDisc" disabled>Trennen</button>
+      <button id="btnInstall" hidden title="Als App auf diesem Gerät installieren">⬇ App</button>
     </div>
     <div class="grp">
       <button class="blue" id="btnAdv0" disabled title="Advert nur an direkte Nachbarn (wird nicht weitergeleitet)">📣 Advert Zero-Hop</button>
@@ -284,6 +312,7 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
         <label><input type="checkbox" class="mf" data-t="4" checked>Sensoren</label>
         <label><input type="checkbox" id="mLabels" checked>Namen</label>
         <label><input type="checkbox" id="mNeigh" checked>Nachbar-Linien (SNR)</label>
+        <label title="Wen dein Companion direkt hört und wie gut – aus allen gespeicherten Adverts"><input type="checkbox" id="mRx">Eigener Empfang (SNR)</label>
         <label>Alter <select id="mAge"><option value="3600">1 h</option><option value="86400">24 h</option><option value="604800" selected>7 Tage</option><option value="0">alle</option></select></label>
         <div class="row">
           <button class="sm" id="btnFit">Alle zeigen</button>
@@ -300,8 +329,12 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
         <select id="cType"><option value="">Alle Typen</option><option value="1">Companion</option><option value="2">Repeater</option><option value="3">Room</option><option value="4">Sensor</option></select>
         <label class="muted"><input type="checkbox" id="cHeard"> auch nur gehörte Knoten</label>
         <div class="spacer"></div>
+        <button class="sm" id="btnCScan" title="Kontakt per QR-Code hinzufügen">📷 QR</button>
+        <button class="sm" id="btnCExpCsv" title="Aktuelle Liste als CSV">CSV</button>
+        <button class="sm" id="btnCExpGpx" title="Knoten mit Position als GPX (z. B. für Google Earth, QGIS, Navi)">GPX</button>
         <button id="btnReloadC" disabled>Neu laden</button>
       </div>
+      <div class="newbar" id="cNewBar" hidden></div>
       <div class="tablewrap">
         <table><thead><tr><th>Name</th><th>Typ</th><th>Schlüssel</th><th>Zuletzt</th><th>Pfad</th><th>SNR</th><th>Entf.</th><th>Aktionen</th></tr></thead><tbody id="ctable"></tbody></table>
       </div>
@@ -334,7 +367,13 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
             <div class="frm"><input id="setTx" type="number" placeholder="TX dBm" style="max-width:110px"><button id="btnSetTx" disabled>TX-Leistung</button></div>
             <label class="frm"><input type="checkbox" id="setLocAdv" disabled> Standort in Adverts mitsenden</label>
             <label class="frm"><input type="checkbox" id="setAutoAdd" disabled> Neue Knoten automatisch als Kontakt speichern</label>
-            <label class="frm"><input type="checkbox" id="setNotify"> Desktop-Benachrichtigungen bei Nachrichten</label>
+            <div id="aaBox"></div>
+          </div>
+          <div class="card"><h3>App & Benachrichtigungen</h3>
+            <div class="frm"><label class="muted" for="setNotify">Benachrichtigen bei</label><select id="setNotify"><option value="off">aus</option><option value="mention">Direktnachrichten &amp; @Erwähnungen</option><option value="all">allen Nachrichten</option></select></div>
+            <label class="frm"><input type="checkbox" id="setSound"> Ton bei neuen Nachrichten</label>
+            <p class="muted" style="font-size:12px">Pro Kanal oder Kontakt lässt sich das im Chat über 🔔 anpassen oder stummschalten. Benachrichtigungen kommen, solange die Webapp (oder die installierte App) im Hintergrund geöffnet ist.</p>
+            <div class="frm"><button id="btnWizard" disabled>🧭 Einrichtungsassistent</button></div>
           </div>
           <div class="card"><h3>Region & Routing</h3>
             <div class="kv" id="kvRegion"></div>
@@ -356,12 +395,18 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
             <label class="frm"><input type="checkbox" id="useDir"> Kanäle & Regionen aus dem öffentlichen Verzeichnis erkennen</label>
             <div class="kv" id="dirInfo" style="display:block;font-size:13px;line-height:1.6"></div>
             <div class="frm"><button id="btnDirReload">Jetzt aktualisieren</button></div>
+            <div class="frm"><label class="muted" for="setCs" title="Für Links „In CoreScope ansehen“ bei Knoten und Paketen">CoreScope</label><input id="setCs" placeholder="leer = keine Links" autocomplete="off"></div>
             <p class="muted" style="font-size:12px">Erkennt öffentliche Kanäle (Hashtag-Kanäle und bekannte Schlüssel) im Live-Traffic und ordnet Region-Codes Namen zu. Es wird nur eine Liste heruntergeladen – nichts von dir wird hochgeladen. Regionen aus dem Verzeichnis sind mit ≈ markiert, weil 16-Bit-Codes zufällig mehrfach passen können.</p>
           </div>
           <div class="card"><h3>Über die Webapp</h3>
             <p style="font-size:13px;margin-top:0"><b>Meshcore Webapp by SaarMesh.de</b> ist kostenlos und quelloffen. Sie entsteht im Umfeld von <a href="https://saarmesh.de" target="_blank" rel="noopener">SaarMesh</a>, dem MeshCore-Netz für die Region SaarLorLux – Repeater, <a href="https://live.saarmesh.de" target="_blank" rel="noopener">Live-Karte</a> und Server werden privat betrieben.</p>
             <div class="frm"><a href="https://ko-fi.com/saarmesh" target="_blank" rel="noopener" class="kofibtn">☕ SaarMesh auf Ko-fi unterstützen</a></div>
             <p class="muted" style="font-size:12px;margin-bottom:0">Fehler gefunden oder eine Idee? <a href="https://github.com/SaarMesh-Bot/meshcore-webapp/issues" target="_blank" rel="noopener">Issue auf GitHub</a> · <a href="https://github.com/SaarMesh-Bot/meshcore-webapp" target="_blank" rel="noopener">Quellcode</a></p>
+          </div>
+          <div class="card"><h3>Sicherung & QR-Codes</h3>
+            <div class="frm"><button id="btnMyQr" disabled>⧉ Mein QR-Code</button><button id="btnScan2">📷 QR-Code scannen</button></div>
+            <div class="frm"><button id="btnBackup" disabled>⬇ Kontakte & Kanäle sichern</button><button id="btnRestore" disabled>⬆ Sicherung einspielen</button><input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
+            <p class="muted" style="font-size:12px">Die Sicherung ist eine JSON-Datei mit deinen gespeicherten Kontakten und Kanälen (inkl. Schlüssel privater Kanäle – gut aufbewahren). Einspielen ergänzt nur, was auf dem Gerät fehlt, z. B. nach einem Werksreset oder auf einem neuen Companion.</p>
           </div>
           <div class="card"><h3>Aktionen</h3>
             <div class="frm"><button id="btnTime" disabled>Uhrzeit synchronisieren</button><button id="btnSync" disabled>Nachrichten abrufen</button></div>
@@ -376,6 +421,41 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
 </div>
 <div id="toasts"></div>
 <datalist id="dlRegions"></datalist><datalist id="dlChannels"></datalist>
+<div class="modal" id="qrModal" hidden>
+  <div class="mbox" style="max-width:400px">
+    <h3 id="qrTitle">QR-Code</h3>
+    <div class="qrbox" id="qrBox"></div>
+    <div class="qrurl" id="qrUrl"></div>
+    <p class="muted" id="qrNote" style="font-size:12px"></p>
+    <div class="mrow"><button class="sm" id="qrCopy">Link kopieren</button><button class="sm" id="qrPng">Bild speichern</button><button class="sm" id="qrShare" hidden>Teilen</button><span class="spacer"></span><button id="qrClose">Schließen</button></div>
+  </div>
+</div>
+<div class="modal" id="scanModal" hidden>
+  <div class="mbox" style="max-width:480px">
+    <h3>📷 QR-Code scannen</h3>
+    <video id="scanVideo" playsinline muted hidden></video>
+    <p class="muted" id="scanMsg" style="font-size:13px"></p>
+    <div class="frm"><label class="btnlink" style="cursor:pointer;font-size:13px;padding:6px 10px">🖼 Bild wählen<input type="file" id="scanFile" accept="image/*" hidden></label></div>
+    <div class="frm"><input id="scanPaste" placeholder="oder meshcore://… Link einfügen" autocomplete="off"><button id="scanOk">Übernehmen</button></div>
+    <p class="muted" style="font-size:12px">Erkennt Kanal- und Kontakt-QR-Codes der MeshCore-App und dieser Webapp.</p>
+    <div class="mrow"><span class="spacer"></span><button id="scanCancel">Schließen</button></div>
+  </div>
+</div>
+<div class="modal" id="nodeModal" hidden>
+  <div class="mbox" style="max-width:580px;max-height:90vh;overflow:auto">
+    <h3 id="nodeTitle">Knoten</h3>
+    <div id="nodeBody"></div>
+    <div class="mrow"><span class="spacer"></span><button id="nodeClose">Schließen</button></div>
+  </div>
+</div>
+<div class="modal" id="wizModal" hidden>
+  <div class="mbox" style="max-width:520px;max-height:92vh;overflow:auto">
+    <h3>🧭 Einrichtung</h3>
+    <div class="wzsteps" id="wizSteps"></div>
+    <div id="wizBody"></div>
+    <div class="mrow"><button id="wizClose" class="sm">Abbrechen</button><span class="spacer"></span><button id="wizBack">Zurück</button><button id="wizSkip">Überspringen</button><button class="primary" id="wizNext">Weiter</button></div>
+  </div>
+</div>
 <div class="modal" id="telModal" hidden>
   <div class="mbox" style="max-width:520px;max-height:90vh;overflow:auto">
     <h3 id="telTitle">📊 Telemetrie</h3>
@@ -490,8 +570,9 @@ function toast(msg,kind=''){const t=document.createElement('div');t.className='t
 const S={tr:null,connected:false,self:null,dev:null,contacts:new Map(),nodes:new Map(),channels:[],packets:[],msgs:{},active:null,unread:{},
   neighbors:new Map(),stats:{total:0,byType:{}},paused:false,selPkt:null,radio:{},acks:new Map()};
 (store.get('mcw.nodes',[])||[]).forEach(n=>S.nodes.set(n.key,n));
+const NH=store.get('mcw.nh',{})||{}; // Empfangsverlauf je Knoten: [Zeit, SNR, RSSI, Hops, letzter Hop]
 let saveTimer=null;
-function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{store.set('mcw.nodes',[...S.nodes.values()].slice(-3000));if(S.self)store.set('mcw.msgs.'+S.self.key.slice(0,16),S.msgs)},1500)}
+function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{store.set('mcw.nodes',[...S.nodes.values()].slice(-3000));nhTrim();store.set('mcw.nh',NH);if(S.self)store.set('mcw.msgs.'+S.self.key.slice(0,16),S.msgs)},1500)}
 
 // ================= Transporte =================
 // Zerlegt den Byte-Strom (USB oder TCP) in Companion-Frames: '>' + Länge (LE16) + Daten
@@ -680,7 +761,8 @@ async function connect(kind){
   await loadChannels();
   await loadScope();
   await syncMessages();
-  refreshStats();
+  await loadAutoAdd();
+  refreshStats();fwCheck();maybeWizard();
   clearInterval(S.statTimer);S.statTimer=setInterval(refreshStats,30000);
   renderAll();
 }
@@ -689,11 +771,12 @@ function onDisconnected(msg){
   if(S.tr){const tr=S.tr;S.tr=null;tr.close&&tr.close()}
   if(waiter)failWaiter(new Error('getrennt'));while(queue.length)queue.shift().rej(new Error('getrennt'));
   for(const s of ADM.sess.values())s.logged=false;
+  AA.cfg=null;
   const was=S.connected;S.connected=false;clearInterval(S.statTimer);setEnabled(false);updateHeader();
   if(was&&msg)toast(msg,'err');
 }
 function setEnabled(on){
-  ['#btnDisc','#btnAdv0','#btnAdvF','#btnPick','#btnReloadC','#btnStats','#btnSetName','#btnSetPos','#btnSetTx','#setLocAdv','#setAutoAdd','#btnTime','#btnSync','#btnReboot','#btnSetRegion','#btnClrRegion','#setHashMode','#btnSetHash','#btnSelfTel','#telBase','#telLoc','#telEnv'].forEach(s=>$(s).disabled=!on);
+  ['#btnDisc','#btnAdv0','#btnAdvF','#btnPick','#btnReloadC','#btnStats','#btnSetName','#btnSetPos','#btnSetTx','#setLocAdv','#setAutoAdd','#btnTime','#btnSync','#btnReboot','#btnSetRegion','#btnClrRegion','#setHashMode','#btnSetHash','#btnSelfTel','#telBase','#telLoc','#telEnv','#btnWizard','#btnMyQr','#btnBackup','#btnRestore'].forEach(s=>$(s).disabled=!on);
   document.body.classList.toggle('connected',on);
   $('#btnUsb').disabled=on;$('#btnBle').disabled=on;$('#btnTcp').disabled=on;
   updateCompose();
@@ -800,12 +883,8 @@ function addMsg(conv,m){
   const arr=S.msgs[conv]||(S.msgs[conv]=[]);
   if(m.dir==='in'&&arr.some(x=>x.dir==='in'&&x.ts===m.ts&&x.text===m.text&&x.from===m.from))return;
   arr.push(m);if(arr.length>500)arr.splice(0,arr.length-500);
-  if(m.dir==='in'&&!conv.startsWith('dc:')&&!(curTab==='chat'&&S.active===conv&&!document.hidden)){S.unread[conv]=(S.unread[conv]||0)+1;notify(conv,m)}
+  if(m.dir==='in'&&!conv.startsWith('dc:')){m.mention=isMention(m);if(!(curTab==='chat'&&S.active===conv&&!document.hidden)){S.unread[conv]=(S.unread[conv]||0)+1;notify(conv,m)}}
   scheduleSave();renderSoon();
-}
-function notify(conv,m){
-  if(!$('#setNotify').checked||!document.hidden||!('Notification' in window)||Notification.permission!=='granted')return;
-  try{new Notification(convTitle(conv),{body:m.from+': '+m.text,tag:conv})}catch{}
 }
 const chTitle=n=>String(n).startsWith('#')?n:'#'+n;
 function convTitle(conv){if(conv.startsWith('dc:')){const d=S.disc[conv.slice(3)];return chTitle(d?d.name:'?')}if(conv.startsWith('ch:')){const ch=S.channels.find(c=>c.idx==conv.slice(3));return chTitle(ch?ch.name:conv.slice(3))}const c=findContactByPrefix(conv.slice(2));return c?c.name:conv.slice(2)}
@@ -1201,7 +1280,8 @@ function onRawPacket(raw,snr,rssi){
   if(p.ptype===4&&p.dec.key&&!(S.self&&p.dec.key===S.self.key)){
     const d=p.dec,n=S.nodes.get(d.key)||{key:d.key};
     if(d.name)n.name=d.name;n.type=d.ntype;if(hasPos(d)){n.lat=d.lat;n.lon=d.lon}
-    n.heard=p.t;n.snr=snr;n.rssi=rssi;n.hops=p.hopCount;n.path=p.path;n.advTs=Math.max(n.advTs||0,d.ts||0);
+    n.first=n.first||p.t;n.heard=p.t;n.snr=snr;n.rssi=rssi;n.hops=p.hopCount;n.path=p.path;n.advTs=Math.max(n.advTs||0,d.ts||0);
+    nhAdd(d.key,[p.t,snr,rssi,p.hopCount,p.hopCount?p.path[p.path.length-1]:null]);if(NODEV.key===d.key)renderNode();
     S.nodes.set(d.key,n);scheduleSave();
   }
   // Direkte Nachbarn (zuletzt gehörte Sendestation)
@@ -1274,7 +1354,7 @@ function showDetail(id){
   if(d.ch)kv.push(['Kanal-Hash',d.ch+(d.chName?' (#'+esc(d.chName)+')':'')]);if(d.ack)kv.push(['ACK',d.ack]);
   const canMap=(p.hopCount&&p.ptype!==9)||hasPos(d);
   $('#detail').innerHTML=`<h3>Paket #${p.id} <button class="sm" style="float:right" onclick="$('#detail').classList.remove('show')">✕</button></h3><div class="kv">${kv.map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('')}</div>
-   ${canMap?`<button class="blue sm" onclick="showPathOnMap(${p.id})">🗺 Pfad auf Karte</button>`:''}
+   ${canMap?`<button class="blue sm" onclick="showPathOnMap(${p.id})">🗺 Pfad auf Karte</button>`:''}${d.key?` <button class="sm" onclick="openNode('${d.key}')">ℹ Knoten</button>`:''}${p.phash&&csPkt(p.phash)?` <a class="btnlink" href="${esc(csPkt(p.phash))}" target="_blank" rel="noopener">🔎 In CoreScope</a>`:''}
    ${(()=>{const g=obsOf(p);if(g.length<2)return '';const t0=g[0].t;
      return `<h4 class="muted" style="margin:12px 0 4px;font-size:12px">${g.length}× empfangen</h4><table class="obs"><thead><tr><th>+Zeit</th><th>Pfad</th><th>SNR</th><th>RSSI</th></tr></thead><tbody>`+
        g.map(x=>`<tr data-obs="${x.id}"${x.id===p.id?' class="sel"':''}><td class="mono">+${((x.t-t0)/1000).toFixed(1)} s</td><td>${pathHtml(x)}</td><td class="mono ${snrCls(x.snr)}">${x.snr.toFixed(1)}</td><td class="mono">${x.rssi}</td></tr>`).join('')+'</tbody></table>'})()}
@@ -1309,7 +1389,8 @@ function exportPkts(kind){
 function renderChat(){
   if(curTab==='chat'&&S.active&&S.unread[S.active]&&!document.hidden)delete S.unread[S.active];
   const q=$('#chatSearch').value.trim().toLowerCase();let h='';
-  h+='<h4 style="display:flex;align-items:center">Kanäle<span class="spacer"></span><button class="sm" id="btnAddCh" title="Kanal hinzufügen" style="padding:0 7px" '+(S.connected?'':'disabled')+'>＋</button></h4>';
+  if(q.length>=2)h+=searchHtml(q);
+  h+='<h4 style="display:flex;align-items:center;gap:4px">Kanäle<span class="spacer"></span><button class="sm" id="btnScanCh" title="Kanal oder Kontakt per QR-Code hinzufügen" style="padding:0 6px">📷</button><button class="sm" id="btnAddCh" title="Kanal hinzufügen" style="padding:0 7px" '+(S.connected?'':'disabled')+'>＋</button></h4>';
   S.channels.filter(c=>!q||c.name.toLowerCase().includes(q)).forEach(c=>{const id='ch:'+c.idx;const rg=chanRegion(c);h+=item(id,chTitle(c.name),'',null,rg?(rg==='-'?'ohne':'#'+rg):'')});
   if(!S.channels.length)h+='<div class="muted" style="padding:4px 12px;font-size:12px">'+(S.connected?'keine':'nicht verbunden')+'</div>';
   const ds=Object.values(S.disc).filter(d=>!q||d.name.toLowerCase().includes(q)).sort((a,b)=>(b.last||0)-(a.last||0));
@@ -1319,7 +1400,7 @@ function renderChat(){
   h+='<h4>Kontakte ('+cs.length+')</h4>';
   cs.forEach(c=>{h+=item('c:'+c.key.slice(0,12),c.name,c.type===3?'🏠':'',c)});
   $('#chatlist').innerHTML=h;
-  function item(id,name,icon,c,tag,cnt){const u=S.unread[id];return `<div class="citem${S.active===id?' active':''}" data-conv="${id}">${icon?`<span>${icon}</span>`:''}<span class="nm">${esc(name)}</span>${tag?`<span class="hash" title="Region">${esc(tag)}</span>`:''}${c&&c.outPathLen!==0xFF&&c.outPathLen!=null?`<span class="muted mono" title="Pfad">${(c.outPathLen&63)}h</span>`:''}${cnt?`<span class="muted mono" title="Nachrichten gesehen">${cnt}</span>`:''}${u?`<span class="badge">${u}</span>`:''}</div>`}
+  function item(id,name,icon,c,tag,cnt){const u=S.unread[id],nm=convMode(id);return `<div class="citem${S.active===id?' active':''}" data-conv="${id}">${icon?`<span>${icon}</span>`:''}<span class="nm${nm==='mute'?' mute':''}">${esc(name)}</span>${nm==='mute'?'<span title="stummgeschaltet">🔕</span>':nm==='mention'?'<span title="nur bei @Erwähnung">@</span>':''}${tag?`<span class="hash" title="Region">${esc(tag)}</span>`:''}${c&&c.outPathLen!==0xFF&&c.outPathLen!=null?`<span class="muted mono" title="Pfad">${(c.outPathLen&63)}h</span>`:''}${cnt?`<span class="muted mono" title="Nachrichten gesehen">${cnt}</span>`:''}${u?`<span class="badge${nm==='mute'?' mute':''}">${u}</span>`:''}</div>`}
   renderConv();updateBadge();
 }
 const lastMsgT=c=>{const a=S.msgs[c];return a&&a.length?a[a.length-1].rx:0};
@@ -1328,15 +1409,17 @@ function renderConv(){
   if(!conv){$('#chathead').innerHTML='<span class="muted">Kanal oder Kontakt wählen</span>';box.innerHTML='<div class="empty">💬</div>';updateCompose();return}
   if(curTab==='chat'&&S.unread[conv]){delete S.unread[conv];updateBadge()}
   let head=`<button class="sm mback" onclick="mBack('chat')" title="Zurück">‹</button><span class="t">${esc(convTitle(conv))}</span>`;
+  const cm=convMode(conv),bell=conv.startsWith('dc:')?'':`<select class="nsel" id="convNotify" title="Benachrichtigungen für diesen Chat">${[['std','🔔 Standard'],['all','🔔 Alle'],['mention','@ Nur Erwähnungen'],['mute','🔕 Stumm']].map(([v,l])=>`<option value="${v}"${v===cm?' selected':''}>${l}</option>`).join('')}</select>`;
+  const qrb=conv.startsWith('c:')?`<button class="sm" onclick="qrNode(findContactByPrefix('${conv.slice(2)}').key)" title="Kontakt als QR-Code">⧉</button>`:`<button class="sm" onclick="qrChannel('${conv}')" title="Kanal als QR-Code teilen">⧉ QR</button>`;
   if(conv.startsWith('dc:')){const d=S.disc[conv.slice(3)];
-    head+=`<span class="muted">Öffentlicher Kanal aus dem Verzeichnis – nur mitlesen</span><span class="spacer"></span><button class="primary sm" id="btnAdoptCh" ${S.connected?'':'disabled'}>＋ Zum Gerät hinzufügen</button>`;
+    head+=`<span class="muted">Öffentlicher Kanal aus dem Verzeichnis – nur mitlesen</span><span class="spacer"></span>${qrb}<button class="primary sm" id="btnAdoptCh" ${S.connected?'':'disabled'}>＋ Zum Gerät hinzufügen</button>`;
     setTimeout(()=>{const b=$('#btnAdoptCh');if(b&&d)b.onclick=()=>addChannelToDevice(d.name,unhex(d.secret))},0)}
-  else if(conv.startsWith('c:')){const c=findContactByPrefix(conv.slice(2));if(c){const pd=pathDesc(c.outPathLen,c.outPath);head+=`<span class="muted">${NTYPE[c.type]} · Pfad: ${pd.flood?'Flood':pd.hops.length?pd.hops.join('→'):'direkt'}</span><span class="spacer"></span><button class="sm" onclick="resetPath('${c.key}')">Pfad zurücksetzen</button>`}}
+  else if(conv.startsWith('c:')){const c=findContactByPrefix(conv.slice(2));if(c){const pd=pathDesc(c.outPathLen,c.outPath);head+=`<span class="muted">${NTYPE[c.type]} · Pfad: ${pd.flood?'Flood':pd.hops.length?pd.hops.join('→'):'direkt'}</span><span class="spacer"></span>${bell}<button class="sm" onclick="openNode('${c.key}')" title="Details">ℹ</button>${qrb}<button class="sm" onclick="resetPath('${c.key}')">Pfad zurücksetzen</button>`}}
   else{const ch=S.channels.find(c=>c.idx==conv.slice(3));const cur=chanRegion(ch);
     const names=new Set(knownRegionNames());if(cur&&cur!=='-')names.add(cur);
     let opts=`<option value="">Standard (${S.scope&&S.scope.name?'#'+esc(S.scope.name):'keine Region'})</option><option value="-">Ohne Region (ungefiltert)</option>`;
     [...names].sort().forEach(n=>opts+=`<option value="${esc(n)}">#${esc(n)}</option>`);opts+='<option value="+">Andere Region…</option>';
-    head+=`<span class="muted">Gruppenkanal – keine Zustellbestätigung</span><span class="spacer"></span><label class="muted" for="chRegion">Region</label><select id="chRegion" ${S.connected?'':'disabled'}>${opts}</select><button class="sm danger" id="btnDelCh" title="Kanal vom Gerät entfernen" ${S.connected?'':'disabled'}>🗑</button>`;
+    head+=`<span class="muted">Gruppenkanal – keine Zustellbestätigung</span><span class="spacer"></span><label class="muted" for="chRegion">Region</label><select id="chRegion" ${S.connected?'':'disabled'}>${opts}</select>${bell}${qrb}<button class="sm danger" id="btnDelCh" title="Kanal vom Gerät entfernen" ${S.connected?'':'disabled'}>🗑</button>`;
     setTimeout(()=>{const sel=$('#chRegion');if(!sel)return;sel.value=cur||'';
       const dl=$('#btnDelCh');if(dl&&ch)dl.onclick=()=>removeChannelFromDevice(ch.idx);
       sel.onchange=async()=>{let v=sel.value;if(v==='+'){
@@ -1344,14 +1427,16 @@ function renderConv(){
         const near=(ce?ce.regions:[]).slice().sort((a,b)=>regionAffinity(b)-regionAffinity(a));
         v=await pickRegionDialog('Region für '+chTitle(ch.name),near);if(!v){sel.value=cur||'';return}}setChanRegion(ch,v)}},0)}
   $('#chathead').innerHTML=head;
+  const ns=$('#convNotify');if(ns)ns.onchange=()=>setConvMode(conv,ns.value);
   const arr=S.msgs[conv]||[];
   const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<60;
   box.innerHTML=arr.length?arr.map(m=>{
     const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(m.hops==='direkt'?'direkt':m.hops+' Hops'):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
     let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?'✓ gesendet'+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
       if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`}
-    return `<div class="msg ${m.dir}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
-  if(atBottom||arr.length<30)box.scrollTop=box.scrollHeight;
+    return `<div class="msg ${m.dir}${m.dir==='in'&&(m.mention??isMention(m))?' mention':''}" data-mid="${esc(m.id||'')}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
+  if(S.jump){const el=[...box.querySelectorAll('.msg')].find(x=>x.dataset.mid===S.jump);S.jump=null;if(el){el.scrollIntoView({block:'center'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),2100)}}
+  else if(atBottom||arr.length<30)box.scrollTop=box.scrollHeight;
   updateCompose();
 }
 function replyBtns(conv,m){
@@ -1363,14 +1448,14 @@ function replyBtns(conv,m){
 function updateCompose(){const ro=!!S.active&&S.active.startsWith('dc:');const on=S.connected&&!!S.active&&!ro;$('#msgIn').disabled=!on;$('#btnSend').disabled=!on;
   $('#msgIn').placeholder=ro?'Nur mitlesen – zum Senden den Kanal zum Gerät hinzufügen':'Nachricht…';updateLen()}
 function updateLen(){const n=enc.encode($('#msgIn').value).length,mx=maxLen();$('#msgLen').textContent=n?n+'/'+mx:'';$('#msgLen').style.color=n>mx?'var(--err)':''}
-function updateBadge(){const n=Object.values(S.unread).reduce((a,b)=>a+b,0);const b=$('#unreadBadge');b.style.display=n?'':'none';b.textContent=n}
+function updateBadge(){const n=Object.entries(S.unread).reduce((a,[k,v])=>a+(convMode(k)==='mute'?0:v),0);const b=$('#unreadBadge');b.style.display=n?'':'none';b.textContent=n}
 
 // ================= Karte =================
 let map=null,markers=new Map(),selfMarker=null,neighLayer=null,pathLayer=null,picking=false,fitted=false;
 function initMap(){
   if(map||typeof L==='undefined'){if(typeof L==='undefined')$('#map').innerHTML='<div class="empty">Leaflet konnte nicht geladen werden (offline?).</div>';return}
   map=L.map('map',{preferCanvas:false}).setView([49.38,6.95],9);
-  const esri=(svc,max,attr)=>L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/'+svc+'/MapServer/tile/{z}/{y}/{x}',{maxZoom:max,attribution:attr});
+  const esri=(svc,max,attr)=>L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/'+svc+'/MapServer/tile/{z}/{y}/{x}',{maxZoom:max,attribution:attr,crossOrigin:true});
   const base={
     'Straße (Esri)':esri('World_Street_Map',19,'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap-Mitwirkende'),
     'Dunkel (Esri)':esri('Canvas/World_Dark_Gray_Base',16,'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap-Mitwirkende'),
@@ -1378,8 +1463,8 @@ function initMap(){
     'Topo (Esri)':esri('World_Topo_Map',19,'Tiles © Esri — Esri, HERE, Garmin, USGS, OpenStreetMap-Mitwirkende'),
     'Satellit (Esri)':esri('World_Imagery',19,'Tiles © Esri — Esri, Maxar, Earthstar Geographics')};
   if(location.protocol!=='file:'){ // OSM verlangt einen Referer – geht nur, wenn die Seite über http(s) ausgeliefert wird
-    base['OSM']=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap-Mitwirkende'});
-    base['OpenTopoMap']=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenStreetMap-Mitwirkende, SRTM | © OpenTopoMap'});
+    base['OSM']=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap-Mitwirkende',crossOrigin:true});
+    base['OpenTopoMap']=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenStreetMap-Mitwirkende, SRTM | © OpenTopoMap',crossOrigin:true});
   }
   const saved=store.get('mcw.basemap',null);
   (base[saved]||(matchMedia('(prefers-color-scheme: dark)').matches?base['Dunkel (Esri)']:base['Straße (Esri)'])).addTo(map);
@@ -1398,7 +1483,7 @@ function popupHtml(n){
    (n.snr!=null?`SNR ${n.snr.toFixed(1)} dB · RSSI ${n.rssi} dBm · ${n.hops===0?'direkt':n.hops+' Hops'}<br>`:'')+
    (nb?`<b>Direkter Nachbar</b> (${nb[1].n}× gehört, Ø SNR ${(nb[1].snrSum/nb[1].n).toFixed(1)})<br>`:'')+
    (dist!=null?`Entfernung: ${dist.toFixed(1)} km<br>`:'')+
-   `${n.lat.toFixed(5)}, ${n.lon.toFixed(5)}<br>`+
+   `${n.lat.toFixed(5)}, ${n.lon.toFixed(5)}<br><button class="sm" onclick="openNode('${n.key}')">ℹ Details</button> `+
    (ct?(ct.type===1||ct.type===3?`<button class="sm" onclick="openChat('${n.key}')">💬 Chat</button> `:'')+(ADM_TYPES.includes(ct.type)?`<button class="sm" onclick="openAdmin('${n.key}')">🛠 Admin</button> `:'')+'<span class="muted">im Gerät gespeichert</span>':'<span class="muted">nicht in Kontakten</span>');
 }
 let mapT=null;function renderMapSoon(){if(!mapT)mapT=setTimeout(()=>{mapT=null;renderMap()},800)}
@@ -1425,7 +1510,8 @@ function renderMap(){
     for(const [h,e] of S.neighbors){const l=nodesByHash(h).filter(hasPos);if(l.length!==1)continue;const n=l[0];const avg=e.snrSum/e.n;
       L.polyline([[S.self.lat,S.self.lon],[n.lat,n.lon]],{color:avg>=5?'#2da44e':avg>=-5?'#d29922':'#cf222e',weight:3,opacity:.75}).bindTooltip(`${esc(n.name)}: Ø SNR ${avg.toFixed(1)} dB (${e.n}×)`).addTo(neighLayer);nl++}
   }
-  $('#mapInfo').textContent=`${cnt} Knoten mit Position · ${nl} Nachbar-Linien`+(hasPos(S.self)?'':' · eigene Position unbekannt');
+  const rx=renderRxLayer();
+  $('#mapInfo').textContent=`${cnt} Knoten mit Position · ${nl} Nachbar-Linien`+(rx?` · ${rx} direkt gehört`:'')+(hasPos(S.self)?'':' · eigene Position unbekannt');
   if(!fitted&&cnt){fitAll();fitted=true}
 }
 function fitAll(){if(!map)return;const pts=[...markers.values()].map(m=>m.getLatLng());if(selfMarker)pts.push(selfMarker.getLatLng());if(pts.length)map.fitBounds(L.latLngBounds(pts).pad(.15),{maxZoom:13})}
@@ -1451,10 +1537,7 @@ function mBack(t){$('#sec-'+t).classList.remove('mdet');if(t==='chat'){S.active=
 
 // ================= Kontakte-UI =================
 function renderContacts(){
-  const q=$('#cSearch').value.trim().toLowerCase(),t=$('#cType').value,heard=$('#cHeard').checked;
-  let list=[...S.nodes.values()].filter(n=>S.contacts.has(n.key)||heard);
-  for(const c of S.contacts.values())if(!S.nodes.has(c.key))list.push({key:c.key,name:c.name,type:c.type});
-  list=list.filter(n=>(!t||String(n.type)===t)&&(!q||(n.name||'').toLowerCase().includes(q)||n.key.startsWith(q))).sort((a,b)=>lastSeen(b)-lastSeen(a));
+  renderNewBar();const list=contactList();
   $('#ctable').innerHTML=list.map(n=>{const c=S.contacts.get(n.key);const pd=c?pathDesc(c.outPathLen,c.outPath):null;
     const dist=hasPos(n)&&hasPos(S.self)?hav(S.self.lat,S.self.lon,n.lat,n.lon).toFixed(1)+' km':'–';
     let act='';
@@ -1465,7 +1548,7 @@ function renderContacts(){
     else if(c&&(c.type===1||c.type===4))act+=`<button class="sm" onclick="openTelemetry('${n.key}')" title="Telemetrie">📊</button> `;
     if(c&&c.saved&&(c.type===1||c.type===2||c.type===3))act+=`<button class="sm" onclick="traceTo('${n.key}')" title="Trace-Route">📍</button> `;
     if(hasPos(n))act+=`<button class="sm" onclick="zoomTo('${n.key}')">🗺</button>`;
-    return `<tr><td>${esc(n.name||'?')}${c&&!c.saved?' <span class="muted">(neu)</span>':''}${!c?' <span class="muted">(gehört)</span>':''}</td><td>${NTYPE[n.type??0]}</td><td class="mono">${n.key.slice(0,12)}</td><td>${ago(lastSeen(n))}</td><td class="mono">${pd?(pd.flood?'Flood':pd.hops.length?pd.hops.join('→'):'direkt'):'–'}</td><td class="mono ${snrCls(n.snr)}">${n.snr!=null?n.snr.toFixed(1):'–'}</td><td>${dist}</td><td style="white-space:nowrap">${act}</td></tr>`}).join('')||'<tr><td colspan="8" class="muted">Keine Einträge</td></tr>';
+    return `<tr><td><a href="#" class="nlink" data-node="${n.key}" title="Details">${esc(n.name||'?')}</a>${c&&!c.saved?' <span class="muted">(neu)</span>':''}${!c?' <span class="muted">(gehört)</span>':''}</td><td>${NTYPE[n.type??0]}</td><td class="mono">${n.key.slice(0,12)}</td><td>${ago(lastSeen(n))}</td><td class="mono">${pd?(pd.flood?'Flood':pd.hops.length?pd.hops.join('→'):'direkt'):'–'}</td><td class="mono ${snrCls(n.snr)}">${n.snr!=null?n.snr.toFixed(1):'–'}</td><td>${dist}</td><td style="white-space:nowrap">${act}</td></tr>`}).join('')||'<tr><td colspan="8" class="muted">Keine Einträge</td></tr>';
 }
 function zoomTo(key){const n=S.nodes.get(key);switchTab('map');setTimeout(()=>{if(!map||!hasPos(n))return;map.setView([n.lat,n.lon],14);const m=markers.get(key);if(m)m.openPopup()},80)}
 async function resetPath(key){try{await request(bytes(CMD.RESET_PATH,unhex(key)));toast('Pfad zurückgesetzt – nächste Nachricht wird geflutet','ok');refreshContact(key)}catch(e){toast(e.message,'err')}}
@@ -1487,8 +1570,9 @@ async function refreshStats(){
 const dur=s=>s==null?'–':s>=86400?Math.floor(s/86400)+' d '+Math.floor(s%86400/3600)+' h':s>=3600?Math.floor(s/3600)+' h '+Math.floor(s%3600/60)+' min':Math.floor(s/60)+' min '+(s%60)+' s';
 function renderDevice(){
   const s=S.self,d=S.dev,r=S.radio;const kv=a=>a.filter(x=>x[1]!=null&&x[1]!=='').map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('');
-  $('#kvInfo').innerHTML=s?kv([['Name',esc(s.name)],['Verbindung',esc(S.tr?.label||'')],['Firmware',esc(d?.version||'v'+d?.fw)+(d?.build?' ('+esc(d.build)+')':'')],['Hardware',esc(d?.model)],['Public Key','<span class="mono" style="word-break:break-all">'+s.key+'</span>'],['Position',hasPos(s)?s.lat.toFixed(5)+', '+s.lon.toFixed(5):'nicht gesetzt'],['Kontakte',S.contacts.size+(d?.maxContacts?' / '+d.maxContacts:'')],['Kanäle',S.channels.length+(d?.maxChannels?' / '+d.maxChannels:'')]]):'<div class="muted">nicht verbunden</div><div></div>';
+  $('#kvInfo').innerHTML=s?kv([['Name',esc(s.name)],['Verbindung',esc(S.tr?.label||'')],['Firmware',esc(d?.version||'v'+d?.fw)+(d?.build?' ('+esc(d.build)+')':'')+fwBadge(d?.version,'companion')],['Hardware',esc(d?.model)],['Public Key','<span class="mono" style="word-break:break-all">'+s.key+'</span>'],['Position',hasPos(s)?s.lat.toFixed(5)+', '+s.lon.toFixed(5):'nicht gesetzt'],['Kontakte',S.contacts.size+(d?.maxContacts?' / '+d.maxContacts:'')],['Kanäle',S.channels.length+(d?.maxChannels?' / '+d.maxChannels:'')]]):'<div class="muted">nicht verbunden</div><div></div>';
   $('#kvStats').innerHTML=s?kv([['Frequenz',s.freq.toFixed(3)+' MHz'],['Bandbreite',s.bw+' kHz'],['SF / CR','SF'+s.sf+' / 4:'+s.cr],['TX-Leistung',s.tx+' dBm (max '+s.maxTx+')'],['Batterie',r.batt?(r.batt/1000).toFixed(2)+' V':null],['Speicher',r.total?r.used+' / '+r.total+' kB':null],['Laufzeit',r.uptime!=null?dur(r.uptime):null],['Rauschpegel',r.noise!=null?r.noise+' dBm':null],['Letzt. RSSI/SNR',r.lastRssi!=null?r.lastRssi+' dBm / '+r.lastSnr.toFixed(1)+' dB':null],['Airtime TX / RX',r.txAir!=null?dur(r.txAir)+' / '+dur(r.rxAir):null],['Pakete RX / TX',r.recv!=null?r.recv+' / '+r.sent:null],['RX Flood / Direkt',r.rFlood!=null?r.rFlood+' / '+r.rDirect:null],['TX Flood / Direkt',r.sFlood!=null?r.sFlood+' / '+r.sDirect:null],['RX-Fehler',r.rErr]]):'';
+  renderAutoAdd();fwCheck();
   const hm=d?.pathHashMode;
   $('#kvRegion').innerHTML=s?kv([['Region',S.scope==null?'<span class="muted">nicht unterstützt</span>':S.scope.name?'<b>#'+esc(S.scope.name)+'</b>':'keine (ungefiltert)'],['Pfad-Hash',hm!=null?(hm+1)+' Byte':'<span class="muted">unbekannt</span>'],['Erkannte Regionen',S.regions.length?S.regions.map(r=>'#'+esc(r.name)).join(', '):'–']]):'';
   if(s&&document.activeElement!==$('#setHashMode')&&hm!=null)$('#setHashMode').value=hm;
@@ -1547,27 +1631,27 @@ async function ensureContact(key){
 }
 
 // ---- Login ----
-async function admLogin(){
-  const s=admCur();if(!s)return;const pw=$('#admPw').value;
-  const remember=$('#admRemember').checked;
-  if(remember)store.set('mcw.admpw.'+s.key.slice(0,12),pw);else store.del('mcw.admpw.'+s.key.slice(0,12));
-  admBusy(true,'Anmelden …');
+async function admLogin(key,pwArg,quiet){
+  const s=typeof key==='string'?admS(key):admCur();if(!s)return;let pw=pwArg;
+  if(pw==null){pw=$('#admPw').value;
+    if($('#admRemember').checked)store.set('mcw.admpw.'+s.key.slice(0,12),pw);else store.del('mcw.admpw.'+s.key.slice(0,12))}
+  admBusy(true,'Anmelden '+(quiet?admName(s.key)+' ':'')+'…');
   try{
     await ensureContact(s.key);
     const sent=parseSent(await request(bytes(CMD.SEND_LOGIN,unhex(s.key),pw)));
     admLog(s,'sys','Login gesendet ('+(sent.flood?'Flood':'direkt')+')');
     const pre=s.key.slice(0,12);
     const f=await waitPush(x=>(x[0]===PUSH.LOGIN_OK||x[0]===PUSH.LOGIN_FAIL)&&hex(x.slice(2,8))===pre,replyTimeout(sent.est));
-    if(f[0]===PUSH.LOGIN_FAIL){s.logged=false;admLog(s,'err','Login abgelehnt – Passwort falsch?');toast('Login abgelehnt – Passwort falsch?','err');return}
+    if(f[0]===PUSH.LOGIN_FAIL){s.logged=false;admLog(s,'err','Login abgelehnt – Passwort falsch?');toast((quiet?admName(s.key)+': ':'')+'Login abgelehnt – Passwort falsch?','err');return}
     const r=new R(f);r.u8();const isAdmin=r.u8();r.bytes(6);
     s.logged=true;s.isAdmin=!!isAdmin;s.perms=null;s.fwLevel=null;s.clockDiff=null;
     if(r.left()>=4){const st=r.u32();s.clockDiff=st-now()}
     if(r.left()>=1)s.perms=r.u8();if(r.left()>=1)s.fwLevel=r.u8();
     s.role=s.perms!=null?ROLE[s.perms&3]:(s.isAdmin?'Admin':'Gast');
-    admLog(s,'ok','Angemeldet als '+s.role);toast('Angemeldet bei '+admName(s.key)+' ('+s.role+')','ok');
+    admLog(s,'ok','Angemeldet als '+s.role);if(!quiet)toast('Angemeldet bei '+admName(s.key)+' ('+s.role+')','ok');rdSet(s.key,{role:s.role});
     renderAdmin();
-    await admStatus(true);
-  }catch(e){admLog(s,'err','Login: '+e.message);toast('Login fehlgeschlagen: '+e.message,'err')}
+    await admStatus(true,s.key);
+  }catch(e){admLog(s,'err','Login: '+e.message);toast((quiet?admName(s.key)+': ':'')+'Login fehlgeschlagen: '+e.message,'err')}
   finally{admBusy(false);renderAdmin()}
 }
 async function admLogout(){
@@ -1584,12 +1668,13 @@ function parseRepStats(b){
   o.sFlood=g32(24);o.sDirect=g32(28);o.rFlood=g32(32);o.rDirect=g32(36);o.err=g16(40);
   const snr=g16(42,1);o.snr=snr==null?null:snr/4;o.dDup=g16(44);o.fDup=g16(46);o.rxAir=g32(48);o.rErr=g32(52);
   return o}
-async function admStatus(quiet){
-  const s=admCur();if(!s)return;if(!quiet)admBusy(true,'Status abrufen …');
+async function admStatus(quiet,key){
+  const s=key?admS(key):admCur();if(!s)return;if(!quiet)admBusy(true,'Status abrufen …');
   try{
     const sent=parseSent(await request(bytes(CMD.STATUS_REQ,unhex(s.key))));const pre=s.key.slice(0,12);
     const f=await waitPush(x=>x[0]===PUSH.STATUS&&hex(x.slice(2,8))===pre,replyTimeout(sent.est));
-    s.status=parseRepStats(f.slice(8));s.statusT=Date.now();admLog(s,'ok','Status empfangen');
+    const st=s.status=parseRepStats(f.slice(8));s.statusT=Date.now();admLog(s,'ok','Status empfangen');
+    rdSet(s.key,{t:s.statusT,batt:st.batt,up:st.up,noise:st.noise,air:st.air!=null&&st.up?st.air/st.up*100:null,rxAir:st.rxAir!=null&&st.up?st.rxAir/st.up*100:null,err:st.err,fail:null,msg:null});
   }catch(e){admLog(s,'err','Status: '+e.message);if(!quiet)toast('Status: '+e.message,'err')}
   finally{if(!quiet)admBusy(false);renderAdmin()}
 }
@@ -1622,10 +1707,10 @@ async function admAcl(){
   catch(e){admLog(s,'err','Zugriffsliste: '+e.message);toast('Zugriffsliste: '+e.message,'err')}
   finally{admBusy(false);renderAdmin()}
 }
-async function admOwner(){
-  const s=admCur();if(!s)return;admBusy(true,'Infos abrufen …');
-  try{const d=await binReq(s.key,bytes(REQ.OWNER,0,0,0,rnd4()));const [ver,name,...own]=dec.decode(d).split('\n');s.owner={ver,name,info:own.join('\n')};admLog(s,'ok','Firmware '+ver)}
-  catch(e){admLog(s,'err','Infos: '+e.message);toast('Infos: '+e.message,'err')}
+async function admOwner(key,quiet){
+  const s=typeof key==='string'?admS(key):admCur();if(!s)return;admBusy(true,'Infos abrufen …');
+  try{const d=await binReq(s.key,bytes(REQ.OWNER,0,0,0,rnd4()));const [ver,name,...own]=dec.decode(d).replace(/\0+$/,'').split('\n');s.owner={ver,name,info:own.join('\n')};admLog(s,'ok','Firmware '+ver);rdSet(s.key,{ver,verT:Date.now()})}
+  catch(e){admLog(s,'err','Infos: '+e.message);if(!quiet)toast('Infos: '+e.message,'err')}
   finally{admBusy(false);renderAdmin()}
 }
 
@@ -1718,7 +1803,7 @@ function renderAdminList(){
   const q=($('#admSearch').value||'').trim().toLowerCase();
   const list=[...S.contacts.values()].filter(c=>ADM_TYPES.includes(c.type)&&(!q||(c.name||'').toLowerCase().includes(q)||c.key.startsWith(q)))
     .sort((a,b)=>(ADM.sess.get(b.key)?.logged?1:0)-(ADM.sess.get(a.key)?.logged?1:0)||(a.name||'').localeCompare(b.name||''));
-  $('#admList').innerHTML=list.map(c=>{const s=ADM.sess.get(c.key);
+  $('#admList').innerHTML=`<div class="citem${!ADM.key?' active':''}" data-key="__dash"><span>📋</span><span class="nm">Übersicht aller Repeater</span></div>`+list.map(c=>{const s=ADM.sess.get(c.key);
     return `<div class="citem${ADM.key===c.key?' active':''}" data-key="${c.key}"><div class="mk mk-${c.type}" style="width:18px;height:18px;font-size:10px">${NLETTER[c.type]}</div><span class="nm">${esc(c.name||c.key.slice(0,8))}</span>${s&&s.logged?'<span title="angemeldet">🔓</span>':''}</div>`}).join('')
     ||'<div class="empty" style="font-size:13px">Keine Repeater oder Rooms in den Kontakten.<br>Unter „Kontakte“ mit „auch nur gehörte Knoten“ einen Repeater hinzufügen.</div>';
 }
@@ -1728,8 +1813,8 @@ function clockTxt(d){if(d==null)return null;const a=Math.abs(d);const t=a<60?a+'
   return a<=120?'<span class="snr-g">stimmt</span>':`<span class="snr-r">${d>0?'geht '+t+' vor':'geht '+t+' nach'}</span>`}
 function renderAdmin(){
   renderAdminList();const s=admCur(),el=$('#admMain');
+  if(!s){el.innerHTML=(isMobile()?`<div class="admhead" style="margin-bottom:0"><button class="sm mback" onclick="mBack('admin')" title="Zurück">‹</button></div>`:'')+dashHtml()+(S.connected?'':'<p class="muted" style="font-size:12px">Nicht verbunden – zum Abfragen zuerst eine Companion verbinden.</p>');admBusy(ADM.busy,ADM.busyTxt);return}
   if(!S.connected){el.innerHTML='<div class="empty">Nicht verbunden. Zuerst eine Companion per USB, Bluetooth oder TCP verbinden.</div>';return}
-  if(!s){el.innerHTML='<div class="empty">Links einen Repeater oder Room wählen.<br><span class="muted" style="font-size:13px">Anmelden mit Admin- oder Gast-Passwort. Alle Abfragen laufen über Funk – bitte sparsam nutzen.</span></div>';return}
   const c=S.contacts.get(s.key)||{},n=S.nodes.get(s.key)||{},st=s.status;
   const pw=store.get('mcw.admpw.'+s.key.slice(0,12),null);
   let h=`<div class="admhead"><button class="sm mback" onclick="mBack('admin')" title="Zurück">‹</button><div><h2>${esc(admName(s.key))}</h2><div class="muted mono">${NTYPE[c.type]||''} · ${s.key.slice(0,16)}… ${s.logged?'· <b class="snr-g">angemeldet als '+esc(s.role)+'</b>':''}</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>`;
@@ -1739,7 +1824,7 @@ function renderAdmin(){
     h+=`<div class="card" style="max-width:440px"><h3>Anmelden</h3>
       <div class="frm"><input id="admPw" type="password" placeholder="Passwort (leer = Gast ohne Passwort)" autocomplete="off" value="${esc(pw||'')}"><button class="primary" data-a="login">Anmelden</button></div>
       <label class="frm"><input type="checkbox" id="admRemember"${pw!=null?' checked':''}> Passwort in diesem Browser merken</label>
-      <p class="muted" style="font-size:12px">Mit dem Admin-Passwort sind alle Funktionen verfügbar, mit dem Gast-Passwort nur Status und Nachbarn. Ein gemerktes Passwort liegt unverschlüsselt im Browser-Speicher.</p><div class="hex log admlog" id="admLog" style="min-height:0"></div></div>`;
+      <p class="muted" style="font-size:12px">Mit dem Admin-Passwort sind alle Funktionen verfügbar, mit dem Gast-Passwort nur Status und Nachbarn. Ein gemerktes Passwort liegt unverschlüsselt im Browser-Speicher.</p><div class="hex log admlog" id="admLog" style="min-height:0"></div></div>`+anonHtml(s);
   }else{
     h+=`<div class="cards">`;
     h+=`<div class="card"><h3>Status <button class="sm" data-a="status" style="float:right">↻</button></h3>`+
@@ -1754,7 +1839,7 @@ function renderAdmin(){
       <div class="frm"><button data-a="adv0">📣 Advert Zero-Hop</button><button data-a="advf">📡 Advert Flood</button></div>
       <div class="frm"><button data-a="clrstats">Statistik zurücksetzen</button><button class="danger" data-a="reboot">Neustart</button></div>`
       :`<div class="frm"><button data-a="info">ℹ Firmware & Owner</button></div><p class="muted" style="font-size:12px">Uhr, Adverts, Neustart, Einstellungen und Terminal gibt es nur mit dem Admin-Passwort.</p>`}
-      ${s.owner?`<div class="kv">${kvRows([['Firmware',esc(s.owner.ver)],['Name',esc(s.owner.name)],['Owner',esc(s.owner.info).replace(/\|/g,'<br>')]])}</div>`:''}
+      ${s.owner?`<div class="kv">${kvRows([['Firmware',esc(s.owner.ver)+fwBadge(s.owner.ver,c.type===3?'room-server':'repeater')],['Name',esc(s.owner.name)],['Owner',esc(s.owner.info).replace(/\|/g,'<br>')]])}</div>`:''}
       ${s.clockDiff!=null&&s.clockDiff>120?'<p class="muted" style="font-size:12px">Die Uhr geht vor. MeshCore stellt die Uhr nur vorwärts, zurückstellen geht nur über „clkreboot“ im Terminal.</p>':''}</div>`;
     // Nachbarn
     h+=`<div class="card"><h3>Nachbarn <span style="float:right"><button class="sm" data-a="neighmap"${s.neigh?'':' disabled'}>🗺 Karte</button> <button class="sm" data-a="neigh">↻</button></span></h3>`+
@@ -1775,6 +1860,7 @@ function renderAdmin(){
       // ACL
       h+=`<div class="card"><h3>Zugriffsliste <button class="sm" data-a="acl" style="float:right">↻</button></h3>`+
         (s.acl?(s.acl.list.length?`<table><tbody>${s.acl.list.map(a=>`<tr><td>${esc(nodeName(a.k)||'?')} <span class="muted mono">${a.k.slice(0,8)}</span></td><td>${ROLE[a.perm&3]}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">Leer.</div>'):'<div class="muted">Noch nicht abgerufen.</div>')+`</div>`;
+      h+=regionsHtml(s);
     }
     // Terminal (nur Admin – Repeater beantworten CLI-Befehle nur von Admins)
     if(!s.isAdmin)h+=`<div class="card" style="grid-column:1/-1"><h3>Protokoll</h3><div class="hex log admlog" id="admLog"></div></div>`;
@@ -1800,16 +1886,22 @@ const CLI_SUGGEST=['ver','board','clock','clock sync','clkreboot','reboot','adve
     .flatMap(k=>['get '+k,'set '+k+' '])];
 $('#dlCli')||document.body.insertAdjacentHTML('beforeend','<datalist id="dlCli">'+CLI_SUGGEST.map(x=>`<option value="${esc(x)}">`).join('')+'</datalist>');
 const admHist=[];let admHi=-1;
-$('#admList').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;ADM.key=it.dataset.key;$('#sec-admin').classList.add('mdet');renderAdmin()});
+$('#admList').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;ADM.key=it.dataset.key==='__dash'?null:it.dataset.key;$('#sec-admin').classList.add('mdet');renderAdmin()});
 $('#admSearch').oninput=renderAdminList;
-$('#admMain').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;
+$('#admMain').addEventListener('click',e=>{const b=e.target.closest('button');
+  if(!b){const tr=e.target.closest('tr[data-open]');if(tr){ADM.key=tr.dataset.open;$('#sec-admin').classList.add('mdet');renderAdmin()}return}
+  if(b.disabled)return;
   if(b.dataset.cli){$('#admCmd').value=b.dataset.cli;admSendCmd();return}
+  if(b.dataset.dash){e.stopPropagation();dashRun(b.dataset.dash);return}
+  if(b.dataset.reg){const n=b.dataset.n,r=b.dataset.reg;admRegionCmd('region '+r+' '+n,r==='remove'?'Region #'+n+' vom Repeater entfernen?':null);return}
   const a=b.dataset.a,nm=admCur()?admName(admCur().key):'';
-  ({login:admLogin,logout:admLogout,status:()=>admStatus(),neigh:admNeighbours,neighmap:admNeighMap,acl:admAcl,info:admOwner,loadset:admLoadSettings,saveset:admSaveSettings,send:admSendCmd,
+  ({login:()=>admLogin(),logout:admLogout,status:()=>admStatus(),dashrun:()=>dashRun(),anon:admAnon,regload:admRegions,regsave:()=>admRegionCmd('region save'),
+    regadd:()=>{const n=($('#regNew').value||'').trim().replace(/^#/,'').toLowerCase(),p=$('#regParent').value;if(!/^[\p{L}\p{N}_-]{1,30}$/u.test(n))return toast('Regionsname: Buchstaben, Ziffern, - und _','err');admRegionCmd('region put '+n+(p&&p!=='*'?' '+p:''))},neigh:admNeighbours,neighmap:admNeighMap,acl:admAcl,info:()=>admOwner(),loadset:admLoadSettings,saveset:admSaveSettings,send:admSendCmd,
     clock:()=>admCmd('clock sync'),adv0:()=>admCmd('advert.zerohop'),advf:()=>admCmd('advert'),clrstats:()=>admCmd('clear stats',{confirmMsg:'Statistik von „'+nm+'“ zurücksetzen?'}),
     reboot:()=>admRebootCmd(nm)}[a]||(()=>{}))()});
 $('#admMain').addEventListener('keydown',e=>{
   if(e.target.id==='admPw'&&e.key==='Enter'){e.preventDefault();admLogin()}
+  if(e.target.id==='regNew'&&e.key==='Enter'){e.preventDefault();$('#admMain button[data-a=regadd]').click()}
   if(e.target.id!=='admCmd')return;
   if(e.key==='Enter'){e.preventDefault();admSendCmd()}
   else if(e.key==='ArrowUp'&&admHist.length){e.preventDefault();admHi=Math.max(0,(admHi<0?admHist.length:admHi)-1);e.target.value=admHist[admHi]}
@@ -2066,6 +2158,518 @@ $('#trHs').onchange=()=>{const hs=+$('#trHs').value;$('#trPath').value=$('#trPat
 document.addEventListener('click',e=>{const b=e.target.closest('button[data-nt]');if(!b)return;
   ({tracemap:traceMap,discmap:discMap,traceto:()=>traceTo(b.dataset.key),addrep:()=>addDiscovered(b.dataset.key)}[b.dataset.nt]||(()=>{}))()});
 
+// ================= Hilfsfunktionen =================
+Object.assign(CMD,{SET_RADIO:11,EXPORT_CONTACT:17,IMPORT_CONTACT:18,SEND_ANON_REQ:57,SET_AUTOADD:58,GET_AUTOADD:59});
+Object.assign(EXPECT,{17:[11],57:[6],59:[25]});
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function download(name,data,mime){const a=document.createElement('a');a.href=URL.createObjectURL(data instanceof Blob?data:new Blob([data],{type:mime}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
+async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Kopiert','ok')}catch{const x=document.createElement('textarea');x.value=t;document.body.appendChild(x);x.select();try{document.execCommand('copy');toast('Kopiert','ok')}catch{toast('Kopieren nicht möglich','err')}x.remove()}}
+const LIBS={qr:'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',jsqr:'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'};
+const libP={};
+function loadLib(u){return libP[u]||(libP[u]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.async=true;s.onload=()=>res();
+  s.onerror=()=>{delete libP[u];s.remove();rej(new Error('Zusatz-Bibliothek konnte nicht geladen werden (offline?)'))};document.head.appendChild(s)}))}
+function openConv(conv){if(!conv)return;S.active=conv;delete S.unread[conv];$('#sec-chat').classList.add('mdet');switchTab('chat')}
+const fileName=s=>String(s||'').replace(/[^\w.-]+/g,'_').replace(/^_+|_+$/g,'')||'meshcore';
+const stamp=()=>new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+
+// ================= QR-Codes & MeshCore-Links =================
+// Formate wie in der offiziellen MeshCore-App (docs.meshcore.io/qr_codes)
+const meshUrl={
+  channel:(name,secretHex,region)=>'meshcore://channel/add?name='+encodeURIComponent(name)+'&secret='+secretHex+(region&&region!=='-'?'&region_scope='+encodeURIComponent(region):''),
+  contact:(name,key,type)=>'meshcore://contact/add?name='+encodeURIComponent(name||'')+'&public_key='+key+'&type='+(type||1)};
+async function showQr(title,url,note){
+  $('#qrTitle').textContent=title;$('#qrUrl').textContent=url;$('#qrNote').textContent=note||'';
+  $('#qrBox').innerHTML='<div class="muted">QR-Code wird erzeugt …</div>';$('#qrModal').hidden=false;
+  $('#qrCopy').onclick=()=>copyText(url);
+  $('#qrShare').hidden=!navigator.share;$('#qrShare').onclick=()=>navigator.share({title,text:url}).catch(()=>{});
+  $('#qrPng').onclick=()=>qrPng(title);$('#qrClose').onclick=()=>{$('#qrModal').hidden=true};
+  try{await loadLib(LIBS.qr);if(qrcode.stringToBytesFuncs&&qrcode.stringToBytesFuncs['UTF-8'])qrcode.stringToBytes=qrcode.stringToBytesFuncs['UTF-8'];
+    const q=qrcode(0,'M');q.addData(url);q.make();$('#qrBox').innerHTML=q.createSvgTag({cellSize:4,margin:4,scalable:true})}
+  catch(e){$('#qrBox').innerHTML='<div class="snr-r">'+esc(e.message)+'</div>'}
+}
+function qrPng(title){
+  const svg=$('#qrBox svg');if(!svg)return;const img=new Image();
+  img.onload=()=>{const c=document.createElement('canvas');c.width=c.height=720;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,720,720);g.drawImage(img,0,0,720,720);
+    c.toBlob(b=>download('qr-'+fileName(title)+'.png',b),'image/png')};
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(svg));
+}
+function qrChannel(conv){
+  if(conv.startsWith('dc:')){const d=S.disc[conv.slice(3)];if(d)showQr(chTitle(d.name),meshUrl.channel(d.name,d.secret),'Öffentlicher Kanal');return}
+  const ch=S.channels.find(c=>'ch:'+c.idx===conv);if(!ch)return;const rg=chanRegion(ch);
+  const pub=ch.secret==='8b3387e9c5cdea6ac9e5edbaa115cd72'||ch.name.startsWith('#');
+  showQr(chTitle(ch.name),meshUrl.channel(ch.name,ch.secret,rg),pub?'Mit dem QR-Code kann jeder diesen Kanal zur MeshCore-App oder Webapp hinzufügen.':'Achtung: Der QR-Code enthält den geheimen Schlüssel dieses privaten Kanals – nur an Leute zeigen, die mitlesen dürfen.');
+}
+function qrNode(key){const n=S.nodes.get(key)||{},c=S.contacts.get(key)||{};showQr(n.name||c.name||key.slice(0,8),meshUrl.contact(n.name||c.name,key,c.type||n.type||1),'Zum Hinzufügen in der MeshCore-App oder Webapp scannen.')}
+function qrSelf(){if(!S.self)return toast('Nicht verbunden','err');showQr(S.self.name+' (ich)',meshUrl.contact(S.self.name,S.self.key,S.self.advType||1),'Andere können dich damit als Kontakt hinzufügen – auch ohne dass dein Advert sie erreicht hat.')}
+
+// ---- Scanner ----
+const SCAN={stream:null,timer:null,det:null,noBD:false,done:false};
+async function openScanner(){
+  SCAN.done=false;$('#scanModal').hidden=false;$('#scanPaste').value='';const v=$('#scanVideo');v.hidden=true;
+  $('#scanMsg').textContent='Kamera wird gestartet …';
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('keine Kamera verfügbar');
+    SCAN.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    if($('#scanModal').hidden){stopScan();return}
+    v.srcObject=SCAN.stream;await v.play();v.hidden=false;$('#scanMsg').textContent='QR-Code vor die Kamera halten …';scanTick();
+  }catch(e){$('#scanMsg').textContent='Kamera: '+(e.name==='NotAllowedError'?'Zugriff nicht erlaubt':e.message)+'. Du kannst ein Bild wählen oder den Link einfügen.'}
+}
+function stopScan(){clearTimeout(SCAN.timer);if(SCAN.stream){SCAN.stream.getTracks().forEach(t=>t.stop());SCAN.stream=null}const v=$('#scanVideo');v.srcObject=null}
+function closeScanner(){stopScan();$('#scanModal').hidden=true}
+async function detectQr(src){
+  if('BarcodeDetector' in window&&!SCAN.noBD){
+    try{SCAN.det=SCAN.det||new BarcodeDetector({formats:['qr_code']});const r=await SCAN.det.detect(src);return r.length?r[0].rawValue:null}catch{SCAN.noBD=true}}
+  await loadLib(LIBS.jsqr);
+  const w=src.videoWidth||src.width,h=src.videoHeight||src.height;if(!w||!h)return null;
+  const sc=Math.min(1,900/Math.max(w,h)),c=document.createElement('canvas');c.width=Math.round(w*sc);c.height=Math.round(h*sc);
+  const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(src,0,0,c.width,c.height);
+  const r=jsQR(g.getImageData(0,0,c.width,c.height).data,c.width,c.height);return r?r.data:null;
+}
+async function scanTick(){
+  if(!SCAN.stream||SCAN.done)return;
+  try{const v=$('#scanVideo');if(v.readyState>=2){const t=await detectQr(v);if(t&&!SCAN.done){scanFound(t);return}}}catch(e){$('#scanMsg').textContent=e.message}
+  SCAN.timer=setTimeout(scanTick,250);
+}
+function scanFound(t){SCAN.done=true;closeScanner();handleMeshLink(t).catch(e=>toast(e.message,'err'))}
+$('#scanFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const bmp=await createImageBitmap(f);const t=await detectQr(bmp);if(t)scanFound(t);else $('#scanMsg').textContent='Im Bild wurde kein QR-Code gefunden.'}catch(err){$('#scanMsg').textContent='Bild: '+err.message}};
+$('#scanOk').onclick=()=>{const t=$('#scanPaste').value.trim();if(t)scanFound(t)};
+$('#scanPaste').onkeydown=e=>{if(e.key==='Enter')$('#scanOk').click()};
+$('#scanCancel').onclick=closeScanner;
+
+async function handleMeshLink(raw){
+  const s=String(raw||'').trim();
+  let m=s.match(/^meshcore:\/\/(channel|contact)\/add\?(.+)$/i);
+  if(m){const q=new URLSearchParams(m[2]);
+    if(m[1].toLowerCase()==='channel'){
+      const name=(q.get('name')||'').trim(),sec=(q.get('secret')||'').trim().toLowerCase(),rg=(q.get('region_scope')||'').trim().replace(/^#/,'').toLowerCase();
+      if(!name||!/^[0-9a-f]{32}$/.test(sec))throw new Error('Kanal-Link unvollständig (Name oder Schlüssel fehlt)');
+      return importChannel(name,sec,rg)}
+    const key=(q.get('public_key')||'').trim().toLowerCase(),type=parseInt(q.get('type'),10)||1,name=(q.get('name')||'').trim();
+    if(!/^[0-9a-f]{64}$/.test(key))throw new Error('Kontakt-Link unvollständig (Schlüssel fehlt)');
+    return importContactUrl(key,type,name)}
+  m=s.match(/^meshcore:\/\/([0-9a-f]{40,})$/i);
+  if(m)return importAdvert(unhex(m[1].toLowerCase()));
+  throw new Error('Kein MeshCore-Kanal- oder Kontakt-Link: '+s.slice(0,60));
+}
+async function importChannel(name,secHex,rg){
+  const ex=S.channels.find(c=>c.secret===secHex);
+  if(ex){openConv('ch:'+ex.idx);return toast(chTitle(ex.name)+' ist schon auf dem Gerät','ok')}
+  if(!S.connected)return toast('Kanal '+chTitle(name)+' erkannt – zum Hinzufügen erst den Companion verbinden','err');
+  if(!confirm('Kanal '+chTitle(name)+' zum Gerät hinzufügen?'+(rg?'\nRegion: #'+rg:'')))return;
+  await addChannelToDevice(name,unhex(secHex));
+  const ch=S.channels.find(c=>c.secret===secHex);
+  if(ch){if(rg){S.chanRegion[chanId(ch)]=rg;store.set('mcw.chanRegion',S.chanRegion);await buildRegions()}openConv('ch:'+ch.idx)}
+}
+function contactFrameFor(key,type,name,lat,lon){const nb=new Uint8Array(32);nb.set(enc.encode(name||('Knoten '+key.slice(0,8))).slice(0,31));
+  return bytes(CMD.ADD_UPDATE_CONTACT,unhex(key),type,0,0xFF,new Uint8Array(64),nb,u32(0),i32(Math.round((lat||0)*1e6)),i32(Math.round((lon||0)*1e6)))}
+async function importContactUrl(key,type,name){
+  if(S.self&&key===S.self.key)return toast('Das ist dein eigener QR-Code 🙂');
+  const c=S.contacts.get(key);if(c&&c.saved){toast('„'+(c.name||name)+'“ ist schon in deinen Kontakten','ok');return openNode(key)}
+  if(!S.connected)return toast('Kontakt „'+name+'“ erkannt – zum Speichern erst den Companion verbinden','err');
+  if(!confirm((NTYPE[type]||'Kontakt')+' „'+(name||key.slice(0,8))+'“ zu den Kontakten hinzufügen?'))return;
+  const n=S.nodes.get(key)||{},f=contactFrameFor(key,type,name||n.name,n.lat,n.lon);
+  try{await request(f);const cf=f.slice();cf[0]=RESP.CONTACT;upsertContact(parseContact(cf),true);await refreshContact(key);
+    toast('„'+(name||key.slice(0,8))+'“ gespeichert – der Weg wird beim ersten Kontakt gesucht (Flood)','ok');renderAll();openNode(key)}
+  catch(e){toast('Speichern fehlgeschlagen: '+e.message,'err')}
+}
+async function importAdvert(b){
+  if(!S.connected)return toast('Visitenkarte erkannt – zum Importieren erst den Companion verbinden','err');
+  try{await request(bytes(CMD.IMPORT_CONTACT,b));await loadContacts();toast('Kontakt importiert','ok')}catch(e){toast('Import fehlgeschlagen: '+e.message,'err')}
+}
+
+// ================= Benachrichtigungen =================
+const NOTIF={mode:(()=>{const v=store.get('mcw.notify',false);return v===true?'all':v===false||v==null?'off':v})(),sound:store.get('mcw.sound',false),conv:store.get('mcw.nconv',{})||{}};
+const convMode=conv=>NOTIF.conv[conv]||'std';
+function isMention(m){
+  const nm=S.self&&S.self.name;if(!nm||!m||!m.text||m.dir!=='in')return false;
+  const t=m.text.toLowerCase(),n=nm.toLowerCase();if(t.includes('@['+n+']'))return true;
+  return new RegExp('@'+n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\p{L}\\p{N}_])','iu').test(m.text);
+}
+function shouldNotify(conv,m){
+  const cm=convMode(conv);if(cm==='mute'||NOTIF.mode==='off')return false;
+  const eff=cm!=='std'?cm:NOTIF.mode==='mention'?(conv.startsWith('c:')?'all':'mention'):'all';
+  return eff==='all'||m.mention;
+}
+let actx=null;
+function beep(strong){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const t=actx.currentTime;
+  [[880,0],[strong?1320:660,.13]].forEach(([f,d])=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=f;o.type='sine';g.gain.setValueAtTime(0.0001,t+d);g.gain.exponentialRampToValueAtTime(.18,t+d+.02);g.gain.exponentialRampToValueAtTime(.0001,t+d+.12);o.connect(g).connect(actx.destination);o.start(t+d);o.stop(t+d+.14)})}catch{}}
+function notify(conv,m){
+  if(!shouldNotify(conv,m))return;
+  if(NOTIF.sound)beep(m.mention);
+  if(!document.hidden||!('Notification' in window)||Notification.permission!=='granted')return;
+  const title=convTitle(conv)+(m.mention?' · Erwähnung':''),opt={body:m.from+': '+m.text,tag:conv,icon:'icon-192.png',data:{conv}};
+  if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(r=>r.showNotification(title,opt)).catch(()=>{});
+  else try{const n=new Notification(title,opt);n.onclick=()=>{window.focus();openConv(conv);n.close()}}catch{}
+}
+function setConvMode(conv,v){if(v==='std')delete NOTIF.conv[conv];else NOTIF.conv[conv]=v;store.set('mcw.nconv',NOTIF.conv);renderChat();
+  toast(convTitle(conv)+': '+{std:'Benachrichtigung wie eingestellt',all:'bei jeder Nachricht benachrichtigen',mention:'nur bei @Erwähnung benachrichtigen',mute:'stummgeschaltet'}[v],'ok')}
+
+// ================= Suche im Chatverlauf =================
+function searchMsgs(q){
+  const out=[];
+  for(const [conv,arr] of Object.entries(S.msgs)){if(!Array.isArray(arr))continue;
+    for(const m of arr)if((m.text||'').toLowerCase().includes(q)||(m.dir==='in'&&(m.from||'').toLowerCase().includes(q)))out.push([conv,m])}
+  return out.sort((a,b)=>(b[1].rx||b[1].ts)-(a[1].rx||a[1].ts));
+}
+function snippet(text,q){
+  text=String(text||'');const i=text.toLowerCase().indexOf(q);if(i<0)return esc(text.slice(0,80));
+  const a=Math.max(0,i-30),b=Math.min(text.length,i+q.length+50);
+  return (a?'…':'')+esc(text.slice(a,i))+'<mark>'+esc(text.slice(i,i+q.length))+'</mark>'+esc(text.slice(i+q.length,b))+(b<text.length?'…':'');
+}
+function searchHtml(q){
+  const res=searchMsgs(q);if(!res.length)return '<h4>Nachrichten</h4><div class="muted" style="padding:2px 12px 8px;font-size:12px">keine Treffer</div>';
+  return `<h4>Nachrichten (${res.length>100?'100+':res.length})</h4>`+res.slice(0,100).map(([conv,m])=>
+    `<div class="sres" data-conv="${esc(conv)}" data-mid="${esc(m.id||'')}"><div class="sh"><b>${esc(convTitle(conv))}</b><span class="muted">${dtfmt(m.ts||m.rx)}</span></div><div class="sb"><span class="muted">${esc(m.dir==='in'?m.from:'Ich')}:</span> ${snippet(m.text,q)}</div></div>`).join('');
+}
+
+// ================= Knoten-Verlauf & Details =================
+function nhAdd(key,e){
+  const k=key.slice(0,12),a=NH[k]||(NH[k]=[]),last=a[a.length-1];
+  if(last&&e[0]-last[0]<30000){if(e[3]<last[3]||(e[3]===last[3]&&e[1]>last[1]))a[a.length-1]=e;return} // gleiches Advert über mehrere Wege
+  a.push(e);if(a.length>80)a.splice(0,a.length-80);
+}
+function nhTrim(){const ks=Object.keys(NH);if(ks.length<=600)return;ks.sort((a,b)=>NH[a][NH[a].length-1][0]-NH[b][NH[b].length-1][0]).slice(0,ks.length-600).forEach(k=>delete NH[k])}
+const CS={base:()=>{const v=store.get('mcw.corescope',null);return v==null?'https://live.saarmesh.de':v}};
+const csNode=k=>CS.base()?CS.base().replace(/\/+$/,'')+'/#/nodes/'+k:null;
+const csPkt=h=>CS.base()?CS.base().replace(/\/+$/,'')+'/#/packets/'+h:null;
+const NODEV={key:null};
+function openNode(key){NODEV.key=key;$('#nodeModal').hidden=false;renderNode()}
+function renderNode(){
+  const key=NODEV.key;if(!key||$('#nodeModal').hidden)return;
+  const n=S.nodes.get(key)||{key},c=S.contacts.get(key),type=c?c.type:n.type,h=NH[key.slice(0,12)]||[];
+  const name=n.name||(c&&c.name)||key.slice(0,8),rd=RD[key];
+  $('#nodeTitle').innerHTML=`<span class="mk mk-${type??0}" style="width:20px;height:20px;font-size:10px;display:inline-flex;vertical-align:middle">${NLETTER[type??0]}</span> ${esc(name)}`;
+  const nb=[...S.neighbors.entries()].find(([hh])=>key.startsWith(hh));
+  const direct=h.filter(e=>e[3]===0),avg=a=>a.length?a.reduce((x,e)=>x+e[1],0)/a.length:null;
+  const pd=c?pathDesc(c.outPathLen,c.outPath):null;
+  const rows=[['Typ',NTYPE[type??0]+(c?(c.saved?' · in deinen Kontakten':' · neu, nicht gespeichert'):' · nur gehört')],
+    ['Schlüssel',`<span class="mono" style="word-break:break-all">${key}</span> <button class="sm" data-nd="copy" title="Kopieren">⧉</button>`],
+    ['Erstmals',n.first?new Date(n.first).toLocaleString('de-DE'):null],['Zuletzt gehört',n.heard?'vor '+ago(n.heard)+' ('+dtfmt(n.heard)+')':null],
+    ['Letztes Advert',n.advTs?new Date(n.advTs*1000).toLocaleString('de-DE'):null],
+    ['Position',hasPos(n)?`${n.lat.toFixed(5)}, ${n.lon.toFixed(5)}`+(hasPos(S.self)?` · ${hav(S.self.lat,S.self.lon,n.lat,n.lon).toFixed(1)} km`:''):'unbekannt'],
+    ['Pfad',pd?(pd.flood?'unbekannt (Flood)':pd.hops.length?pd.hops.map(x=>esc(nodeName(x)||x)).join(' → '):'direkt'):null],
+    ['Empfang',h.length?`${h.length} Adverts gespeichert · Ø SNR ${avg(h).toFixed(1)} dB`+(direct.length?` · ${direct.length}× direkt (Ø ${avg(direct).toFixed(1)} dB)`:''):null],
+    ['Direkter Nachbar',nb?`${nb[1].n}× gehört in dieser Sitzung, Ø SNR ${(nb[1].snrSum/nb[1].n).toFixed(1)} dB`:null],
+    ['Firmware',rd&&rd.ver?esc(rd.ver)+fwBadge(rd.ver,type===3?'room-server':'repeater'):null]];
+  let x=`<div class="kv">${kvRows(rows)}</div>`;
+  if(h.length>=2)x+=`<div class="tseries"><div class="tsname">SNR der empfangenen Adverts</div>${telSpark(h.map(e=>[e[0],e[1]]),'dB')}</div>`;
+  if(h.length)x+=`<h4 class="muted" style="margin:12px 0 4px;font-size:12px">Letzte Adverts</h4><table class="obs"><thead><tr><th>Zeit</th><th>SNR</th><th>RSSI</th><th>Hops</th><th>zuletzt über</th></tr></thead><tbody>`+
+    h.slice(-8).reverse().map(e=>`<tr><td>${dtfmt(e[0])}</td><td class="mono ${snrCls(e[1])}">${e[1].toFixed(1)}</td><td class="mono">${e[2]}</td><td>${e[3]===0?'direkt':e[3]}</td><td>${e[4]?esc(nodeName(e[4])||e[4]):'–'}</td></tr>`).join('')+'</tbody></table>';
+  const telN=telHist(key).length;
+  let b='';
+  if(c&&(c.type===1||c.type===3))b+=`<button class="sm" data-nd="chat">💬 Chat</button>`;
+  if(c&&ADM_TYPES.includes(c.type))b+=`<button class="sm" data-nd="admin">🛠 Admin</button>`;
+  if(c||telN)b+=`<button class="sm" data-nd="tel">📊 Telemetrie${telN?' ('+telN+')':''}</button>`;
+  if(c&&c.saved&&(c.type===1||c.type===2||c.type===3))b+=`<button class="sm" data-nd="trace">📍 Trace</button>`;
+  if(hasPos(n))b+=`<button class="sm" data-nd="map">🗺 Karte</button>`;
+  b+=`<button class="sm" data-nd="qr">⧉ QR-Code</button>`;
+  if(c&&!c.saved)b+=`<button class="sm primary" data-nd="add">＋ Speichern</button>`;
+  if(csNode(key))b+=`<a class="sm btnlink" href="${esc(csNode(key))}" target="_blank" rel="noopener">🔎 In CoreScope</a>`;
+  $('#nodeBody').innerHTML=x+`<div class="frm" style="margin-top:12px">${b}</div>`;
+}
+$('#nodeModal').addEventListener('click',e=>{const b=e.target.closest('[data-nd]');if(!b)return;const k=NODEV.key,a=b.dataset.nd;
+  const close=()=>{$('#nodeModal').hidden=true};
+  ({copy:()=>copyText(k),chat:()=>{close();openChat(k)},admin:()=>{close();openAdmin(k)},tel:()=>{close();openTelemetry(k)},trace:()=>{close();traceTo(k)},
+    map:()=>{close();zoomTo(k)},qr:()=>qrNode(k),add:async()=>{await addContact(k);renderNode()}}[a]||(()=>{}))()});
+$('#nodeClose').onclick=()=>{$('#nodeModal').hidden=true};
+
+// ================= Kartenebene: eigener Empfang =================
+let rxLayer=null;
+function rxStats(){
+  // Wen höre ich direkt? Bei 0 Hops der Absender selbst, sonst der letzte Repeater auf dem Weg.
+  const agg=new Map(),add=(n,snr,t)=>{if(!n||!hasPos(n))return;const a=agg.get(n.key)||{n,c:0,s:0,last:0};a.c++;a.s+=snr;a.last=Math.max(a.last,t);agg.set(n.key,a)};
+  const age=+$('#mAge').value*1000;
+  for(const [k,arr] of Object.entries(NH))for(const e of arr){if(age&&Date.now()-e[0]>age)continue;
+    if(e[3]===0){const l=nodesByHash(k);if(l.length===1)add(l[0],e[1],e[0])}
+    else if(e[4]){const l=nodesByHash(e[4]);if(l.length===1)add(l[0],e[1],e[0])}}
+  return [...agg.values()];
+}
+function renderRxLayer(){
+  if(!map)return;if(!rxLayer)rxLayer=L.layerGroup().addTo(map);rxLayer.clearLayers();
+  if(!$('#mRx').checked)return 0;let cnt=0;
+  for(const a of rxStats()){const avg=a.s/a.c,col=avg>=5?'#2da44e':avg>=-5?'#d29922':'#cf222e';cnt++;
+    L.circleMarker([a.n.lat,a.n.lon],{radius:9+Math.min(12,Math.sqrt(a.c)*2),color:col,weight:2,fillColor:col,fillOpacity:.35,interactive:true})
+      .bindTooltip(`${esc(a.n.name||'?')}: direkt gehört ${a.c}×, Ø SNR ${avg.toFixed(1)} dB`,{sticky:true}).addTo(rxLayer)}
+  return cnt;
+}
+
+// ================= Repeater-Übersicht & Firmware =================
+const RD=store.get('mcw.repdash',{})||{};
+function rdSet(key,o){RD[key]=Object.assign(RD[key]||{},o);store.set('mcw.repdash',RD)}
+const FW={rel:store.get('mcw.fwrel',null),busy:false};
+async function fwCheck(force){
+  if(FW.busy||(!force&&FW.rel&&Date.now()-FW.rel.t<12*3600e3)||!navigator.onLine)return;FW.busy=true;
+  try{const r=await fetch('https://api.github.com/repos/meshcore-dev/MeshCore/releases?per_page=40');if(!r.ok)return;const j=await r.json();const o={t:Date.now()};
+    for(const x of j){if(x.draft||x.prerelease)continue;const m=/^(repeater|room-server|companion)-v(\d+\.\d+(?:\.\d+)?)$/.exec(x.tag_name||'');if(m&&!o[m[1]])o[m[1]]=m[2]}
+    FW.rel=o;store.set('mcw.fwrel',o);renderSoon()}catch{}finally{FW.busy=false}
+}
+const verOf=s=>{const m=/(\d+)\.(\d+)(?:\.(\d+))?/.exec(s||'');return m?[+m[1],+m[2],+(m[3]||0)]:null};
+function fwNewer(cur,role){const l=FW.rel&&FW.rel[role],a=verOf(cur),b=verOf(l);if(!a||!b)return null;for(let i=0;i<3;i++){if(b[i]>a[i])return l;if(b[i]<a[i])return null}return null}
+function fwBadge(cur,role){const n=fwNewer(cur,role);return n?` <a class="upd" href="https://flasher.meshcore.co.uk/" target="_blank" rel="noopener" title="Neuere Firmware verfügbar – zum Web-Flasher">⬆ v${esc(n)}</a>`:''}
+const dashReps=()=>[...S.contacts.values()].filter(c=>ADM_TYPES.includes(c.type)).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+const DASH={busy:false,cur:null};
+const hasPw=k=>store.get('mcw.admpw.'+k.slice(0,12),null)!=null;
+async function dashRun(only){
+  if(DASH.busy||!S.connected)return;
+  const list=only?[only]:dashReps().map(c=>c.key),todo=list.filter(k=>(ADM.sess.get(k)||{}).logged||hasPw(k)),skip=list.length-todo.length;
+  if(!todo.length)return toast(only?'Erst anmelden oder Passwort merken lassen':'Kein Repeater mit aktiver Anmeldung oder gespeichertem Passwort','err');
+  if(!only&&!confirm(todo.length+' Repeater nacheinander per Funk abfragen (Anmeldung + Status, je 2–4 Pakete)?'+(skip?'\n\n'+skip+' ohne gespeichertes Passwort werden übersprungen.':'')))return;
+  DASH.busy=true;
+  try{for(const k of todo){DASH.cur=k;renderAdmin();const s=admS(k),t0=Date.now();
+    try{if(!s.logged)await admLogin(k,store.get('mcw.admpw.'+k.slice(0,12),''),true);
+      if(!s.logged){rdSet(k,{fail:Date.now(),msg:'Anmeldung fehlgeschlagen'});continue}
+      if(!(s.statusT>=t0))await admStatus(true,k);
+      if(!s.statusT||s.statusT<t0)rdSet(k,{fail:Date.now(),msg:'keine Antwort'});
+      if(!RD[k]||!RD[k].ver||Date.now()-(RD[k].verT||0)>7*86400e3)await admOwner(k,true);
+    }catch(e){rdSet(k,{fail:Date.now(),msg:e.message})}
+    if(todo.length>1)await sleep(1500)}}
+  finally{DASH.busy=false;DASH.cur=null;renderAdmin()}
+}
+function battCls(v){return v==null?'':v<3500?'snr-r':v<3700?'snr-y':'snr-g'}
+function dashHtml(){
+  const reps=dashReps();fwCheck();
+  let h=`<div class="admhead"><div><h2>📋 Repeater-Übersicht</h2><div class="muted">${reps.length} Repeater/Rooms in deinen Kontakten</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>
+    <button class="primary" data-a="dashrun"${DASH.busy||!S.connected?' disabled':''}>${DASH.busy?'Frage ab …':'↻ Alle abfragen'}</button></div>`;
+  if(!reps.length)return h+'<div class="empty" style="font-size:13px">Keine Repeater oder Rooms in den Kontakten.<br>Unter „Kontakte“ oder „Netz-Tools → Repeater in der Nähe“ hinzufügen.</div>';
+  h+=`<div class="card"><div class="tablewrap"><table class="dash"><thead><tr><th>Name</th><th>Stand</th><th>Akku</th><th>Laufzeit</th><th>Rauschen</th><th title="Sende-Airtime seit Start">Airtime</th><th>Firmware</th><th>Gehört</th><th></th></tr></thead><tbody>`;
+  for(const c of reps){const r=RD[c.key]||{},s=ADM.sess.get(c.key),n=S.nodes.get(c.key)||{},cur=DASH.cur===c.key;
+    const ok=r.t&&(!r.fail||r.t>r.fail);
+    h+=`<tr data-open="${c.key}"${cur?' class="sel"':''}><td><span class="mk mk-${c.type}" style="width:16px;height:16px;font-size:9px;display:inline-flex;vertical-align:middle">${NLETTER[c.type]}</span> ${esc(c.name||c.key.slice(0,8))}${s&&s.logged?' 🔓':hasPw(c.key)?' <span class="muted" title="Passwort gespeichert">🔑</span>':''}</td>
+      <td>${cur?'<span class="muted">läuft …</span>':ok?ago(r.t):r.fail?`<span class="snr-r" title="${esc(r.msg||'')}">✗ ${ago(r.fail)}</span>`:'<span class="muted">–</span>'}</td>
+      <td class="mono ${battCls(r.batt)}">${r.batt?(r.batt/1000).toFixed(2)+' V':'–'}</td><td>${r.up!=null?dur(r.up):'–'}</td><td class="mono">${r.noise!=null?r.noise+' dBm':'–'}</td>
+      <td class="mono${r.air>10?' snr-y':''}">${r.air!=null?r.air.toFixed(1)+' %':'–'}</td><td>${r.ver?esc((verOf(r.ver)||[]).join('.')||r.ver)+fwBadge(r.ver,c.type===3?'room-server':'repeater'):'–'}</td>
+      <td>${ago(lastSeen(n))}</td><td style="white-space:nowrap"><button class="sm" data-dash="${c.key}" title="Nur diesen abfragen"${DASH.busy||!S.connected?' disabled':''}>↻</button></td></tr>`}
+  h+=`</tbody></table></div></div><p class="muted" style="font-size:12px">Abgefragt werden nur Repeater, bei denen du angemeldet bist oder dir das Passwort gemerkt hast (🔑). Die Werte bleiben in diesem Browser gespeichert.${FW.rel&&FW.rel.repeater?` Neueste Repeater-Firmware laut GitHub: <b>v${esc(FW.rel.repeater)}</b>.`:''} Klick auf eine Zeile öffnet den Repeater.</p>`;
+  return h;
+}
+
+// ---- Anonyme Abfrage (ohne Login) ----
+// Neuere Repeater beantworten Name/Owner, Uhrzeit und erlaubte Regionen ohne Passwort – aber nur direkt, nicht per Flood.
+async function anonReq(key,type){
+  const c=S.contacts.get(key);let rp=new Uint8Array(0),pl=0;
+  if(c&&c.outPathLen!==0xFF&&c.outPathLen!=null){const pd=pathDesc(c.outPathLen,c.outPath);rp=unhex(pd.hops.slice().reverse().join(''));pl=c.outPathLen}
+  const sent=parseSent(await request(bytes(CMD.SEND_ANON_REQ,unhex(key),type,pl,rp)));
+  const f=await waitPush(x=>x[0]===PUSH.BINARY&&new DataView(x.buffer,x.byteOffset+2,4).getUint32(0,true)===sent.tag,replyTimeout(sent.est));
+  const d=f.slice(6);return {clock:d.length>=4?new DataView(d.buffer,d.byteOffset,4).getUint32(0,true):null,data:d.slice(4),flood:sent.flood};
+}
+const cstr0=b=>{let z=b.indexOf(0);if(z<0)z=b.length;return dec.decode(b.subarray(0,z))};
+async function admAnon(){
+  const s=admCur();if(!s)return;admBusy(true,'Frage ohne Anmeldung ab …');const r={t:Date.now()};
+  try{await ensureContact(s.key);const c=S.contacts.get(s.key);
+    if(c&&c.outPathLen===0xFF)admLog(s,'sys','Kein Pfad bekannt – die Anfrage geht per Flood, darauf antworten Repeater ohne Login nicht');
+    const o=await anonReq(s.key,2);const [nm,...own]=cstr0(o.data).split('\n');r.name=nm;r.info=own.join('\n');if(o.clock)r.clockDiff=o.clock-now();
+    admLog(s,'ok','Name/Owner empfangen (ohne Login)');
+    await sleep(1200);try{const b=await anonReq(s.key,3);r.flags=b.data.length?b.data[0]:0}catch(e){admLog(s,'err','Uhr/Funktionen: '+e.message)}
+    await sleep(1200);try{const g=await anonReq(s.key,1);r.regions=cstr0(g.data).split(',').map(x=>x.trim()).filter(Boolean)}catch(e){admLog(s,'err','Regionen: '+e.message)}
+    s.anon=r;
+  }catch(e){admLog(s,'err','Ohne Login: '+e.message);toast('Keine Antwort – Firmware zu alt oder Repeater nicht direkt erreichbar','err')}
+  finally{admBusy(false);renderAdmin()}
+}
+function anonHtml(s){
+  const a=s.anon;
+  let h=`<div class="card" style="max-width:440px;margin-top:12px"><h3>Ohne Anmeldung <button class="sm" data-a="anon" style="float:right">${a?'↻':'ℹ Abfragen'}</button></h3>`;
+  if(!a)return h+`<p class="muted" style="font-size:12px;margin:0">Fragt Name, Owner-Info, Uhrzeit und die freigegebenen Regionen ab – ganz ohne Passwort. Klappt mit neuerer Repeater-Firmware, wenn der Repeater direkt oder über einen bekannten Pfad erreichbar ist.</p></div>`;
+  return h+`<div class="kv">${kvRows([['Name',esc(a.name)],['Owner',a.info?esc(a.info).replace(/\|/g,'<br>'):'<span class="muted">–</span>'],['Uhr',clockTxt(a.clockDiff)],
+    ['Weiterleiten',a.flags==null?null:a.flags&0x80?'<span class="snr-r">aus</span>':'<span class="snr-g">an</span>'],['Bridge',a.flags&3?(a.flags&3)===3?'ESP-NOW':'RS232':null],
+    ['Regionen (Flood)',a.regions?a.regions.length?a.regions.map(x=>'<span class="hash">'+(x==='*'?'* (ohne Region)':'#'+esc(x))+'</span>').join(' '):'keine':null]])}</div><div class="muted" style="font-size:12px">Stand ${tfmt(a.t)}</div></div>`;
+}
+
+// ---- Regionen am Repeater (per CLI) ----
+function parseRegionTree(txt){
+  const out=[],stack=[];
+  for(const line of String(txt).split('\n')){if(!line.trim()||/^(err|unknown)/i.test(line.trim()))continue;
+    const ind=line.match(/^ */)[0].length;let t=line.trim(),flood=false,home=false;
+    if(/ F$/.test(t)){flood=true;t=t.slice(0,-2).trim()}if(t.endsWith('^')){home=true;t=t.slice(0,-1)}
+    stack.length=ind;stack[ind]=t;out.push({name:t,ind,flood,home,parent:ind?stack[ind-1]||'*':null})}
+  return out;
+}
+async function admRegions(){
+  const s=admCur();if(!s)return;admBusy(true,'Regionen laden …');
+  try{const r=cliVal(await cli(s.key,'region',{log:false}));s.regions={t:Date.now(),list:parseRegionTree(r),raw:r};admLog(s,'ok',s.regions.list.length+' Regionen geladen')}
+  catch(e){admLog(s,'err','Regionen: '+e.message);toast('Regionen: '+e.message,'err')}
+  finally{admBusy(false);renderAdmin()}
+}
+async function admRegionCmd(cmd,msg){
+  const s=admCur();if(!s)return;if(msg&&!confirm(msg))return;admBusy(true,cmd+' …');
+  try{const r=cliVal(await cli(s.key,cmd));if(/^(err|unknown|invalid)/i.test(r.trim()))toast(admName(s.key)+': '+r,'err');else if(cmd!=='region save')s.regDirty=true;else{s.regDirty=false;toast('Regionen auf dem Repeater gespeichert','ok')}}
+  catch(e){toast(e.message,'err')}
+  finally{admBusy(false)}
+  if(cmd!=='region save')await admRegions();else renderAdmin();
+}
+function regionsHtml(s){
+  const rg=s.regions;
+  let h=`<div class="card"><h3>Regionen <button class="sm" data-a="regload" style="float:right">${rg?'↻':'Laden'}</button></h3>`;
+  if(!rg)return h+`<div class="muted" style="font-size:13px">Welche Regionen dieser Repeater kennt und welche er per Flood weiterleitet.</div></div>`;
+  h+=`<table class="regt"><thead><tr><th>Region</th><th title="Flood-Pakete dieser Region weiterleiten">Flood</th><th></th></tr></thead><tbody>`+
+    rg.list.map(r=>`<tr><td style="padding-left:${8+r.ind*14}px">${r.name==='*'?'* <span class="muted">(ohne Region)</span>':'#'+esc(r.name)}${r.home?' <span title="Heimat-Region">🏠</span>':''}</td>
+      <td><button class="sm${r.flood?' ok':''}" data-reg="${r.flood?'denyf':'allowf'}" data-n="${esc(r.name)}" title="${r.flood?'Klicken zum Sperren':'Klicken zum Erlauben'}">${r.flood?'✓ erlaubt':'✗ gesperrt'}</button></td>
+      <td style="white-space:nowrap">${r.name!=='*'?`${r.home?'':`<button class="sm" data-reg="home" data-n="${esc(r.name)}" title="Als Heimat-Region setzen">🏠</button> `}<button class="sm danger" data-reg="remove" data-n="${esc(r.name)}" title="Entfernen">🗑</button>`:''}</td></tr>`).join('')+`</tbody></table>`;
+  h+=`<div class="frm"><span class="muted">#</span><input id="regNew" placeholder="neue Region" maxlength="30" list="dlRegions"><select id="regParent">${rg.list.map(r=>`<option value="${esc(r.name)}">${r.name==='*'?'oberste Ebene':'unter #'+esc(r.name)}</option>`).join('')}</select><button data-a="regadd">＋</button></div>
+    <div class="frm"><button class="${s.regDirty?'primary':''}" data-a="regsave">💾 Dauerhaft speichern</button>${s.regDirty?'<span class="snr-y" style="font-size:12px">Änderungen noch nicht gespeichert – gehen beim Neustart verloren</span>':''}</div>
+    <p class="muted" style="font-size:12px;margin-bottom:0">Neu angelegte Regionen sind zuerst gesperrt. „Flood erlaubt“ heißt: der Repeater leitet Pakete mit dieser Region weiter. Die Liste kann bei sehr vielen Regionen abgeschnitten sein (Funkpaket max. ~150 Zeichen).</p></div>`;
+  return h;
+}
+
+// ================= Kontakte: neue Knoten, Export =================
+let cNewOnly=false;
+function contactList(){
+  const q=$('#cSearch').value.trim().toLowerCase(),t=$('#cType').value,heard=$('#cHeard').checked;
+  let list=[...S.nodes.values()].filter(n=>S.contacts.has(n.key)||heard);
+  for(const c of S.contacts.values())if(!S.nodes.has(c.key))list.push({key:c.key,name:c.name,type:c.type});
+  if(cNewOnly)list=list.filter(n=>{const c=S.contacts.get(n.key);return c&&!c.saved});
+  return list.filter(n=>(!t||String(n.type)===t)&&(!q||(n.name||'').toLowerCase().includes(q)||n.key.startsWith(q))).sort((a,b)=>lastSeen(b)-lastSeen(a));
+}
+function renderNewBar(){
+  const pend=[...S.contacts.values()].filter(c=>!c.saved),el=$('#cNewBar');
+  if(!pend.length){el.innerHTML='';el.hidden=true;if(cNewOnly){cNewOnly=false}return}
+  el.hidden=false;
+  el.innerHTML=`<span>🆕 <b>${pend.length}</b> neue${pend.length>1?'':'r'} Knoten gehört, noch nicht gespeichert</span><span class="spacer"></span>
+    <button class="sm${cNewOnly?' blue':''}" data-cn="only">${cNewOnly?'Alle zeigen':'Nur neue zeigen'}</button><button class="sm primary" data-cn="all"${S.connected?'':' disabled'}>Alle speichern</button><button class="sm" data-cn="drop">Verwerfen</button>`;
+}
+$('#cNewBar').addEventListener('click',async e=>{const b=e.target.closest('button[data-cn]');if(!b||b.disabled)return;const pend=[...S.contacts.values()].filter(c=>!c.saved);
+  if(b.dataset.cn==='only'){cNewOnly=!cNewOnly;renderContacts();return}
+  if(b.dataset.cn==='drop'){if(!confirm(pend.length+' neue Knoten aus der Liste entfernen? (Auf dem Gerät sind sie ohnehin nicht gespeichert.)'))return;pend.forEach(c=>{S.contacts.delete(c.key);const n=S.nodes.get(c.key);if(n)n.inContacts=false});cNewOnly=false;renderAll();return}
+  if(!confirm(pend.length+' Knoten im Gerät speichern?'))return;let ok=0;
+  for(const c of pend){const f=unhex(c.raw||'');if(!f.length)continue;f[0]=CMD.ADD_UPDATE_CONTACT;try{await request(f);c.saved=true;ok++}catch(err){if(err.code===3){toast('Kontaktspeicher voll','err');break}}}
+  toast(ok+' Kontakte gespeichert','ok');cNewOnly=false;renderAll()});
+function exportNodes(kind){
+  const list=contactList();if(!list.length)return toast('Keine Knoten in der aktuellen Ansicht','err');
+  if(kind==='csv'){const rows=[['name','typ','schluessel','breite','laenge','zuletzt','snr','in_kontakten'].join(';')].concat(list.map(n=>[String(n.name||'').replace(/;/g,','),NTYPE[n.type??0],n.key,hasPos(n)?n.lat:'',hasPos(n)?n.lon:'',lastSeen(n)?new Date(lastSeen(n)).toISOString():'',n.snr??'',S.contacts.get(n.key)?.saved?'ja':'nein'].join(';')));
+    return download('meshcore-knoten-'+stamp()+'.csv','﻿'+rows.join('\n'),'text/csv')}
+  const xe=s=>String(s??'').replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
+  const pts=list.filter(hasPos);if(!pts.length)return toast('Keiner der Knoten hat eine Position','err');
+  const gpx=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Meshcore Webapp by SaarMesh.de" xmlns="http://www.topografix.com/GPX/1/1">\n`+
+    pts.map(n=>`<wpt lat="${n.lat}" lon="${n.lon}"><name>${xe(n.name||n.key.slice(0,8))}</name><desc>${xe(NTYPE[n.type??0]+' · '+n.key.slice(0,12))}</desc>${lastSeen(n)?`<time>${new Date(lastSeen(n)).toISOString()}</time>`:''}<type>${xe(NTYPE[n.type??0])}</type></wpt>`).join('\n')+'\n</gpx>\n';
+  download('meshcore-knoten-'+stamp()+'.gpx',gpx,'application/gpx+xml');
+}
+$('#btnCExpCsv').onclick=()=>exportNodes('csv');$('#btnCExpGpx').onclick=()=>exportNodes('gpx');
+
+// ================= Automatisch speichern (Auto-Add) =================
+const AA={cfg:null};
+async function loadAutoAdd(){try{const f=await request(bytes(CMD.GET_AUTOADD));AA.cfg={bits:f[1],hops:f.length>2?f[2]:0}}catch{AA.cfg=null}renderAutoAdd()}
+function renderAutoAdd(){
+  const el=$('#aaBox');if(!el)return;const c=AA.cfg;
+  if(!S.connected||!c){el.innerHTML='';return}
+  const ty=[[2,'Companions'],[4,'Repeater'],[8,'Rooms'],[16,'Sensoren']];
+  el.innerHTML=`<div class="muted" style="font-size:12px;margin:2px 0 4px">Automatisch speichern:</div><div class="frm">${ty.map(([b,l])=>`<label style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-aa="${b}"${c.bits&b?' checked':''}>${l}</label>`).join('')}</div>
+    <div class="frm"><label class="muted" for="aaHops">bis max. Hops</label><input id="aaHops" type="number" min="0" max="64" value="${c.hops}" style="max-width:80px"><span class="muted" style="font-size:12px">(0 = egal)</span>
+    <label style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-aa="1"${c.bits&1?' checked':''}>Älteste überschreiben, wenn voll</label></div>`;
+}
+document.addEventListener('change',async e=>{const t=e.target;if(!t.closest('#aaBox')||!AA.cfg)return;
+  let bits=0;$$('#aaBox input[data-aa]').forEach(x=>{if(x.checked)bits|=+x.dataset.aa});const hops=Math.max(0,Math.min(64,parseInt($('#aaHops').value,10)||0));
+  try{await request(bytes(CMD.SET_AUTOADD,bits,hops));AA.cfg={bits,hops};toast('Auto-Speichern aktualisiert','ok')}catch(err){toast(err.message,'err');loadAutoAdd()}});
+
+// ================= Sicherung (Kontakte & Kanäle) =================
+function exportBackup(){
+  if(!S.self)return toast('Nicht verbunden','err');
+  const d={app:'meshcore-webapp',v:1,created:new Date().toISOString(),device:S.self.name,deviceKey:S.self.key,
+    contacts:[...S.contacts.values()].filter(c=>c.saved&&c.raw).map(c=>({key:c.key,name:c.name,type:c.type,raw:c.raw})),
+    channels:S.channels.map(c=>({idx:c.idx,name:c.name,secret:c.secret,region:chanRegion(c)||undefined}))};
+  download('meshcore-sicherung-'+fileName(S.self.name)+'-'+stamp()+'.json',JSON.stringify(d,null,1),'application/json');
+  toast(d.contacts.length+' Kontakte und '+d.channels.length+' Kanäle gesichert','ok');
+}
+async function importBackup(file){
+  let j;try{j=JSON.parse(await file.text())}catch{return toast('Keine gültige Sicherungsdatei','err')}
+  if(!j||j.app!=='meshcore-webapp'||!Array.isArray(j.contacts))return toast('Keine Sicherung der Meshcore Webapp','err');
+  if(!S.connected)return toast('Zum Einspielen erst den Companion verbinden','err');
+  const nc=j.contacts.filter(c=>c.raw&&!(S.contacts.get(c.key)||{}).saved&&!(S.self&&c.key===S.self.key)),nch=(j.channels||[]).filter(c=>c.secret&&!S.channels.some(x=>x.secret===c.secret));
+  if(!nc.length&&!nch.length)return toast('Alles aus der Sicherung ist schon auf dem Gerät','ok');
+  if(!confirm(`Sicherung „${j.device||'?'}“ vom ${new Date(j.created).toLocaleString('de-DE')}\n\n${nc.length} Kontakte und ${nch.length} Kanäle fehlen auf diesem Gerät. Jetzt übertragen?`))return;
+  let ok=0,fail=0;
+  for(const c of nc){const f=unhex(c.raw);f[0]=CMD.ADD_UPDATE_CONTACT;try{await request(f);ok++}catch(e){fail++;if(e.code===3){toast('Kontaktspeicher voll','err');break}}}
+  for(const c of nch){await addChannelToDevice(c.name,unhex(c.secret));const ch=S.channels.find(x=>x.secret===c.secret);if(ch&&c.region&&!chanRegion(ch)){S.chanRegion[chanId(ch)]=c.region}}
+  store.set('mcw.chanRegion',S.chanRegion);await buildRegions();await loadContacts();
+  toast(`${ok} Kontakte${fail?' ('+fail+' fehlgeschlagen)':''} und ${nch.length} Kanäle übertragen`,fail?'err':'ok');renderAll();
+}
+$('#btnBackup').onclick=exportBackup;
+$('#btnRestore').onclick=()=>$('#restoreFile').click();
+$('#restoreFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)importBackup(f)};
+$('#btnMyQr').onclick=qrSelf;$('#btnScan2').onclick=openScanner;$('#btnCScan').onclick=openScanner;
+
+// ================= Einrichtungsassistent =================
+const PRESET={name:'EU/UK Narrow',freq:869.618,bw:62.5,sf:8,cr:8};
+const WIZ={step:0};
+const WIZ_STEPS=['Willkommen','Name','Standort','Funk','Kanäle','Region','Fertig'];
+const isDefaultName=n=>/^(meshcore|mc)[-_ ]?[0-9a-f]{3,}$/i.test(n||'')||!n;
+function maybeWizard(){if(!S.self)return;const k='mcw.wiz.'+S.self.key.slice(0,12);if(store.get(k,false))return;
+  if(isDefaultName(S.self.name)||(S.contacts.size===0&&S.channels.length<=1)){store.set(k,true);setTimeout(()=>openWizard(),700)}}
+function openWizard(){if(!S.connected)return toast('Erst den Companion verbinden','err');WIZ.step=0;WIZ.sel=new Set();$('#wizModal').hidden=false;renderWizard()}
+function radioMatches(){const s=S.self;return s&&Math.abs(s.freq-PRESET.freq)<0.002&&Math.abs(s.bw-PRESET.bw)<0.1&&s.sf===PRESET.sf&&s.cr===PRESET.cr}
+function renderWizard(){
+  const s=S.self,st=WIZ.step;if(!s){$('#wizModal').hidden=true;return}
+  $('#wizSteps').innerHTML=WIZ_STEPS.map((n,i)=>`<span class="${i===st?'on':i<st?'done':''}">${i<st?'✓ ':''}${n}</span>`).join('');
+  let h='';
+  if(st===0)h=`<p>Schön, dass du da bist! In ein paar Schritten ist dein Companion bereit für das Mesh:</p><ul style="padding-left:20px;line-height:1.6;font-size:13px"><li>Namen festlegen</li><li>Standort (freiwillig, auch ungefähr)</li><li>Funkeinstellungen prüfen</li><li>Kanäle und Region wählen</li></ul><p class="muted" style="font-size:12px">Jeder Schritt lässt sich überspringen. Den Assistenten findest du später unter „Gerät“.</p>`;
+  else if(st===1)h=`<label class="fl">So sehen dich die anderen im Mesh<input id="wzName" maxlength="31" value="${esc(s.name)}"></label><p class="muted" style="font-size:12px">Tipp: Rufzeichen oder Vorname plus Ort, z. B. „Mathias SB“. Höchstens 31 Zeichen.</p>`;
+  else if(st===2)h=`<p style="font-size:13px;margin-top:0">Mit Standort erscheinst du auf Karten und andere sehen, wie weit du entfernt bist. Ungefähr (≈1 km) reicht völlig.</p>
+    <div class="frm"><button id="wzGeo">📍 Standort vom Browser</button><label style="display:flex;gap:4px;align-items:center;font-size:13px"><input type="checkbox" id="wzExact"> genau</label></div>
+    <div class="frm"><input id="wzLat" placeholder="Breite" value="${hasPos(s)?s.lat.toFixed(4):''}"><input id="wzLon" placeholder="Länge" value="${hasPos(s)?s.lon.toFixed(4):''}"></div>
+    <label class="frm"><input type="checkbox" id="wzLocAdv"${s.locPolicy?' checked':''}> Standort in Adverts mitsenden</label>`;
+  else if(st===3)h=`<div class="kv">${kvRows([['Frequenz',s.freq.toFixed(3)+' MHz'],['Bandbreite',s.bw+' kHz'],['SF / CR','SF'+s.sf+' / 4:'+s.cr]])}</div>`+
+    (radioMatches()?`<p class="snr-g">✓ Passt zum Profil <b>${PRESET.name}</b> (${PRESET.freq} MHz · ${PRESET.bw} kHz · SF${PRESET.sf} · CR${PRESET.cr}) – das nutzen die meisten Netze in Deutschland, auch SaarMesh.</p>`
+      :`<p style="font-size:13px">In Deutschland nutzen die meisten Netze (auch SaarMesh) das Profil <b>${PRESET.name}</b>: ${PRESET.freq} MHz · ${PRESET.bw} kHz · SF${PRESET.sf} · CR${PRESET.cr}.</p><div class="frm"><button class="primary" id="wzRadio">Profil ${PRESET.name} übernehmen</button></div><p class="muted" style="font-size:12px">Alle Geräte eines Netzes müssen dieselben Funkeinstellungen haben. Frag im Zweifel bei deinem lokalen Netz nach.</p>`);
+  else if(st===4){const have=new Set(S.channels.map(c=>c.secret));
+    const sug=[...CAT.byName.values()].filter(e=>!have.has(e.secretHex)).sort((a,b)=>Math.max(0,...(b.regions||[]).map(regionAffinity))-Math.max(0,...(a.regions||[]).map(regionAffinity))||b.msgs-a.msgs).slice(0,10);
+    h=`<p style="font-size:13px;margin-top:0">Auf dem Gerät: ${S.channels.map(c=>'<span class="hash">'+esc(chTitle(c.name))+'</span>').join(' ')||'noch keine Kanäle'}</p>`+
+      (sug.length?`<div class="muted" style="font-size:12px">Beliebte öffentliche Kanäle:</div><div class="wzch">${sug.map(e=>`<label><input type="checkbox" data-wch="${esc(e.name)}"${WIZ.sel.has(e.name)?' checked':''}> ${esc(chTitle(e.name))} <span class="muted" style="font-size:11px">${e.msgs?e.msgs+' Nachr.':''}</span></label>`).join('')}</div>`:'')+
+      `<div class="frm"><input id="wzCh" placeholder="weiterer Hashtag-Kanal, z. B. #saarland" list="dlChannels"></div><p class="muted" style="font-size:12px">Ausgewählte Kanäle werden beim Klick auf „Weiter“ hinzugefügt (${(S.dev&&S.dev.maxChannels)||8} Plätze insgesamt).</p>`}
+  else if(st===5)h=`<p style="font-size:13px;margin-top:0">Mit einer Region bleiben deine Flood-Pakete in deiner Gegend – Repeater mit Regionsfilter leiten sie nur dort weiter. Aktuell: <b>${S.scope==null?'nicht unterstützt (Firmware zu alt)':S.scope.name?'#'+esc(S.scope.name):'keine'}</b></p>`+
+    (S.scope==null?'':`<div class="frm"><span class="muted">#</span><input id="wzRegion" list="dlRegions" placeholder="z. B. saarland" value="${esc(S.scope&&S.scope.name||'')}"></div><p class="muted" style="font-size:12px">Frag bei deinem lokalen Netz, welche Region üblich ist. Leer lassen = ohne Region.</p>`);
+  else h=`<p>🎉 Fertig! Damit dich die anderen finden, schick jetzt am besten ein Advert ins Netz.</p><div class="frm"><button class="blue" id="wzAdv">📡 Flood-Advert senden</button><button id="wzQr">⧉ Mein QR-Code</button></div>`;
+  $('#wizBody').innerHTML=h;
+  $('#wizBack').hidden=st===0;$('#wizSkip').hidden=st===0||st===WIZ_STEPS.length-1;
+  $('#wizNext').textContent=st===0?'Los geht’s':st===WIZ_STEPS.length-1?'Schließen':'Weiter';
+  const g=$('#wzGeo');if(g)g.onclick=()=>{if(!navigator.geolocation)return toast('Standort im Browser nicht verfügbar','err');g.disabled=true;
+    navigator.geolocation.getCurrentPosition(p=>{const d=$('#wzExact').checked?5:2;$('#wzLat').value=p.coords.latitude.toFixed(d);$('#wzLon').value=p.coords.longitude.toFixed(d);g.disabled=false},
+      e=>{toast('Standort: '+e.message,'err');g.disabled=false},{enableHighAccuracy:false,timeout:15000})};
+  const rb=$('#wzRadio');if(rb)rb.onclick=async()=>{if(!confirm('Funkeinstellungen auf '+PRESET.name+' ändern?'))return;
+    try{await request(bytes(CMD.SET_RADIO,u32(Math.round(PRESET.freq*1000)),u32(Math.round(PRESET.bw*1000)),PRESET.sf,PRESET.cr));await reloadSelf();toast('Funkprofil übernommen – ggf. Gerät neu starten','ok');renderWizard()}catch(e){toast(e.message,'err')}};
+  const ab=$('#wzAdv');if(ab)ab.onclick=()=>advert(true);const qb=$('#wzQr');if(qb)qb.onclick=qrSelf;
+  $$('#wizBody input[data-wch]').forEach(x=>x.onchange=()=>{x.checked?WIZ.sel.add(x.dataset.wch):WIZ.sel.delete(x.dataset.wch)});
+}
+async function wizApply(){
+  const s=S.self,st=WIZ.step;
+  try{
+    if(st===1){const n=$('#wzName').value.trim();if(n&&n!==s.name){await request(bytes(CMD.SET_NAME,n.slice(0,31)));await reloadSelf()}}
+    else if(st===2){const la=parseFloat(($('#wzLat').value||'').replace(',','.')),lo=parseFloat(($('#wzLon').value||'').replace(',','.')),la0=$('#wzLocAdv').checked?1:0;
+      if(!isNaN(la)&&!isNaN(lo)&&(!hasPos(s)||Math.abs(la-s.lat)>1e-5||Math.abs(lo-s.lon)>1e-5))await setPosition(la,lo);
+      if(la0!==(S.self.locPolicy?1:0))await setOther(S.self.manualAdd,la0)}
+    else if(st===4){const extra=($('#wzCh').value||'').trim();const names=[...WIZ.sel];if(extra)names.push(extra.startsWith('#')?extra:'#'+extra);
+      for(const nm of names){const e=CAT.byName.get(nm.toLowerCase());const sec=e?e.secret:MC.sha256(enc.encode(nm.toLowerCase())).slice(0,16);
+        if(S.channels.some(c=>c.secret===hex(sec)))continue;await addChannelToDevice(e?e.name:nm.toLowerCase(),sec)}WIZ.sel.clear()}
+    else if(st===5&&$('#wzRegion')){const v=$('#wzRegion').value.trim().replace(/^#/,'');if(v!==(S.scope&&S.scope.name||''))await setScope(v)}
+  }catch(e){toast(e.message,'err');return false}
+  return true;
+}
+$('#wizNext').onclick=async()=>{const b=$('#wizNext');b.disabled=true;const ok=await wizApply();b.disabled=false;if(!ok)return;
+  if(WIZ.step>=WIZ_STEPS.length-1){$('#wizModal').hidden=true;renderAll();return}WIZ.step++;renderWizard()};
+$('#wizBack').onclick=()=>{WIZ.step=Math.max(0,WIZ.step-1);renderWizard()};
+$('#wizSkip').onclick=()=>{WIZ.step++;renderWizard()};
+$('#wizClose').onclick=()=>{$('#wizModal').hidden=true};
+$('#btnWizard').onclick=openWizard;
+
+// ================= App (PWA) =================
+let installEvt=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;$('#btnInstall').hidden=false});
+addEventListener('appinstalled',()=>{installEvt=null;$('#btnInstall').hidden=true;toast('App installiert 🎉','ok')});
+$('#btnInstall').onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch{}installEvt=null;$('#btnInstall').hidden=true};
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
+  navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Service Worker',e));
+  navigator.serviceWorker.addEventListener('message',e=>{const d=e.data||{};if(d.type==='open'&&d.conv)openConv(d.conv)});
+}
+{const q=new URLSearchParams(location.search).get('open');if(q)setTimeout(()=>openConv(q),300)}
+const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+document.body.classList.toggle('standalone',standalone());
+
+// ================= Einstellungen (App) =================
+$('#setNotify').value=NOTIF.mode;
+$('#setNotify').onchange=async e=>{let v=e.target.value;
+  if(v!=='off'&&'Notification' in window&&Notification.permission!=='granted'){const p=await Notification.requestPermission();if(p!=='granted'){toast('Benachrichtigungen wurden im Browser nicht erlaubt','err');if(!NOTIF.sound)v='off'}}
+  NOTIF.mode=v;e.target.value=v;store.set('mcw.notify',v)};
+$('#setSound').checked=!!NOTIF.sound;$('#setSound').onchange=e=>{NOTIF.sound=e.target.checked;store.set('mcw.sound',NOTIF.sound);if(NOTIF.sound)beep()};
+$('#setCs').value=CS.base();$('#setCs').onchange=e=>{const v=e.target.value.trim();if(v&&!/^https?:\/\//.test(v)){toast('Adresse muss mit https:// beginnen','err');return}store.set('mcw.corescope',v);toast(v?'CoreScope-Links zeigen auf '+v:'CoreScope-Links ausgeblendet','ok')};
+
 // ================= Events =================
 PT.forEach(t=>{if(!/^T1/.test(t)){const o=document.createElement('option');o.textContent=t;$('#fType').appendChild(o)}});
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)switchTab(b.dataset.tab)});
@@ -2080,14 +2684,16 @@ $('#btnGroup').onclick=()=>{groupMode=!groupMode;store.set('mcw.groupHash',group
 $('#detail').addEventListener('click',e=>{const tr=e.target.closest('tr[data-obs]');if(tr)showDetail(+tr.dataset.obs)});
 $('#btnCsv').onclick=()=>exportPkts('csv');$('#btnJson').onclick=()=>exportPkts('json');
 $('#pkts').addEventListener('click',e=>{const tr=e.target.closest('tr');if(tr)showDetail(+tr.dataset.id)});
-$('#chatlist').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;S.active=it.dataset.conv;delete S.unread[S.active];$('#sec-chat').classList.add('mdet');renderChat();if(!isMobile())$('#msgIn').focus()});
+$('#chatlist').addEventListener('click',e=>{const sr=e.target.closest('.sres');if(sr){S.active=sr.dataset.conv;S.jump=sr.dataset.mid;delete S.unread[S.active];$('#sec-chat').classList.add('mdet');renderChat();return}
+  const it=e.target.closest('.citem');if(!it)return;S.active=it.dataset.conv;delete S.unread[S.active];$('#sec-chat').classList.add('mdet');renderChat();if(!isMobile())$('#msgIn').focus()});
 $('#chatSearch').oninput=renderChat;
-$('#chatlist').addEventListener('click',e=>{if(e.target.closest('#btnAddCh')){e.stopPropagation();addChannelDialog()}},true);
+$('#chatlist').addEventListener('click',e=>{if(e.target.closest('#btnAddCh')){e.stopPropagation();addChannelDialog()}else if(e.target.closest('#btnScanCh')){e.stopPropagation();openScanner()}},true);
+$('#ctable').addEventListener('click',e=>{const a=e.target.closest('a.nlink');if(!a)return;e.preventDefault();openNode(a.dataset.node)});
 $('#msgs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.reply!=null){const inp=$('#msgIn');const tag=S.active.startsWith('ch:')?'@['+b.dataset.reply+'] ':'';if(tag&&!inp.value.startsWith(tag))inp.value=tag+inp.value.replace(/^@\[[^\]]*\]\s*/,'');inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);updateLen()}
   else if(b.dataset.dm){openChat(b.dataset.dm);setTimeout(()=>$('#msgIn').focus(),50)}});
 $('#msgIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});$('#msgIn').oninput=updateLen;$('#btnSend').onclick=sendMsg;
-$$('.mf').forEach(x=>x.onchange=renderMap);['#mLabels','#mNeigh','#mAge'].forEach(s=>$(s).onchange=renderMap);
+$$('.mf').forEach(x=>x.onchange=renderMap);['#mLabels','#mNeigh','#mAge','#mRx'].forEach(s=>$(s).onchange=renderMap);$('#mRx').checked=store.get('mcw.mapRx',false);$('#mRx').addEventListener('change',e=>store.set('mcw.mapRx',e.target.checked));
 $('#btnFit').onclick=fitAll;$('#btnMapPanel').onclick=()=>$('#sec-map').classList.toggle('mpanel');$('#btnClrPath').onclick=()=>pathLayer&&pathLayer.clearLayers();
 $('#btnPick').onclick=()=>{picking=true;document.body.classList.add('picking');toast('Klicke auf die Karte, um die eigene Position zu setzen')};
 ['#cSearch'].forEach(s=>$(s).oninput=renderContacts);['#cType','#cHeard'].forEach(s=>$(s).onchange=renderContacts);
@@ -2098,8 +2704,6 @@ $('#btnSetPos').onclick=()=>setPosition(parseFloat($('#setLat').value.replace(',
 $('#btnSetTx').onclick=async()=>{const v=parseInt($('#setTx').value,10);if(isNaN(v))return;try{await request(bytes(CMD.SET_TX,v));await reloadSelf();toast('TX-Leistung: '+v+' dBm','ok')}catch(e){toast(e.message,'err')}};
 $('#setLocAdv').onchange=e=>setOther(S.self.manualAdd,e.target.checked?1:0);
 $('#setAutoAdd').onchange=e=>setOther(e.target.checked?(S.self.manualAdd&~1):(S.self.manualAdd|1),S.self.locPolicy);
-$('#setNotify').checked=store.get('mcw.notify',false);
-$('#setNotify').onchange=async e=>{if(e.target.checked&&'Notification' in window&&Notification.permission!=='granted'){const p=await Notification.requestPermission();if(p!=='granted')e.target.checked=false}store.set('mcw.notify',e.target.checked)};
 $('#btnTime').onclick=async()=>{try{await request(bytes(CMD.SET_TIME,u32(now())));toast('Uhrzeit gesetzt','ok')}catch(e){toast('Gerätezeit liegt vorne oder Fehler: '+e.message,'err')}};
 $('#btnSync').onclick=syncMessages;
 $('#useDir').checked=useDir();
