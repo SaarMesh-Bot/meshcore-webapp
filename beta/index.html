@@ -166,6 +166,8 @@ table.dash td{white-space:nowrap}table.dash tbody tr{cursor:pointer}
 .wzch{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;margin:6px 0;font-size:13px}.wzch label{display:flex;gap:5px;align-items:center}
 #btnInstall[hidden]{display:none}
 .citem .mute{opacity:.6}
+a{color:var(--accent2)}
+a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{color:var(--accent2);text-decoration:underline}
 .mback,.mapfab,nav#tabs .ls{display:none}
 @media (max-width:700px){
   input,select,textarea{font-size:16px}
@@ -811,7 +813,7 @@ async function refreshContact(keyHex){try{const f=await request(bytes(CMD.GET_CO
 const findContactByPrefix=p=>{for(const c of S.contacts.values())if(c.key.startsWith(p))return c;return null};
 function nodesByHash(h){const r=[];for(const n of S.nodes.values())if(n.key.startsWith(h))r.push(n);return r}
 function nodeName(h){const l=nodesByHash(h);return l.length===1?l[0].name:l.length>1?l.map(n=>n.name).join(' / '):null}
-const lastSeen=n=>Math.max(n.heard||0,(n.advTs||0)*1000>Date.now()+86400000?0:(n.advTs||0)*1000);
+const lastSeen=n=>Math.max(n.heard||0,(n.advTs||0)*1000>Date.now()+300000?0:(n.advTs||0)*1000); // Advert-Zeit aus der Zukunft (Repeater-Uhr geht vor) ignorieren
 
 // ================= Kanäle =================
 async function chanHash(secret){try{const d=new Uint8Array(await crypto.subtle.digest('SHA-256',secret));return hex(d.slice(0,1))}catch{return null}}
