@@ -411,6 +411,20 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
     <div class="mrow"><a href="https://github.com/SaarMesh-Bot/meshcore-webapp/releases/latest" target="_blank" rel="noopener" style="font-size:13px">⬇ Bridge herunterladen</a><span class="spacer"></span><button id="tcpCancel">Abbrechen</button><button class="primary" id="tcpOk">Verbinden</button></div>
   </div>
 </div>
+<div class="modal" id="bleModal" hidden>
+  <div class="mbox">
+    <h3>ᛒ Bluetooth-Verbindung fehlgeschlagen</h3>
+    <p style="font-size:13px;margin-top:0">Chrome hat <b id="bleDev"></b> gefunden, konnte aber keine Verbindung aufbauen. Häufige Ursachen:</p>
+    <ol style="font-size:13px;padding-left:20px;line-height:1.55">
+      <li><b>Noch mit einem anderen Gerät verbunden:</b> Ein Companion erlaubt nur eine Bluetooth-Verbindung. MeshCore-App auf dem Handy schließen oder dort trennen.</li>
+      <li><b>Alte Kopplung (v. a. Windows):</b> Unter <i>Einstellungen → Bluetooth &amp; Geräte</i> den Companion entfernen und neu verbinden. Die PIN steht auf dem Display des Companions (Standard oft <span class="mono">123456</span>).</li>
+      <li><b>Zu weit weg oder schwaches Signal:</b> Companion näher an den PC legen.</li>
+      <li><b>Companion hängt:</b> kurz neu starten (Reset-Knopf oder Strom trennen).</li>
+    </ol>
+    <p class="muted" style="font-size:12px">Alternativ per USB-Kabel verbinden – das ist am zuverlässigsten. <span class="mono" id="bleDetail"></span></p>
+    <div class="mrow"><span class="spacer"></span><button id="bleOk">Schließen</button><button class="primary" id="bleRetry">Erneut versuchen</button></div>
+  </div>
+</div>
 <div class="modal" id="bridgeModal" hidden>
   <div class="mbox">
     <h3>Bridge nicht gefunden</h3>
@@ -546,7 +560,14 @@ class BleTransport{
   async open(){
     this.dev=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'MeshCore'},{services:[NUS]}],optionalServices:[NUS]});
     this.dev.addEventListener('gattserverdisconnected',()=>{if(!this.closing&&this.onClose)this.onClose()});
-    const srv=await this.dev.gatt.connect();const svc=await srv.getPrimaryService(NUS);
+    // GATT-Verbindung scheitert gelegentlich beim ersten Versuch (v. a. unter Windows) → bis zu 3 Versuche
+    let srv,last;
+    for(let i=0;i<3&&!srv;i++){
+      try{if(i)toast('Bluetooth: neuer Verbindungsversuch '+(i+1)+'/3 …');srv=await this.dev.gatt.connect()}
+      catch(e){last=e;try{this.dev.gatt.disconnect()}catch{}await new Promise(r=>setTimeout(r,800*(i+1)))}
+    }
+    if(!srv){const e=new Error('BLE_CONNECT');e.detail=last&&last.message;e.devName=this.dev.name;throw e}
+    const svc=await srv.getPrimaryService(NUS);
     this.rx=await svc.getCharacteristic(NUS_RX);this.tx=await svc.getCharacteristic(NUS_TX);
     this.tx.addEventListener('characteristicvaluechanged',e=>{const v=e.target.value;try{this.onFrame(new Uint8Array(v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)))}catch(err){console.error(err)}});
     await this.tx.startNotifications();
@@ -575,6 +596,11 @@ function tcpDialog(){
       const v={host,port,bridge};store.set('mcw.tcp',v);done(v)};
     $('#tcpModal').onkeydown=e=>{if(e.key==='Enter')$('#tcpOk').click();else if(e.key==='Escape')done(null)};
   });
+}
+function showBleHelp(e){
+  $('#bleDev').textContent=e.devName||'dem Companion';$('#bleDetail').textContent=e.detail||'';
+  $('#bleModal').hidden=false;$('#bleOk').onclick=()=>{$('#bleModal').hidden=true};
+  $('#bleRetry').onclick=()=>{$('#bleModal').hidden=true;connect('ble')};
 }
 function showBridgeHelp(){
   const cfg=store.get('mcw.tcp',{})||{};$('#bridgeUrlInfo').textContent=cfg.bridge||'ws://localhost:8765';
@@ -633,6 +659,7 @@ async function connect(kind){
   try{await tr.open()}catch(e){
     if(e.name==='NotFoundError')return;
     if(e.message==='BRIDGE_UNREACHABLE')return showBridgeHelp();
+    if(e.message==='BLE_CONNECT')return showBleHelp(e);
     toast('Verbinden fehlgeschlagen: '+e.message,'err');return}
   S.tr=tr;
   try{
