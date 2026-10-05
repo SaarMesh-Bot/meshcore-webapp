@@ -1,0 +1,10 @@
+{
+  "name": "meshcore-webapp-tests",
+  "private": true,
+  "description": "Testumgebung: Playwright-Tests gegen eine simulierte MeshCore-Companion",
+  "devDependencies": {
+    "jsqr": "1.4.0",
+    "leaflet": "1.9.4",
+    "qrcode-generator": "1.4.4"
+  }
+}

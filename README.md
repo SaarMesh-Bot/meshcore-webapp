@@ -9,18 +9,22 @@ Browser-App für **MeshCore-Companions** per **USB** (Web Serial), **Bluetooth L
 ## Funktionen
 
 - **Live-Traffic** – alle empfangenen Pakete mit Typ, Route, Hop-Pfad (inkl. Pfad-Hash-Größe 1/2/3 Byte), SNR/RSSI, Region; Filter, Detailansicht mit Rohdaten, CSV/JSON-Export, Pakete/Minute; gleiche Pakete nach Hash gruppieren (wie oft und über welche Wege empfangen)
-- **Chat** – Kanäle und Direktnachrichten, Zustellbestätigung mit Laufzeit, erneut senden, Antworten per `@[Name]`, Direktnachricht an Absender
+- **Chat** – Kanäle und Direktnachrichten, Zustellbestätigung mit Laufzeit, erneut senden, Antworten per `@[Name]`, Direktnachricht an Absender, anklickbare Links und `#kanäle`, Suche im gesamten Verlauf, @Erwähnungen hervorgehoben
+- **Benachrichtigungen** – aus / nur Direktnachrichten & @Erwähnungen / alle, optional mit Ton, pro Chat einstellbar oder stumm
+- **QR-Codes** – Kanäle, Kontakte und das eigene Gerät als QR (Format der offiziellen MeshCore-App), Scannen per Kamera, Bild oder eingefügtem Link
 - **Regionen** – Standard-Region des Geräts, Region **pro Kanal**, Anzeige der Region und Hash-Größe bei empfangenen Nachrichten
 - **Öffentliches Verzeichnis** – erkennt öffentliche Kanäle und Regionsnamen im Live-Traffic, liest unbekannte öffentliche Kanäle mit („Entdeckt“), Kanäle mit einem Klick zum Gerät hinzufügen
-- **Karte** – alle Companions, Repeater, Room-Server und Sensoren mit Standort aus Adverts, Nachbar-Linien nach SNR, Paketpfad auf der Karte, eigene Position per Klick
+- **Karte** – alle Companions, Repeater, Room-Server und Sensoren mit Standort aus Adverts, Nachbar-Linien nach SNR, Ebene „Eigener Empfang“, Paketpfad auf der Karte, eigene Position per Klick
 - **Verbindung** – USB, Bluetooth LE oder TCP/WiFi (über die TCP-Bridge)
 - **Adverts** – Zero-Hop und Flood
-- **Kontakte** – speichern, löschen, teilen, Pfad zurücksetzen, Entfernung
-- **Repeater-Admin** – Fernverwaltung von Repeatern und Room-Servern: Login mit Admin- oder Gast-Passwort, Status (Akku, Laufzeit, Uhr, Rauschen, Airtime, Paketzähler), Nachbarn mit SNR (auch auf der Karte), Zugriffsliste, Einstellungen als Formular, Uhr synchronisieren, Adverts, Neustart und ein Terminal für alle CLI-Befehle
+- **Kontakte** – speichern, löschen, teilen, Entfernung, neu gehörte Knoten bestätigen, Export als CSV/GPX, Auto-Speichern pro Knotentyp
+- **Pfade** – Weg zu einem Kontakt oder Repeater selbst festlegen: per Klick auf der Karte, aus einer Liste, per Kennung oder als Umkehrung des Advert-Weges
+- **Knotendetails** – Empfangsverlauf mit SNR-Diagramm, alle Aktionen an einer Stelle, Link zu CoreScope
+- **Repeater-Admin** – Fernverwaltung von Repeatern und Room-Servern: Login mit Admin- oder Gast-Passwort, Status (Akku, Laufzeit, Uhr, Rauschen, Airtime, Paketzähler), Nachbarn mit SNR (auch auf der Karte), Zugriffsliste, Einstellungen als Formular, Regionen verwalten, Uhr synchronisieren, Adverts, Neustart und ein Terminal für alle CLI-Befehle; **Übersicht aller Repeater** mit gesammelter Abfrage und Hinweis auf neuere Firmware; Abfrage **ohne Anmeldung** (Name, Owner, Uhr, Regionen)
 - **Telemetrie** – von Repeatern, Sensoren, Kontakten und dem eigenen Gerät (Spannung, Temperatur, Luftfeuchte, Luftdruck, GPS u. a.), Verlauf mit Diagrammen und CSV-Export, optional automatisch in großen Abständen, Freigaben für die eigene Telemetrie
 - **Netz-Tools** – Trace-Route mit SNR pro Strecke (auch auf der Karte), Repeater in der Nähe per Zero-Hop-Suche mit SNR hin/zurück
-- **Mobil** – eigene Handy-Ansicht mit Reiterleiste unten; auf Android per Bluetooth oder TCP/WiFi, auf iOS per TCP/WiFi
-- **Gerät** – Name, Position, TX-Leistung, Pfad-Hash-Größe, Batterie, Rauschpegel, Airtime, Paketstatistik, Neustart, Protokoll-Log
+- **Mobil & App** – eigene Handy-Ansicht mit Reiterleiste unten; als App installierbar (PWA) mit Offline-Start; auf Android per Bluetooth oder TCP/WiFi, auf iOS per TCP/WiFi
+- **Gerät** – Name, Position, TX-Leistung, Pfad-Hash-Größe, Batterie, Rauschpegel, Airtime, Paketstatistik, Neustart, Protokoll-Log, Einrichtungsassistent, Sicherung von Kontakten & Kanälen als Datei
 
 ## Nutzung
 
@@ -102,6 +106,8 @@ Die Daten stammen vom [EU MeshCore Analyzer](https://meshcore-analyzer.eu) und w
 - Reines HTML/CSS/JavaScript, [Leaflet](https://leafletjs.com/) für die Karte
 - TCP-Bridge in Go ([coder/websocket](https://github.com/coder/websocket)), Builds per GitHub Actions
 - Kartenkacheln: Esri (ohne API-Key); OSM/OpenTopoMap zusätzlich, wenn über http(s) ausgeliefert
+- Als PWA installierbar; der Service Worker speichert die App, Bibliotheken und bereits angesehene Kartenkacheln (kein Massen-Download, Nutzungsbedingungen der Kartenanbieter)
+- Tests: Playwright gegen eine simulierte Companion, bei jedem Push per GitHub Action – siehe [test/README.md](test/README.md)
 - Companion-Protokoll gemäß [MeshCore companion_radio](https://github.com/meshcore-dev/MeshCore/tree/main/examples/companion_radio)
 
 ## SaarMesh unterstützen ☕

@@ -1,0 +1,60 @@
+name: Tests
+
+on:
+  push:
+    paths: ["index.html", "beta/**", "sw.js", "manifest.webmanifest", "test/**", "bridge/**", ".github/workflows/tests.yml"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  webapp:
+    name: Webapp (simulierte Companion)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        page: [index.html, beta/index.html]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Playwright installieren
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Test-Bibliotheken
+        working-directory: test
+        run: npm install --no-audit --no-fund
+      - name: Tests (${{ matrix.page }})
+        working-directory: test
+        env:
+          MCW_PAGE: ${{ matrix.page }}
+        run: ./run_tests.sh
+      - name: Screenshots bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ strategy.job-index }}
+          path: test/*.png
+
+  bridge:
+    name: TCP-Bridge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: bridge/go.mod
+          cache-dependency-path: bridge/go.sum
+      - name: go vet & go test
+        working-directory: bridge
+        run: |
+          go vet ./...
+          go test ./...
