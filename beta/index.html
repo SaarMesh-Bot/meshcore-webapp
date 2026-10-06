@@ -527,6 +527,7 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
       <li><b>Alte Kopplung (v. a. Windows):</b> Unter <i>Einstellungen → Bluetooth &amp; Geräte</i> den Companion entfernen und neu verbinden. Die PIN steht auf dem Display des Companions (Standard oft <span class="mono">123456</span>).</li>
       <li><b>Zu weit weg oder schwaches Signal:</b> Companion näher an den PC legen.</li>
       <li><b>Companion hängt:</b> kurz neu starten (Reset-Knopf oder Strom trennen).</li>
+      <li><b>Android fragt jedes Mal nach der PIN:</b> Den Companion einmal in den <i>Android-Einstellungen → Verbundene Geräte → Neues Gerät koppeln</i> mit der PIN koppeln. Danach nutzt Chrome die gespeicherte Kopplung. Bleibt die Abfrage trotzdem, die alte Kopplung dort entfernen und neu koppeln.</li>
     </ol>
     <p class="muted" style="font-size:12px">Alternativ per USB-Kabel verbinden – das ist am zuverlässigsten. <span class="mono" id="bleDetail"></span></p>
     <div class="mrow"><span class="spacer"></span><button id="bleOk">Schließen</button><button class="primary" id="bleRetry">Erneut versuchen</button></div>
@@ -667,18 +668,30 @@ class WsTransport{
 class BleTransport{
   async open(){
     this.dev=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'MeshCore'},{services:[NUS]}],optionalServices:[NUS]});
-    this.dev.addEventListener('gattserverdisconnected',()=>{if(!this.closing&&this.onClose)this.onClose()});
-    // GATT-Verbindung scheitert gelegentlich beim ersten Versuch (v. a. unter Windows) → bis zu 3 Versuche
-    let srv,last;
-    for(let i=0;i<3&&!srv;i++){
-      try{if(i)toast('Bluetooth: neuer Verbindungsversuch '+(i+1)+'/3 …');srv=await this.dev.gatt.connect()}
-      catch(e){last=e;try{this.dev.gatt.disconnect()}catch{}await new Promise(r=>setTimeout(r,800*(i+1)))}
+    this.dev.addEventListener('gattserverdisconnected',()=>{if(this.ready&&!this.closing&&this.onClose)this.onClose()});
+    // Verbindung + Dienste in einem Durchgang, bis zu 3 Versuche: Unter Windows scheitert der erste connect gelegentlich,
+    // unter Android trennt das Koppeln (PIN-Eingabe) die Verbindung kurz – danach klappt der nächste Durchgang ohne PIN.
+    let last=null;
+    for(let i=0;i<3;i++){
+      try{
+        if(i)toast('Bluetooth: neuer Verbindungsversuch '+(i+1)+'/3 …');
+        const srv=this.dev.gatt.connected?this.dev.gatt:await this.dev.gatt.connect();
+        const svc=await srv.getPrimaryService(NUS);
+        this.rx=await svc.getCharacteristic(NUS_RX);this.tx=await svc.getCharacteristic(NUS_TX);
+        if(!this.onChar){this.onChar=e=>{const v=e.target.value;try{this.onFrame(new Uint8Array(v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)))}catch(err){console.error(err)}}}
+        this.tx.addEventListener('characteristicvaluechanged',this.onChar);
+        await this.tx.startNotifications();
+        last=null;break;
+      }catch(e){
+        last=e;if(this.tx&&this.onChar)try{this.tx.removeEventListener('characteristicvaluechanged',this.onChar)}catch{}
+        const lost=/disconnected|GATT Server|NetworkError|Connection/i.test(e.message||'');
+        if(!lost&&e.name!=='NetworkError'&&i>0)break;
+        try{if(!/disconnected/i.test(e.message||''))this.dev.gatt.disconnect()}catch{}
+        await new Promise(r=>setTimeout(r,(/disconnected|GATT Server/i.test(e.message||'')?1500:800)*(i+1)));
+      }
     }
-    if(!srv){const e=new Error('BLE_CONNECT');e.detail=last&&last.message;e.devName=this.dev.name;throw e}
-    const svc=await srv.getPrimaryService(NUS);
-    this.rx=await svc.getCharacteristic(NUS_RX);this.tx=await svc.getCharacteristic(NUS_TX);
-    this.tx.addEventListener('characteristicvaluechanged',e=>{const v=e.target.value;try{this.onFrame(new Uint8Array(v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)))}catch(err){console.error(err)}});
-    await this.tx.startNotifications();
+    if(last){const e=new Error('BLE_CONNECT');e.detail=last.message;e.devName=this.dev.name;throw e}
+    this.ready=true;
     this.label='BLE '+(this.dev.name||'');
   }
   // GATT erlaubt nur einen Schreibvorgang gleichzeitig → Warteschlange, bei Kollision kurz erneut versuchen
