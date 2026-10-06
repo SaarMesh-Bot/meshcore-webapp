@@ -167,6 +167,8 @@ table.dash td{white-space:nowrap}table.dash tbody tr{cursor:pointer}
 #btnInstall[hidden]{display:none}
 .citem .mute{opacity:.6}
 a{color:var(--accent2)}
+button.echo{background:none;border:none;padding:0 2px;font-size:11px;color:var(--accent);cursor:pointer;font-weight:600}button.echo:hover{text-decoration:underline}
+.echolist{text-align:left;font-size:12px;margin-top:4px;padding-top:4px;border-top:1px solid var(--border);line-height:1.5}
 .hops{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:8px 0;font-size:13px}.hops .arr{color:var(--muted)}
 .hop{display:inline-flex;gap:4px;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:2px 4px 2px 9px}.hop.me{padding:2px 9px;color:var(--muted)}.hop button{padding:0 5px;line-height:16px;border-radius:10px}
 .pathbar{position:absolute;top:10px;left:56px;right:10px;z-index:700;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;background:var(--panel);border:2px solid #bf3989;border-radius:8px;padding:7px 10px;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,.3)}.pathbar[hidden]{display:none}
@@ -927,7 +929,7 @@ async function sendDirect(conv,m){
   const prefix=unhex(conv.slice(2));m.status='sending';renderSoon();
   try{await applyScope('')}catch{}
   try{const f=await request(bytes(CMD.SEND_TXT,0,m.attempt||0,u32(Math.floor(m.ts/1000)),prefix,m.text));
-    const r=new R(f);r.u8();m.flood=!!r.u8();m.ack=r.u32();const est=r.u32();m.status='sent';
+    const r=new R(f);r.u8();m.flood=!!r.u8();m.ack=r.u32();const est=r.u32();m.status='sent';m.sentT=Date.now();
     S.acks.set(m.ack,m);
     setTimeout(()=>{if(m.status==='sent'){m.status='noack';renderSoon();scheduleSave()}},Math.max(est*1.5,8000));
   }catch(e){m.status='fail';m.err=e.message}
@@ -1315,6 +1317,7 @@ function onRawPacket(raw,snr,rssi){
   }
   if(p.tc)matchRegion(p);
   if(p.ptype===5||p.ptype===6)decryptGroup(p);
+  try{noteEcho(p)}catch(e){console.warn('Echo',e)}
   S.packets.push(p);if(S.packets.length>MAX_PKTS)S.packets.splice(0,S.packets.length-MAX_PKTS);
   if(!S.paused&&passFilter(p))prependRow(p);
   renderStatsSoon();
@@ -1454,8 +1457,9 @@ function renderConv(){
   const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<60;
   box.innerHTML=arr.length?arr.map(m=>{
     const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(m.hops==='direkt'?'direkt':m.hops+' Hops'):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
-    let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?'✓ gesendet'+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
-      if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`}
+    let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?(m.echo&&m.echo.length?'':'✓ gesendet')+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
+      if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`;
+      if(m.status!=='fail')st+=echoHtml(m)}
     return `<div class="msg ${m.dir}${m.dir==='in'&&(m.mention??isMention(m))?' mention':''}" data-mid="${esc(m.id||'')}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
   if(S.jump){const el=[...box.querySelectorAll('.msg')].find(x=>x.dataset.mid===S.jump);S.jump=null;if(el){el.scrollIntoView({block:'center'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),2100)}}
   else if(atBottom||arr.length<30)box.scrollTop=box.scrollHeight;
@@ -2877,6 +2881,32 @@ $('#posOpts').addEventListener('change',async e=>{const t=e.target,o=GPS.opt;
   store.set('mcw.posOpt',o);renderPos()});
 $('#posOpts').addEventListener('click',e=>{const b=e.target.closest('button[data-pos]');if(!b)return;if(b.dataset.pos==='now')posNow();else reloadSelf().then(renderPos)});
 
+// ================= Echo: welche Repeater haben meine Nachricht weitergesendet =================
+// Der Companion hört seine eigenen Flood-Pakete, wenn Repeater sie weitersenden. Jeder Repeater, von dem wir
+// das Echo hören (letzter Eintrag im Pfad), zählt als „hat empfangen und weitergeleitet“.
+function noteEcho(p){
+  if(!S.self||(p.route!==1&&p.route!==0)||!p.hopCount||p.bad)return;
+  const t=Date.now();let conv=null,m=null;
+  if(p.ptype===5&&p.dec.text!=null&&p.dec.from===S.self.name){
+    const ch=S.channels.find(c=>c.secret===p.dec.chSecret);if(!ch)return;conv='ch:'+ch.idx;
+    m=(S.msgs[conv]||[]).slice(-40).reverse().find(x=>x.dir==='out'&&x.text===p.dec.text&&Math.abs(Math.floor(x.ts/1000)-p.dec.ts)<=2&&t-x.rx<300000);
+  }else if(p.ptype===2&&p.dec.src&&S.self.key.startsWith(p.dec.src)){
+    for(const [k,arr] of Object.entries(S.msgs)){if(!k.startsWith('c:')||!p.dec.dst||!k.slice(2).startsWith(p.dec.dst))continue;
+      const x=(arr||[]).slice(-10).reverse().find(x=>x.dir==='out'&&t-(x.sentT||x.rx)<60000);if(x){m=x;conv=k;break}}
+  }
+  if(!m)return;
+  const h=p.path[p.path.length-1],e=(m.echo=m.echo||[]).find(x=>x.h===h);
+  if(e){e.n++;if(p.snr>e.snr)e.snr=p.snr;if(p.hopCount<e.hops)e.hops=p.hopCount}else m.echo.push({h,snr:p.snr,n:1,hops:p.hopCount,first:p.path[0]});
+  scheduleSave();if(S.active===conv)renderSoon();
+}
+function echoHtml(m){
+  const e=m.echo;if(!e||!e.length)return '';
+  const list=e.slice().sort((a,b)=>b.snr-a.snr);
+  const tip=list.map(x=>`${nodeName(x.h)||x.h} · SNR ${x.snr.toFixed(1)} dB${x.n>1?' · '+x.n+'×':''}`).join('\n');
+  return ` <button class="echo" data-echo="${esc(m.id)}" title="${esc('Weitergesendet von:\n'+tip)}">✓✓ ${e.length} Repeater</button>`+
+    (m._showEcho?`<div class="echolist">${list.map(x=>`<div><b>${esc(nodeName(x.h)||'?')}</b> <span class="mono muted">${x.h}</span> · <span class="${snrCls(x.snr)}">SNR ${x.snr.toFixed(1)}</span>${x.hops>1?' · '+x.hops+' Hops':''}${x.n>1?' · '+x.n+'×':''}</div>`).join('')}</div>`:'');
+}
+
 // ================= Events =================
 PT.forEach(t=>{if(!/^T1/.test(t)){const o=document.createElement('option');o.textContent=t;$('#fType').appendChild(o)}});
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)switchTab(b.dataset.tab)});
@@ -2898,7 +2928,8 @@ $('#chatlist').addEventListener('click',e=>{if(e.target.closest('#btnAddCh')){e.
 $('#ctable').addEventListener('click',e=>{const a=e.target.closest('a.nlink');if(!a)return;e.preventDefault();openNode(a.dataset.node)});
 $('#msgs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.reply!=null){const inp=$('#msgIn');const tag=S.active.startsWith('ch:')?'@['+b.dataset.reply+'] ':'';if(tag&&!inp.value.startsWith(tag))inp.value=tag+inp.value.replace(/^@\[[^\]]*\]\s*/,'');inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);updateLen()}
-  else if(b.dataset.dm){openChat(b.dataset.dm);setTimeout(()=>$('#msgIn').focus(),50)}});
+  else if(b.dataset.dm){openChat(b.dataset.dm);setTimeout(()=>$('#msgIn').focus(),50)}
+  else if(b.dataset.echo){const m=(S.msgs[S.active]||[]).find(x=>x.id===b.dataset.echo);if(m){m._showEcho=!m._showEcho;renderConv()}}});
 $('#msgIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});$('#msgIn').oninput=updateLen;$('#btnSend').onclick=sendMsg;
 $$('.mf').forEach(x=>x.onchange=renderMap);['#mLabels','#mNeigh','#mAge','#mRx'].forEach(s=>$(s).onchange=renderMap);$('#mRx').checked=store.get('mcw.mapRx',false);$('#mRx').addEventListener('change',e=>store.set('mcw.mapRx',e.target.checked));
 $('#btnFit').onclick=fitAll;$('#btnMapPanel').onclick=()=>$('#sec-map').classList.toggle('mpanel');$('#btnClrPath').onclick=()=>pathLayer&&pathLayer.clearLayers();

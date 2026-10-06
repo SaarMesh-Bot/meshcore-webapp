@@ -56,6 +56,7 @@ class FakeWS{
       case 9:{(st.paths||(st.paths={}))[hex(f.slice(1,33))]=[f[35],f.slice(36,100)];return this.emit(ok)}
       case 13:{if(st.paths)delete st.paths[hex(f.slice(1,33))];return this.emit(ok)}
       case 6:case 29:case 63:return this.emit(ok);
+      case 3:st.chanSent=(st.chanSent||[]).concat([dec.decode(f.slice(7))]);return this.emit(W().u8(0).out());
       case 14:{const dv=new DataView(f.buffer,f.byteOffset);st.lat=dv.getInt32(1,true);st.lon=dv.getInt32(5,true);return this.emit(W().u8(0).out())}
       case 40:return st.vars?this.emit(W().u8(21).s(Object.entries(st.vars).map(([k,v])=>k+':'+v).join(',')).out()):this.emit(W().u8(1).u8(1).out());
       case 41:{const t=dec.decode(f.slice(1)),i=t.indexOf(':');st.varLog.push(t);if(st.vars&&t.slice(0,i) in st.vars)st.vars[t.slice(0,i)]=t.slice(i+1);return this.emit(W().u8(0).out())}
