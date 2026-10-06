@@ -747,6 +747,8 @@ function onFrame(f){
       if(c===RESP.CONTACTS_START){armTimer();return}
       if(c===RESP.CONTACT){waiter.frames.push(f);armTimer();return}
       if(c===RESP.END_CONTACTS){finishWaiter(waiter.frames);return}
+      // alles andere (z. B. verspätete Antwort auf einen früheren Befehl) gehört nicht zur Kontaktliste
+      if(c!==RESP.ERR){console.warn('Antwort 0x'+c.toString(16)+' während Kontaktabruf ignoriert');return}
     }
     if(c===RESP.ERR){failWaiter(new MeshErr(f[1]));return}
     if(waiter.opts.multi||waiter.opts.expect.includes(c)){
