@@ -1,0 +1,2123 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ALT (Stand 5.10.) · Meshcore Webapp</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--bg:#0e1318;--panel:#161c23;--panel2:#1d252f;--border:#2a3441;--text:#e6edf3;--muted:#8b98a5;--accent:#3fb950;--accent2:#58a6ff;--warn:#d29922;--err:#f85149;--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+@media (prefers-color-scheme: light){:root{--bg:#f3f5f7;--panel:#fff;--panel2:#eef1f4;--border:#d0d7de;--text:#1f2328;--muted:#5d6670;--accent:#1a7f37;--accent2:#0969da;--warn:#9a6700;--err:#cf222e}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 11px;cursor:pointer;white-space:nowrap}
+button:hover:not(:disabled){border-color:var(--accent2)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.blue{background:var(--accent2);border-color:var(--accent2);color:#fff}
+button.danger{color:var(--err)}
+button.sm{padding:3px 8px;font-size:12px}
+input,select{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+input:focus,select:focus{outline:none;border-color:var(--accent2)}
+.app{display:flex;flex-direction:column;height:100%}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
+.logo{font-weight:700;font-size:16px;letter-spacing:.3px}
+.logo span{color:var(--accent)}
+.logo .by{font-size:12px;font-weight:500;color:var(--muted);text-decoration:none;margin-left:4px}
+.logo .by:hover{color:var(--accent2)}
+.logo .kofi{margin-left:6px;font-size:14px;opacity:.75}.logo .kofi:hover{opacity:1}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--err);display:inline-block}
+.dot.on{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.devinfo{display:flex;gap:14px;color:var(--muted);font-size:13px;flex-wrap:wrap}
+.devinfo b{color:var(--text);font-weight:600}
+.spacer{flex:1}
+.grp{display:flex;gap:6px;align-items:center}
+nav{display:flex;gap:2px;padding:0 10px;background:var(--panel);border-bottom:1px solid var(--border);overflow-x:auto}
+nav button{border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;color:var(--muted)}
+nav button.active{color:var(--text);border-bottom-color:var(--accent)}
+.badge{background:var(--err);color:#fff;border-radius:9px;padding:0 6px;font-size:11px;margin-left:4px}
+main{flex:1;min-height:0;position:relative}
+section{position:absolute;inset:0;display:none}
+section.active{display:flex}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono);font-size:12px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel)}
+/* live */
+#sec-live{flex-direction:column}
+.livewrap{flex:1;display:flex;min-height:0}
+.tablewrap{flex:1;overflow:auto}
+table{border-collapse:collapse;width:100%}
+th,td{padding:5px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{position:sticky;top:0;background:var(--panel);font-weight:600;font-size:12px;color:var(--muted);z-index:1}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--panel2)}
+tbody tr.sel{background:color-mix(in srgb,var(--accent2) 18%,transparent)}
+.pt{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;color:#fff;background:#6e7781}
+.pt-ADVERT{background:#2da44e}.pt-TXT{background:#0969da}.pt-GRP_TXT{background:#1b7c83}.pt-GRP_DATA{background:#1b7c83}.pt-ACK{background:#6e7781}.pt-REQ,.pt-RESP,.pt-ANON_REQ{background:#8250df}.pt-PATH{background:#bc4c00}.pt-TRACE{background:#bf3989}.pt-CONTROL{background:#9a6700}
+.hash{font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-right:2px}
+.hash.known{border-color:var(--accent)}
+.detail{width:380px;border-left:1px solid var(--border);background:var(--panel);overflow:auto;padding:12px;display:none}
+.detail.show{display:block}
+.detail h3{margin:0 0 8px;font-size:15px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:3px 8px;font-size:13px;margin-bottom:10px}
+.kv div:nth-child(odd){color:var(--muted)}
+.hex{font-family:var(--mono);font-size:11px;word-break:break-all;background:var(--panel2);padding:8px;border-radius:6px;white-space:pre-wrap}
+.statsbar{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:6px 12px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)}
+.statsbar b{color:var(--text)}
+canvas#spark{height:34px;width:240px}
+.snr-g{color:var(--accent)}.snr-y{color:var(--warn)}.snr-r{color:var(--err)}
+/* chat */
+#sec-chat{}
+.chatside{width:270px;border-right:1px solid var(--border);background:var(--panel);display:flex;flex-direction:column}
+.chatside input{margin:8px}
+.chatlist{flex:1;overflow:auto}
+.chatlist h4{margin:10px 12px 4px;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.5px}
+.citem{padding:7px 12px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.citem:hover{background:var(--panel2)}
+.citem.active{background:color-mix(in srgb,var(--accent2) 20%,transparent)}
+.citem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chatmain{flex:1;display:flex;flex-direction:column;min-width:0}
+.chathead{padding:10px 14px;border-bottom:1px solid var(--border);background:var(--panel);display:flex;gap:10px;align-items:center}
+.chathead .t{font-weight:600}
+.msgs{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:72%;padding:7px 11px;border-radius:10px;background:var(--panel2);border:1px solid var(--border);align-self:flex-start}
+.msg.out{align-self:flex-end;background:color-mix(in srgb,var(--accent2) 22%,var(--panel))}
+.msg .meta{font-size:11px;color:var(--muted);margin-bottom:2px}
+.msg .from{font-weight:600;color:var(--accent2)}
+.msg .txt{white-space:pre-wrap;word-wrap:break-word}
+.msg .txt a{color:var(--accent2);text-decoration:underline;text-underline-offset:2px;word-break:break-all}.msg .txt a.chlink{text-decoration:none;font-weight:600;word-break:normal}.msg .txt a.chlink:hover{text-decoration:underline}
+.msg .st{font-size:11px;color:var(--muted);margin-top:3px;text-align:right}
+.rbtn{padding:0 6px;font-size:11px;line-height:16px;margin-left:4px;opacity:.6}.msg:hover .rbtn{opacity:1}
+.msg .st.ok{color:var(--accent)}.msg .st.fail{color:var(--warn)}
+.compose{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border);background:var(--panel);align-items:center}
+.compose input{flex:1}
+.empty{margin:auto;color:var(--muted);text-align:center;padding:30px}
+/* map */
+#map{flex:1}
+.mappanel{position:absolute;top:10px;right:10px;z-index:500;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px;width:230px;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+.mappanel label{display:flex;gap:6px;align-items:center;margin:3px 0}
+.mappanel h4{margin:8px 0 4px;font-size:11px;text-transform:uppercase;color:var(--muted)}
+.mappanel .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.mk{width:22px;height:22px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.mk-1{background:#0969da}.mk-2{background:#2da44e;border-radius:4px}.mk-3{background:#8250df}.mk-4{background:#9a6700}.mk-0{background:#6e7781}
+.mk-self{background:#cf222e;width:26px;height:26px}
+.mk.old{opacity:.5}
+.tiles-dark{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9) saturate(.6)}
+.leaflet-tooltip.lbl{background:rgba(0,0,0,.65);color:#fff;border:none;box-shadow:none;font-size:11px;padding:1px 5px}
+.leaflet-tooltip.lbl:before{display:none}
+.picking #map{cursor:crosshair}
+.legend span{display:inline-flex;align-items:center;gap:4px;margin-right:6px;font-size:12px}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+/* contacts / device */
+.scroll{flex:1;overflow:auto;padding:14px}
+#sec-contacts,#sec-device,#sec-tools{flex-direction:column}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
+.card h3{margin:0 0 10px;font-size:15px}
+.frm{display:flex;gap:6px;margin:6px 0;align-items:center;flex-wrap:wrap}
+.frm input{flex:1;min-width:80px}
+.frm input[type=checkbox]{flex:0 0 auto;min-width:0}
+label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]{margin-top:3px}
+.log{max-height:320px;overflow:auto}
+#toasts{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;z-index:2000;align-items:center}
+.toast{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--accent2);padding:8px 14px;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.toast.err{border-left-color:var(--err)}.toast.ok{border-left-color:var(--accent)}
+.kofibtn{display:inline-block;background:#FF5E5B;color:#fff;text-decoration:none;font-weight:600;padding:7px 14px;border-radius:6px}.kofibtn:hover{filter:brightness(1.08)}
+.admhead{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}.admhead h2{margin:0;font-size:18px}
+.admf{display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:center;margin:5px 0;font-size:13px}.admf small{display:block;font-size:11px}.admf input,.admf select{min-width:0;width:100%}
+.admlog{max-height:260px;min-height:80px}.admlog .al-out{color:var(--accent2)}.admlog .al-err{color:var(--err)}.admlog .al-ok{color:var(--accent)}.admlog .al-sys{color:var(--muted)}
+#sec-admin .chatmain{overflow:hidden}
+.tseries{margin-top:10px}.tsname{font-size:12px;color:var(--muted)}.tspark{width:100%;height:60px;display:block;background:var(--panel2);border-radius:6px}
+.tsrange{display:flex;justify-content:space-between;gap:6px;font-size:11px;margin-top:2px}
+.cnt{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;background:var(--accent2);color:#fff;font-size:11px;font-weight:600}
+.obs{font-size:12px}.obs tr[data-obs]{cursor:pointer}.obs tr.sel td{background:color-mix(in srgb,var(--accent2) 15%,transparent)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:3000;padding:16px}
+.modal[hidden]{display:none}
+.mbox{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;width:100%;max-width:440px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+.mbox h3{margin:0 0 10px}
+.fl{display:flex;flex-direction:column;gap:4px;font-size:13px;margin:10px 0}
+.mrow{display:flex;gap:8px;align-items:center;margin-top:14px}
+.warnbar{background:var(--warn);color:#000;padding:6px 14px;font-size:13px;display:none}
+@media (max-width:800px){.chatside{width:180px}.detail{position:absolute;right:0;top:0;bottom:0;width:100%;z-index:5}.mappanel{width:190px}}
+.mback,.mapfab,nav#tabs .ls{display:none}
+@media (max-width:700px){
+  input,select,textarea{font-size:16px}
+  header{padding:6px 10px;gap:6px}
+  .logo{font-size:15px}.logo .by:not(.kofi){display:none}
+  header .spacer{display:none}
+  .devinfo{gap:4px 10px;font-size:12px;order:5;width:100%}
+  .devinfo span:nth-child(n+4){display:none}
+  header .grp{gap:5px;flex-wrap:wrap}
+  header .grp button{padding:5px 9px;font-size:13px}
+  body.connected #btnUsb,body.connected #btnBle,body.connected #btnTcp{display:none}
+  body.noserial #btnUsb,body.noble #btnBle{display:none}
+  .warnbar{font-size:12px;padding:5px 10px}
+  body:not(.connected) #btnDisc,body:not(.connected) #btnAdv0,body:not(.connected) #btnAdvF{display:none}
+  nav#tabs{position:fixed;left:0;right:0;bottom:0;z-index:1500;padding:0 0 env(safe-area-inset-bottom);border-top:1px solid var(--border);border-bottom:none;overflow:visible;gap:0;box-shadow:0 -2px 10px rgba(0,0,0,.15)}
+  nav#tabs button{flex:1 1 0;min-width:0;padding:5px 0 4px;font-size:10px;line-height:1.1;display:flex;flex-direction:column;align-items:center;gap:2px;border-bottom:none;border-top:2px solid transparent;position:relative}
+  nav#tabs button.active{border-top-color:var(--accent)}
+  nav#tabs button::before{content:attr(data-ic);font-size:19px;line-height:1.1}
+  nav#tabs .ll{display:none}nav#tabs .ls{display:inline}
+  nav#tabs .badge{position:absolute;top:1px;left:55%;margin:0;font-size:10px}
+  .app{padding-bottom:calc(50px + env(safe-area-inset-bottom))}
+  #toasts{bottom:calc(64px + env(safe-area-inset-bottom));width:calc(100% - 24px)}
+  .toast{text-align:center}
+  /* Liste → Detail */
+  #sec-chat .chatside,#sec-admin .chatside{width:100%;border-right:none}
+  #sec-chat:not(.mdet) .chatmain,#sec-admin:not(.mdet) .chatmain{display:none}
+  #sec-chat.mdet .chatside,#sec-admin.mdet .chatside{display:none}
+  .mback{display:inline-flex;font-size:18px;line-height:1;padding:4px 10px}
+  .chathead{flex-wrap:wrap;padding:8px 10px;gap:6px}
+  .msgs{padding:10px}.msg{max-width:88%}
+  .compose{padding:8px;gap:6px}
+  .citem{padding:11px 14px}
+  /* Tabellen */
+  th,td{padding:5px 6px}
+  #sec-live th:nth-child(3),#sec-live td:nth-child(3),#sec-live th:nth-child(6),#sec-live td:nth-child(6),#sec-live th:nth-child(7),#sec-live td:nth-child(7){display:none}
+  #sec-contacts th:nth-child(3),#sec-contacts td:nth-child(3),#sec-contacts th:nth-child(5),#sec-contacts td:nth-child(5),#sec-contacts th:nth-child(7),#sec-contacts td:nth-child(7){display:none}
+  #ctable button.sm{padding:5px 8px;margin:1px 0}
+  #ctable td:last-child{white-space:normal!important;min-width:86px}
+  #sec-contacts th:nth-child(2),#sec-contacts td:nth-child(2){display:none}
+  #sec-contacts td:nth-child(4){white-space:nowrap}
+  .toolbar{padding:6px 8px;gap:6px}
+  #fText,#cSearch{width:100%!important;flex:1 1 100%}
+  .statsbar{gap:8px 12px;padding:5px 10px}canvas#spark{display:none}
+  /* Karte */
+  .mapfab{display:block;position:absolute;top:10px;right:10px;z-index:600;box-shadow:0 2px 8px rgba(0,0,0,.3);background:var(--panel)}
+  .mappanel{display:none;top:52px;right:10px;left:auto;width:min(260px,calc(100% - 20px));max-height:calc(100% - 64px);overflow:auto}
+  #sec-map.mpanel .mappanel{display:block}
+  /* Karten, Formulare, Dialoge */
+  .scroll{padding:10px}
+  .cards{grid-template-columns:1fr;gap:10px}
+  .card{padding:12px}
+  .admf{grid-template-columns:1fr;gap:3px}
+  .kv{grid-template-columns:110px 1fr}
+  .admhead h2{font-size:17px}
+  .modal{align-items:flex-end;padding:0}
+  .mbox{max-width:none!important;border-radius:14px 14px 0 0;max-height:92vh;overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+  .detail{padding-bottom:70px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="warnbar" id="warn"></div>
+  <header>
+    <div class="logo">Mesh<span>core</span> Webapp <b style="background:#cf222e;color:#fff;border-radius:4px;padding:0 5px;font-size:11px;vertical-align:middle">ALT</b> <a class="by" href="https://saarmesh.de" target="_blank" rel="noopener">by SaarMesh.de</a><a class="by kofi" href="https://ko-fi.com/saarmesh" target="_blank" rel="noopener" title="SaarMesh unterstützen – Hardware, Repeater, Server">☕</a></div>
+    <span class="dot" id="dot"></span>
+    <div class="devinfo" id="devinfo"><span>nicht verbunden</span></div>
+    <div class="spacer"></div>
+    <div class="grp">
+      <button class="primary" id="btnUsb">🔌 USB verbinden</button>
+      <button id="btnBle" title="Experimentell: Bluetooth LE">ᛒ BLE</button>
+      <button id="btnTcp" title="WiFi-Companion per TCP – benötigt die MeshCore TCP-Bridge auf diesem PC">📶 TCP/WiFi</button>
+      <button id="btnDisc" disabled>Trennen</button>
+    </div>
+    <div class="grp">
+      <button class="blue" id="btnAdv0" disabled title="Advert nur an direkte Nachbarn (wird nicht weitergeleitet)">📣 Advert Zero-Hop</button>
+      <button class="blue" id="btnAdvF" disabled title="Advert wird von Repeatern geflutet">📡 Advert Flood</button>
+    </div>
+  </header>
+  <nav id="tabs">
+    <button data-tab="live" class="active" data-ic="📶"><span class="ll">Live-Traffic</span><span class="ls">Live</span></button>
+    <button data-tab="chat" data-ic="💬"><span class="ll">Chat</span><span class="ls">Chat</span><span class="badge" id="unreadBadge" style="display:none"></span></button>
+    <button data-tab="map" data-ic="🗺️"><span class="ll">Karte</span><span class="ls">Karte</span></button>
+    <button data-tab="contacts" data-ic="👥"><span class="ll">Kontakte</span><span class="ls">Kontakte</span></button>
+    <button data-tab="admin" data-ic="🛠️"><span class="ll">Repeater-Admin</span><span class="ls">Admin</span></button>
+    <button data-tab="tools" data-ic="🧭"><span class="ll">Netz-Tools</span><span class="ls">Tools</span></button>
+    <button data-tab="device" data-ic="⚙️"><span class="ll">Gerät</span><span class="ls">Gerät</span></button>
+  </nav>
+  <main>
+    <!-- LIVE -->
+    <section id="sec-live" class="active">
+      <div class="toolbar">
+        <select id="fType"><option value="">Alle Typen</option></select>
+        <select id="fRoute"><option value="">Alle Routen</option><option>FLOOD</option><option>DIRECT</option><option>T-FLOOD</option><option>T-DIRECT</option></select>
+        <input id="fText" placeholder="Suche (Name, Hash, Info)" style="width:200px">
+        <button id="btnPause">⏸ Pause</button>
+        <button id="btnClear">Leeren</button>
+        <button id="btnGroup" title="Gleiche Pakete, die über verschiedene Wege ankommen, zu einer Zeile zusammenfassen">⧉ Nach Hash gruppieren</button>
+        <div class="spacer"></div>
+        <button id="btnCsv" class="sm">CSV</button>
+        <button id="btnJson" class="sm">JSON</button>
+      </div>
+      <div class="statsbar" id="statsbar"></div>
+      <div class="livewrap">
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Zeit</th><th>Typ</th><th>Route</th><th>Pfad</th><th>SNR</th><th>RSSI</th><th>Byte</th><th>Info</th></tr></thead>
+            <tbody id="pkts"></tbody>
+          </table>
+          <div class="empty" id="liveEmpty">Noch keine Pakete. Verbinde einen Companion per USB – empfangene Pakete erscheinen hier live.</div>
+        </div>
+        <div class="detail" id="detail"></div>
+      </div>
+    </section>
+    <!-- CHAT -->
+    <section id="sec-chat">
+      <div class="chatside">
+        <input id="chatSearch" placeholder="Suchen…">
+        <div class="chatlist" id="chatlist"></div>
+      </div>
+      <div class="chatmain">
+        <div class="chathead" id="chathead"><span class="muted">Kanal oder Kontakt wählen</span></div>
+        <div class="msgs" id="msgs"></div>
+        <div class="compose">
+          <input id="msgIn" placeholder="Nachricht…" disabled maxlength="200">
+          <span class="muted mono" id="msgLen"></span>
+          <button class="primary" id="btnSend" disabled>Senden</button>
+        </div>
+      </div>
+    </section>
+    <!-- MAP -->
+    <section id="sec-map">
+      <div id="map"></div>
+      <button class="mapfab" id="btnMapPanel">⚙ Filter</button>
+      <div class="mappanel">
+        <div class="legend"><span><i style="background:#0969da"></i>Companion</span><span><i style="background:#2da44e;border-radius:2px"></i>Repeater</span><span><i style="background:#8250df"></i>Room</span><span><i style="background:#9a6700"></i>Sensor</span></div>
+        <h4>Anzeigen</h4>
+        <label><input type="checkbox" class="mf" data-t="1" checked>Companions</label>
+        <label><input type="checkbox" class="mf" data-t="2" checked>Repeater</label>
+        <label><input type="checkbox" class="mf" data-t="3" checked>Room-Server</label>
+        <label><input type="checkbox" class="mf" data-t="4" checked>Sensoren</label>
+        <label><input type="checkbox" id="mLabels" checked>Namen</label>
+        <label><input type="checkbox" id="mNeigh" checked>Nachbar-Linien (SNR)</label>
+        <label>Alter <select id="mAge"><option value="3600">1 h</option><option value="86400">24 h</option><option value="604800" selected>7 Tage</option><option value="0">alle</option></select></label>
+        <div class="row">
+          <button class="sm" id="btnFit">Alle zeigen</button>
+          <button class="sm" id="btnPick" disabled>📍 Eigene Position</button>
+          <button class="sm" id="btnClrPath">Pfad ausblenden</button>
+        </div>
+        <div class="muted" id="mapInfo" style="margin-top:6px;font-size:12px"></div>
+      </div>
+    </section>
+    <!-- CONTACTS -->
+    <section id="sec-contacts">
+      <div class="toolbar">
+        <input id="cSearch" placeholder="Suchen…" style="width:220px">
+        <select id="cType"><option value="">Alle Typen</option><option value="1">Companion</option><option value="2">Repeater</option><option value="3">Room</option><option value="4">Sensor</option></select>
+        <label class="muted"><input type="checkbox" id="cHeard"> auch nur gehörte Knoten</label>
+        <div class="spacer"></div>
+        <button id="btnReloadC" disabled>Neu laden</button>
+      </div>
+      <div class="tablewrap">
+        <table><thead><tr><th>Name</th><th>Typ</th><th>Schlüssel</th><th>Zuletzt</th><th>Pfad</th><th>SNR</th><th>Entf.</th><th>Aktionen</th></tr></thead><tbody id="ctable"></tbody></table>
+      </div>
+    </section>
+    <!-- ADMIN -->
+    <section id="sec-admin">
+      <div class="chatside"><input id="admSearch" placeholder="Repeater suchen…"><div class="chatlist" id="admList"></div></div>
+      <div class="chatmain"><div class="scroll" id="admMain"></div></div>
+    </section>
+    <!-- TOOLS -->
+    <section id="sec-tools">
+      <div class="scroll"><div class="cards">
+        <div class="card"><h3>📡 Repeater in der Nähe <button class="sm" id="btnDisc2" disabled style="float:right">Suchen</button></h3><div id="ntDisc"></div></div>
+        <div class="card"><h3>📍 Trace-Route</h3>
+          <div class="frm"><input id="trPath" placeholder="Repeater-Kennungen, z. B. 6a,61" autocomplete="off" class="mono"><select id="trHs" title="Größe der Kennung pro Hop"><option value="1">1 Byte</option><option value="2">2 Byte</option></select></div>
+          <div class="frm"><select id="trAdd"><option value="">+ Repeater einfügen …</option></select><label class="muted" style="white-space:nowrap"><input type="checkbox" id="trBack" checked> Rückweg automatisch</label><button class="primary" id="btnTrace" disabled>Trace starten</button></div>
+          <p class="muted" style="font-size:12px;margin:4px 0 8px">Das Paket läuft über die angegebenen Repeater und wieder zurück. Jeder Repeater misst, wie gut er seinen Vorgänger hört – so siehst du die Signalqualität jeder einzelnen Strecke. Für einen Kontakt geht es schneller mit 📍 in der Kontaktliste.</p>
+          <div id="ntTrace"></div></div>
+      </div></div>
+    </section>
+    <!-- DEVICE -->
+    <section id="sec-device">
+      <div class="scroll">
+        <div class="cards">
+          <div class="card"><h3>Gerät</h3><div class="kv" id="kvInfo"></div></div>
+          <div class="card"><h3>Funk & Statistik <button class="sm" id="btnStats" disabled style="float:right">↻</button></h3><div class="kv" id="kvStats"></div></div>
+          <div class="card"><h3>Einstellungen</h3>
+            <div class="frm"><input id="setName" placeholder="Name"><button id="btnSetName" disabled>Name setzen</button></div>
+            <div class="frm"><input id="setLat" placeholder="Breite (49.23)"><input id="setLon" placeholder="Länge (6.99)"><button id="btnSetPos" disabled>Position</button></div>
+            <div class="frm"><input id="setTx" type="number" placeholder="TX dBm" style="max-width:110px"><button id="btnSetTx" disabled>TX-Leistung</button></div>
+            <label class="frm"><input type="checkbox" id="setLocAdv" disabled> Standort in Adverts mitsenden</label>
+            <label class="frm"><input type="checkbox" id="setAutoAdd" disabled> Neue Knoten automatisch als Kontakt speichern</label>
+            <label class="frm"><input type="checkbox" id="setNotify"> Desktop-Benachrichtigungen bei Nachrichten</label>
+          </div>
+          <div class="card"><h3>Region & Routing</h3>
+            <div class="kv" id="kvRegion"></div>
+            <div class="frm"><span class="muted">#</span><input id="setRegion" list="dlRegions" placeholder="Regionsname, z. B. saarland" maxlength="30"><button id="btnSetRegion" disabled>Setzen</button><button id="btnClrRegion" disabled>Entfernen</button></div>
+            <p class="muted" style="font-size:12px;margin:2px 0 10px">Flood-Pakete (Adverts, Kanalnachrichten) werden mit dieser Region markiert. Repeater mit Regionsfilter leiten sie nur weiter, wenn sie die Region kennen. Ohne Region wird ungefiltert geflutet.</p>
+            <div class="frm"><label>Pfad-Hash-Größe</label><select id="setHashMode" disabled><option value="0">1 Byte</option><option value="1">2 Byte</option><option value="2">3 Byte</option></select><button id="btnSetHash" disabled>Übernehmen</button></div>
+            <p class="muted" style="font-size:12px;margin:2px 0 10px">Größe der Knoten-Kennung pro Hop in ausgehenden Flood-Paketen. Mehr Bytes bedeuten weniger Verwechslungen, aber auch weniger mögliche Hops. Ältere Repeater-Firmware kann mit 2 oder 3 Byte nichts anfangen.</p>
+            <div class="frm"><input id="extraRegions" placeholder="Weitere Regionen im Live-Traffic erkennen (Komma-getrennt)"></div>
+          </div>
+          <div class="card"><h3>Telemetrie</h3>
+            <div class="frm"><button id="btnSelfTel" disabled>📊 Eigene Telemetrie</button></div>
+            <p class="muted" style="font-size:12px;margin:6px 0">Wer darf die Telemetrie dieses Geräts abfragen?</p>
+            <div class="admf"><span>Basis (Akku, Temperatur)</span><select id="telBase" disabled></select></div>
+            <div class="admf"><span>Standort (GPS)</span><select id="telLoc" disabled></select></div>
+            <div class="admf"><span>Umweltsensoren</span><select id="telEnv" disabled></select></div>
+            <p class="muted" style="font-size:12px">„Nur markierte Kontakte“ nutzt die Freigaben, die pro Kontakt in der MeshCore-App gesetzt sind. Ohne Basis-Freigabe antwortet das Gerät gar nicht.</p>
+          </div>
+          <div class="card"><h3>Öffentliches Verzeichnis</h3>
+            <label class="frm"><input type="checkbox" id="useDir"> Kanäle & Regionen aus dem öffentlichen Verzeichnis erkennen</label>
+            <div class="kv" id="dirInfo" style="display:block;font-size:13px;line-height:1.6"></div>
+            <div class="frm"><button id="btnDirReload">Jetzt aktualisieren</button></div>
+            <p class="muted" style="font-size:12px">Erkennt öffentliche Kanäle (Hashtag-Kanäle und bekannte Schlüssel) im Live-Traffic und ordnet Region-Codes Namen zu. Es wird nur eine Liste heruntergeladen – nichts von dir wird hochgeladen. Regionen aus dem Verzeichnis sind mit ≈ markiert, weil 16-Bit-Codes zufällig mehrfach passen können.</p>
+          </div>
+          <div class="card"><h3>Über die Webapp</h3>
+            <p style="font-size:13px;margin-top:0"><b>Meshcore Webapp by SaarMesh.de</b> ist kostenlos und quelloffen. Sie entsteht im Umfeld von <a href="https://saarmesh.de" target="_blank" rel="noopener">SaarMesh</a>, dem MeshCore-Netz für die Region SaarLorLux – Repeater, <a href="https://live.saarmesh.de" target="_blank" rel="noopener">Live-Karte</a> und Server werden privat betrieben.</p>
+            <div class="frm"><a href="https://ko-fi.com/saarmesh" target="_blank" rel="noopener" class="kofibtn">☕ SaarMesh auf Ko-fi unterstützen</a></div>
+            <p class="muted" style="font-size:12px;margin-bottom:0">Fehler gefunden oder eine Idee? <a href="https://github.com/SaarMesh-Bot/meshcore-webapp/issues" target="_blank" rel="noopener">Issue auf GitHub</a> · <a href="https://github.com/SaarMesh-Bot/meshcore-webapp" target="_blank" rel="noopener">Quellcode</a></p>
+          </div>
+          <div class="card"><h3>Aktionen</h3>
+            <div class="frm"><button id="btnTime" disabled>Uhrzeit synchronisieren</button><button id="btnSync" disabled>Nachrichten abrufen</button></div>
+            <div class="frm"><button id="btnReboot" class="danger" disabled>Neustart</button><button id="btnWipe" class="danger">Lokale Daten löschen</button></div>
+            <p class="muted" style="font-size:12px">Lokale Daten = in diesem Browser gespeicherte Knoten & Chatverläufe. Auf dem Gerät wird nichts gelöscht.</p>
+          </div>
+          <div class="card" style="grid-column:1/-1"><h3>Protokoll-Log <label class="muted" style="font-weight:normal;font-size:12px;float:right"><input type="checkbox" id="logOn"> aufzeichnen</label></h3><div class="hex log" id="rawlog"></div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toasts"></div>
+<datalist id="dlRegions"></datalist><datalist id="dlChannels"></datalist>
+<div class="modal" id="telModal" hidden>
+  <div class="mbox" style="max-width:520px;max-height:90vh;overflow:auto">
+    <h3 id="telTitle">📊 Telemetrie</h3>
+    <div id="telBody"></div>
+    <p class="muted" id="telNote" style="font-size:12px"></p>
+    <div class="mrow"><span class="spacer"></span><button id="telClose">Schließen</button></div>
+  </div>
+</div>
+<div class="modal" id="chModal" hidden>
+  <div class="mbox">
+    <h3>＋ Kanal hinzufügen</h3>
+    <label class="fl">Kanalname<input id="chName" list="dlChannels" placeholder="z. B. #saarland" autocomplete="off"></label>
+    <label class="fl">Schlüssel (nur für private Kanäle)<input id="chSecret" placeholder="32 Hex-Zeichen oder Base64" autocomplete="off"></label>
+    <div class="muted" id="chHint" style="font-size:12px;min-height:16px"></div>
+    <div class="mrow"><span class="spacer"></span><button id="chCancel">Abbrechen</button><button class="primary" id="chOk">Hinzufügen</button></div>
+  </div>
+</div>
+<div class="modal" id="rgModal" hidden>
+  <div class="mbox">
+    <h3 id="rgTitle">Region wählen</h3>
+    <label class="fl">Regionsname<input id="rgName" list="dlRegions" placeholder="z. B. saarlorlux" autocomplete="off"></label>
+    <div class="muted" style="font-size:12px;margin-bottom:4px">Im Verzeichnis für diesen Kanal gesehen:</div>
+    <div id="rgSuggest" style="max-height:140px;overflow:auto;display:flex;flex-wrap:wrap;gap:4px"></div>
+    <div class="mrow"><span class="spacer"></span><button id="rgCancel">Abbrechen</button><button class="primary" id="rgOk">Übernehmen</button></div>
+  </div>
+</div>
+<div class="modal" id="tcpModal" hidden>
+  <div class="mbox">
+    <h3>📶 Verbindung per TCP / WiFi</h3>
+    <p class="muted" style="font-size:13px;margin-top:0">Für Companions mit WiFi-Firmware. Browser können selbst kein TCP – dafür läuft auf diesem PC die kleine <b>MeshCore TCP-Bridge</b>.</p>
+    <label class="fl">IP-Adresse oder Hostname des Companions<input id="tcpHost" placeholder="z. B. 192.168.178.50" autocomplete="off"></label>
+    <label class="fl">Port<input id="tcpPort" type="number" min="1" max="65535" placeholder="5000"></label>
+    <details style="margin:8px 0"><summary class="muted" style="cursor:pointer;font-size:13px">Erweitert</summary>
+      <label class="fl">Bridge-Adresse<input id="tcpBridge" placeholder="ws://localhost:8765"></label>
+    </details>
+    <p class="muted" style="font-size:12px;margin:4px 0 8px">Mit <a href="https://github.com/SaarMesh-Bot/meshcore-webapp#mehrere-apps-gleichzeitig-meshcore-tcp-mux" target="_blank" rel="noopener">meshcore-tcp-mux</a>: IP des Mux-Rechners und Mux-Port eintragen (z. B. 5003).</p>
+    <div class="mrow"><a href="https://github.com/SaarMesh-Bot/meshcore-webapp/releases/latest" target="_blank" rel="noopener" style="font-size:13px">⬇ Bridge herunterladen</a><span class="spacer"></span><button id="tcpCancel">Abbrechen</button><button class="primary" id="tcpOk">Verbinden</button></div>
+  </div>
+</div>
+<div class="modal" id="bleModal" hidden>
+  <div class="mbox">
+    <h3>ᛒ Bluetooth-Verbindung fehlgeschlagen</h3>
+    <p style="font-size:13px;margin-top:0">Chrome hat <b id="bleDev"></b> gefunden, konnte aber keine Verbindung aufbauen. Häufige Ursachen:</p>
+    <ol style="font-size:13px;padding-left:20px;line-height:1.55">
+      <li><b>Noch mit einem anderen Gerät verbunden:</b> Ein Companion erlaubt nur eine Bluetooth-Verbindung. MeshCore-App auf dem Handy schließen oder dort trennen.</li>
+      <li><b>Alte Kopplung (v. a. Windows):</b> Unter <i>Einstellungen → Bluetooth &amp; Geräte</i> den Companion entfernen und neu verbinden. Die PIN steht auf dem Display des Companions (Standard oft <span class="mono">123456</span>).</li>
+      <li><b>Zu weit weg oder schwaches Signal:</b> Companion näher an den PC legen.</li>
+      <li><b>Companion hängt:</b> kurz neu starten (Reset-Knopf oder Strom trennen).</li>
+    </ol>
+    <p class="muted" style="font-size:12px">Alternativ per USB-Kabel verbinden – das ist am zuverlässigsten. <span class="mono" id="bleDetail"></span></p>
+    <div class="mrow"><span class="spacer"></span><button id="bleOk">Schließen</button><button class="primary" id="bleRetry">Erneut versuchen</button></div>
+  </div>
+</div>
+<div class="modal" id="bridgeModal" hidden>
+  <div class="mbox">
+    <h3>Bridge nicht gefunden</h3>
+    <p>Für TCP/WiFi muss auf diesem PC die <b>MeshCore TCP-Bridge</b> laufen:</p>
+    <ol style="padding-left:20px;line-height:1.6">
+      <li><a href="https://github.com/SaarMesh-Bot/meshcore-webapp/releases/latest" target="_blank" rel="noopener">Bridge herunterladen</a> (Windows, macOS, Linux)</li>
+      <li>Datei starten und das Fenster offen lassen</li>
+      <li>Erneut auf „TCP/WiFi“ klicken</li>
+    </ol>
+    <p class="muted" style="font-size:12px">Fragt der Browser nach Zugriff auf Geräte im lokalen Netzwerk, bitte erlauben. Die Bridge ist erreichbar unter <span class="mono" id="bridgeUrlInfo"></span>.</p>
+    <div class="mrow"><span class="spacer"></span><button class="primary" id="bridgeOk">OK</button></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ================= Konstanten =================
+const CMD={APP_START:1,SEND_TXT:2,SEND_CHAN_TXT:3,GET_CONTACTS:4,GET_TIME:5,SET_TIME:6,SELF_ADVERT:7,SET_NAME:8,ADD_UPDATE_CONTACT:9,SYNC_NEXT:10,SET_TX:12,RESET_PATH:13,SET_LATLON:14,REMOVE_CONTACT:15,SHARE_CONTACT:16,REBOOT:19,GET_BATT:20,DEVICE_QUERY:22,GET_CONTACT_BY_KEY:30,GET_CHANNEL:31,SET_OTHER:38,GET_STATS:56,SET_SCOPE_KEY:54,SET_CHANNEL:32,SET_HASH_MODE:61,SET_DEF_SCOPE:63,GET_DEF_SCOPE:64};
+const RESP={OK:0,ERR:1,CONTACTS_START:2,CONTACT:3,END_CONTACTS:4,SELF_INFO:5,SENT:6,CMSG:7,CHMSG:8,TIME:9,NO_MORE:10,BATT:12,DEVINFO:13,DISABLED:15,CMSG3:16,CHMSG3:17,CHANNEL:18,STATS:24,CHDATA:27};
+const PUSH={ADVERT:0x80,PATH_UPDATED:0x81,SEND_CONFIRMED:0x82,MSG_WAITING:0x83,RAW:0x84,LOGIN_OK:0x85,LOGIN_FAIL:0x86,STATUS:0x87,LOG_RX:0x88,TRACE:0x89,NEW_ADVERT:0x8A,TELEMETRY:0x8B,CONTACT_DELETED:0x8F,CONTACTS_FULL:0x90};
+const ERRS={1:'Befehl nicht unterstützt',2:'nicht gefunden',3:'Tabelle voll',4:'falscher Zustand',5:'Dateifehler',6:'ungültiger Wert'};
+const PT=['REQ','RESP','TXT','ACK','ADVERT','GRP_TXT','GRP_DATA','ANON_REQ','PATH','TRACE','MULTIPART','CONTROL','T12','T13','T14','RAW'];
+const ROUTES=['T-FLOOD','FLOOD','DIRECT','T-DIRECT'];
+const NTYPE={0:'Unbekannt',1:'Companion',2:'Repeater',3:'Room',4:'Sensor'};
+const NLETTER={0:'?',1:'C',2:'R',3:'S',4:'T'};
+const NUS='6e400001-b5a3-f393-e0a9-e50e24dcca9e',NUS_RX='6e400002-b5a3-f393-e0a9-e50e24dcca9e',NUS_TX='6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+const MAX_PKTS=3000, MAX_ROWS=400, MAX_TXT=150;
+
+const enc=new TextEncoder(), dec=new TextDecoder();
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const hex=b=>[...b].map(x=>x.toString(16).padStart(2,'0')).join('');
+const unhex=s=>new Uint8Array((s.match(/../g)||[]).map(h=>parseInt(h,16)));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const now=()=>Math.floor(Date.now()/1000);
+const tfmt=ms=>new Date(ms).toLocaleTimeString('de-DE');
+const dtfmt=ms=>{const d=new Date(ms),t=new Date();return d.toDateString()===t.toDateString()?d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})};
+function ago(ms){if(!ms)return '–';const s=(Date.now()-ms)/1000;if(s<60)return Math.max(0,Math.round(s))+' s';if(s<3600)return Math.round(s/60)+' min';if(s<86400)return Math.round(s/3600)+' h';return Math.round(s/86400)+' d'}
+const snrCls=v=>v==null?'':v>=5?'snr-g':v>=-5?'snr-y':'snr-r';
+function bytes(...parts){const a=[];for(const p of parts){if(typeof p==='number')a.push(p&255);else if(typeof p==='string')a.push(...enc.encode(p));else a.push(...p)}return new Uint8Array(a)}
+const u32=v=>{const b=new Uint8Array(4);new DataView(b.buffer).setUint32(0,v>>>0,true);return b};
+const i32=v=>{const b=new Uint8Array(4);new DataView(b.buffer).setInt32(0,v|0,true);return b};
+class R{constructor(b){this.b=b;this.dv=new DataView(b.buffer,b.byteOffset,b.byteLength);this.o=0}
+ left(){return this.b.length-this.o}
+ u8(){if(this.o>=this.b.length)throw new RangeError('eof');return this.b[this.o++]}
+ i8(){const v=this.dv.getInt8(this.o);this.o+=1;return v}
+ u16(){const v=this.dv.getUint16(this.o,true);this.o+=2;return v}
+ i16(){const v=this.dv.getInt16(this.o,true);this.o+=2;return v}
+ u32(){const v=this.dv.getUint32(this.o,true);this.o+=4;return v}
+ i32(){const v=this.dv.getInt32(this.o,true);this.o+=4;return v}
+ bytes(n){const v=this.b.slice(this.o,this.o+n);this.o+=n;return v}
+ cstr(n){const v=this.bytes(n);let z=v.indexOf(0);if(z<0)z=v.length;return dec.decode(v.subarray(0,z))}
+ rest(){return this.bytes(Math.max(0,this.left()))}}
+function hav(a,b,c,d){const r=Math.PI/180,R6=6371,x=Math.sin((c-a)*r/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)**2;return 2*R6*Math.asin(Math.sqrt(x))}
+const hasPos=n=>n&&typeof n.lat==='number'&&typeof n.lon==='number'&&!(n.lat===0&&n.lon===0)&&Math.abs(n.lat)<=90&&Math.abs(n.lon)<=180;
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}},del(k){try{localStorage.removeItem(k)}catch{}}};
+function toast(msg,kind=''){const t=document.createElement('div');t.className='toast '+kind;t.textContent=msg;$('#toasts').appendChild(t);setTimeout(()=>t.remove(),kind==='err'?6000:3500)}
+
+// ================= Zustand =================
+const S={tr:null,connected:false,self:null,dev:null,contacts:new Map(),nodes:new Map(),channels:[],packets:[],msgs:{},active:null,unread:{},
+  neighbors:new Map(),stats:{total:0,byType:{}},paused:false,selPkt:null,radio:{},acks:new Map()};
+(store.get('mcw.nodes',[])||[]).forEach(n=>S.nodes.set(n.key,n));
+let saveTimer=null;
+function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{store.set('mcw.nodes',[...S.nodes.values()].slice(-3000));if(S.self)store.set('mcw.msgs.'+S.self.key.slice(0,16),S.msgs)},1500)}
+
+// ================= Transporte =================
+// Zerlegt den Byte-Strom (USB oder TCP) in Companion-Frames: '>' + Länge (LE16) + Daten
+function makeFramer(onFrame){
+  let buf=new Uint8Array(0);
+  return value=>{
+    const nb=new Uint8Array(buf.length+value.length);nb.set(buf);nb.set(value,buf.length);buf=nb;
+    for(;;){
+      if(buf.length<3)break;
+      if(buf[0]!==0x3E){const i=buf.indexOf(0x3E);if(i<0){buf=new Uint8Array(0);break}buf=buf.slice(i);continue}
+      const len=buf[1]|(buf[2]<<8);
+      if(len===0||len>300){buf=buf.slice(1);continue}
+      if(buf.length<3+len)break;
+      const f=buf.slice(3,3+len);buf=buf.slice(3+len);
+      try{onFrame(f)}catch(e){console.error('Frame-Fehler',e)}
+    }
+  };
+}
+const wrapFrame=p=>{const f=new Uint8Array(p.length+3);f[0]=0x3C;f[1]=p.length&255;f[2]=(p.length>>8)&255;f.set(p,3);return f};
+class SerialTransport{
+  async open(){
+    this.port=await navigator.serial.requestPort();
+    await this.port.open({baudRate:115200});
+    this.writer=this.port.writable.getWriter();
+    const i=this.port.getInfo();
+    this.label='USB'+(i.usbVendorId?` ${i.usbVendorId.toString(16).padStart(4,'0')}:${i.usbProductId.toString(16).padStart(4,'0')}`:'');
+    this.loop=this.readLoop();
+  }
+  async readLoop(){
+    const feed=makeFramer(f=>this.onFrame(f));
+    this.reader=this.port.readable.getReader();
+    try{
+      for(;;){
+        const {value,done}=await this.reader.read(); if(done)break; if(value&&value.length)feed(value);
+      }
+    }catch(e){console.warn('Serial',e)}
+    finally{try{this.reader.releaseLock()}catch{} if(!this.closing&&this.onClose)this.onClose()}
+  }
+  async send(p){await this.writer.write(wrapFrame(p))}
+  async close(){this.closing=true;try{await this.reader.cancel()}catch{}try{await this.loop}catch{}try{this.writer.releaseLock()}catch{}try{await this.port.close()}catch{}}
+}
+// TCP/WiFi über die lokale MeshCore TCP-Bridge (WebSocket ↔ TCP)
+class WsTransport{
+  constructor(cfg){this.cfg=cfg}
+  open(){
+    const {bridge,host,port}=this.cfg;
+    const url=bridge.replace(/\/+$/,'')+'/ws?host='+encodeURIComponent(host)+'&port='+encodeURIComponent(port);
+    this.label='TCP '+host+':'+port;
+    return new Promise((resolve,reject)=>{
+      let ws;try{ws=new WebSocket(url)}catch(e){return reject(new Error('Ungültige Bridge-Adresse: '+bridge))}
+      ws.binaryType='arraybuffer';this.ws=ws;let ready=false;
+      const feed=makeFramer(f=>this.onFrame(f));
+      const timer=setTimeout(()=>{if(!ready){try{ws.close()}catch{}reject(new Error('Zeitüberschreitung beim Verbinden'))}},12000);
+      ws.onmessage=e=>{
+        if(typeof e.data==='string'){let m={};try{m=JSON.parse(e.data)}catch{}
+          if(m.type==='connected'){ready=true;clearTimeout(timer);this.bridgeVersion=m.version;resolve()}
+          else if(m.type==='error'){clearTimeout(timer);this.lastError=m.message;if(!ready)reject(new Error(m.message))}
+          return}
+        feed(new Uint8Array(e.data));
+      };
+      ws.onerror=()=>{if(!ready){clearTimeout(timer);reject(new Error('BRIDGE_UNREACHABLE'))}};
+      ws.onclose=e=>{clearTimeout(timer);if(!ready){reject(new Error(this.lastError||'BRIDGE_UNREACHABLE'));return}
+        if(!this.closing&&this.onClose)this.onClose(e.reason||'TCP-Verbindung getrennt')};
+    });
+  }
+  async send(p){if(!this.ws||this.ws.readyState!==1)throw new Error('nicht verbunden');this.ws.send(wrapFrame(p))}
+  async close(){this.closing=true;try{this.ws.close()}catch{}}
+}
+class BleTransport{
+  async open(){
+    this.dev=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'MeshCore'},{services:[NUS]}],optionalServices:[NUS]});
+    this.dev.addEventListener('gattserverdisconnected',()=>{if(!this.closing&&this.onClose)this.onClose()});
+    // GATT-Verbindung scheitert gelegentlich beim ersten Versuch (v. a. unter Windows) → bis zu 3 Versuche
+    let srv,last;
+    for(let i=0;i<3&&!srv;i++){
+      try{if(i)toast('Bluetooth: neuer Verbindungsversuch '+(i+1)+'/3 …');srv=await this.dev.gatt.connect()}
+      catch(e){last=e;try{this.dev.gatt.disconnect()}catch{}await new Promise(r=>setTimeout(r,800*(i+1)))}
+    }
+    if(!srv){const e=new Error('BLE_CONNECT');e.detail=last&&last.message;e.devName=this.dev.name;throw e}
+    const svc=await srv.getPrimaryService(NUS);
+    this.rx=await svc.getCharacteristic(NUS_RX);this.tx=await svc.getCharacteristic(NUS_TX);
+    this.tx.addEventListener('characteristicvaluechanged',e=>{const v=e.target.value;try{this.onFrame(new Uint8Array(v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)))}catch(err){console.error(err)}});
+    await this.tx.startNotifications();
+    this.label='BLE '+(this.dev.name||'');
+  }
+  // GATT erlaubt nur einen Schreibvorgang gleichzeitig → Warteschlange, bei Kollision kurz erneut versuchen
+  send(p){
+    const run=async()=>{for(let i=0;;i++){try{return await this.rx.writeValue(p)}
+      catch(e){if(i>=4||!/in progress|busy|NetworkError/i.test(e.message||''))throw e;await new Promise(r=>setTimeout(r,40*(i+1)))}}};
+    const job=(this.wq||Promise.resolve()).catch(()=>{}).then(run);this.wq=job;return job;
+  }
+  async close(){this.closing=true;try{this.dev.gatt.disconnect()}catch{}}
+}
+
+function tcpDialog(){
+  const cfg=store.get('mcw.tcp',{})||{};
+  $('#tcpHost').value=cfg.host||'';$('#tcpPort').value=cfg.port||5000;$('#tcpBridge').value=cfg.bridge||'ws://localhost:8765';
+  $('#tcpModal').hidden=false;setTimeout(()=>$('#tcpHost').focus(),30);
+  return new Promise(res=>{
+    const done=v=>{$('#tcpModal').hidden=true;$('#tcpOk').onclick=$('#tcpCancel').onclick=null;$('#tcpModal').onkeydown=null;res(v)};
+    $('#tcpCancel').onclick=()=>done(null);
+    $('#tcpOk').onclick=()=>{
+      const host=$('#tcpHost').value.trim(),port=parseInt($('#tcpPort').value,10)||5000,bridge=$('#tcpBridge').value.trim()||'ws://localhost:8765';
+      if(!host){$('#tcpHost').focus();return toast('Bitte IP-Adresse des Companions eingeben','err')}
+      if(!/^wss?:\/\//.test(bridge))return toast('Bridge-Adresse muss mit ws:// oder wss:// beginnen','err');
+      const v={host,port,bridge};store.set('mcw.tcp',v);done(v)};
+    $('#tcpModal').onkeydown=e=>{if(e.key==='Enter')$('#tcpOk').click();else if(e.key==='Escape')done(null)};
+  });
+}
+function showBleHelp(e){
+  $('#bleDev').textContent=e.devName||'dem Companion';$('#bleDetail').textContent=e.detail||'';
+  $('#bleModal').hidden=false;$('#bleOk').onclick=()=>{$('#bleModal').hidden=true};
+  $('#bleRetry').onclick=()=>{$('#bleModal').hidden=true;connect('ble')};
+}
+function showBridgeHelp(){
+  const cfg=store.get('mcw.tcp',{})||{};$('#bridgeUrlInfo').textContent=cfg.bridge||'ws://localhost:8765';
+  $('#bridgeModal').hidden=false;$('#bridgeOk').onclick=()=>{$('#bridgeModal').hidden=true};
+}
+
+// ================= Request-Queue =================
+class MeshErr extends Error{constructor(code){super(ERRS[code]||('Fehler '+code));this.code=code}}
+let waiter=null;const queue=[];
+const EXPECT={64:[28],22:[13],1:[5],5:[9],31:[18],10:[7,8,16,17,10,27],2:[6],20:[12],56:[24],30:[3]};
+function request(payload,opts={}){if(!opts.expect)opts.expect=EXPECT[payload[0]]||[RESP.OK,RESP.DISABLED];return new Promise((res,rej)=>{queue.push({payload,opts,res,rej});pump()})}
+function armTimer(){clearTimeout(waiter.timer);waiter.timer=setTimeout(()=>failWaiter(new Error('Zeitüberschreitung')),waiter.opts.timeout||(S.tr instanceof BleTransport?9000:5000))}
+async function pump(){
+  if(waiter||!queue.length)return;
+  if(!S.tr){while(queue.length)queue.shift().rej(new Error('nicht verbunden'));return}
+  const job=queue.shift();waiter={...job,frames:[]};armTimer();
+  try{await S.tr.send(job.payload);logFrame('TX',job.payload)}catch(e){failWaiter(e)}
+}
+function finishWaiter(r){const w=waiter;if(!w)return;clearTimeout(w.timer);waiter=null;w.res(r);pump()}
+function failWaiter(e){const w=waiter;if(!w)return;clearTimeout(w.timer);waiter=null;w.rej(e);pump()}
+
+function onFrame(f){
+  logFrame('RX',f);
+  const c=f[0];
+  if(c>=0x80){try{handlePush(f)}catch(e){console.error(e)}return}
+  const isMsg=[RESP.CMSG,RESP.CMSG3,RESP.CHMSG,RESP.CHMSG3].includes(c);
+  if(waiter&&isMsg&&waiter.payload[0]!==CMD.SYNC_NEXT){handleMsgFrame(f);return}
+  if(waiter&&c===RESP.CONTACT&&!waiter.opts.multi&&waiter.payload[0]!==CMD.GET_CONTACT_BY_KEY){upsertContact(parseContact(f),true);return}
+  if(waiter){
+    if(waiter.opts.multi){
+      if(c===RESP.CONTACTS_START){armTimer();return}
+      if(c===RESP.CONTACT){waiter.frames.push(f);armTimer();return}
+      if(c===RESP.END_CONTACTS){finishWaiter(waiter.frames);return}
+    }
+    if(c===RESP.ERR){failWaiter(new MeshErr(f[1]));return}
+    if(waiter.opts.multi||waiter.opts.expect.includes(c)){
+      // passt die Antwort auch inhaltlich (Kanalnummer, Statistik-Typ)? Sonst ist es eine verspätete Antwort → ignorieren
+      if(waiter.opts.match&&c!==RESP.ERR&&!waiter.opts.match(f)){console.warn('Verspätete Antwort 0x'+c.toString(16)+' ignoriert');return}
+      finishWaiter(f);return}
+    console.warn('Unerwartete Antwort 0x'+c.toString(16)+' (erwartet '+waiter.opts.expect+') – ignoriert');
+  }
+  // unaufgefordert / verspätet
+  if([RESP.CMSG,RESP.CMSG3,RESP.CHMSG,RESP.CHMSG3].includes(c))handleMsgFrame(f);
+  else if(c===RESP.CONTACT)upsertContact(parseContact(f),true);
+}
+
+// ================= Verbindung =================
+async function connect(kind){
+  if(S.tr)return;
+  if(kind==='usb'&&!('serial' in navigator))return toast('Web Serial nicht verfügbar – bitte Chrome oder Edge am Desktop verwenden.','err');
+  if(kind==='ble'&&!('bluetooth' in navigator))return toast('Web Bluetooth nicht verfügbar.','err');
+  let tr;
+  if(kind==='tcp'){const cfg=await tcpDialog();if(!cfg)return;tr=new WsTransport(cfg);toast('Verbinde mit '+cfg.host+':'+cfg.port+' …')}
+  else tr=kind==='usb'?new SerialTransport():new BleTransport();
+  tr.onFrame=onFrame;tr.onClose=r=>onDisconnected(typeof r==='string'?r:'Verbindung verloren');
+  try{await tr.open()}catch(e){
+    if(e.name==='NotFoundError')return;
+    if(e.message==='BRIDGE_UNREACHABLE')return showBridgeHelp();
+    if(e.message==='BLE_CONNECT')return showBleHelp(e);
+    toast('Verbinden fehlgeschlagen: '+e.message,'err');return}
+  S.tr=tr;
+  try{
+    const di=await request(bytes(CMD.DEVICE_QUERY,3),{timeout:4000});
+    S.dev=parseDevInfo(di);
+    const si=await request(bytes(CMD.APP_START,1,0,0,0,0,0,0,'SaarMesh Webapp'));
+    S.self=parseSelf(si);
+  }catch(e){toast('Gerät antwortet nicht wie ein MeshCore-Companion ('+e.message+'). Firmware „Companion USB“ geflasht?','err');await disconnect();return}
+  S.connected=true;
+  S.msgs=store.get('mcw.msgs.'+S.self.key.slice(0,16),{})||{};
+  updateHeader();setEnabled(true);toast('Verbunden mit '+S.self.name,'ok');
+  try{await request(bytes(CMD.SET_TIME,u32(now())))}catch{}
+  await loadContacts();
+  await loadChannels();
+  await loadScope();
+  await syncMessages();
+  refreshStats();
+  clearInterval(S.statTimer);S.statTimer=setInterval(refreshStats,30000);
+  renderAll();
+}
+async function disconnect(){const tr=S.tr;S.tr=null;if(tr)await tr.close();onDisconnected()}
+function onDisconnected(msg){
+  if(S.tr){const tr=S.tr;S.tr=null;tr.close&&tr.close()}
+  if(waiter)failWaiter(new Error('getrennt'));while(queue.length)queue.shift().rej(new Error('getrennt'));
+  for(const s of ADM.sess.values())s.logged=false;
+  const was=S.connected;S.connected=false;clearInterval(S.statTimer);setEnabled(false);updateHeader();
+  if(was&&msg)toast(msg,'err');
+}
+function setEnabled(on){
+  ['#btnDisc','#btnAdv0','#btnAdvF','#btnPick','#btnReloadC','#btnStats','#btnSetName','#btnSetPos','#btnSetTx','#setLocAdv','#setAutoAdd','#btnTime','#btnSync','#btnReboot','#btnSetRegion','#btnClrRegion','#setHashMode','#btnSetHash','#btnSelfTel','#telBase','#telLoc','#telEnv'].forEach(s=>$(s).disabled=!on);
+  document.body.classList.toggle('connected',on);
+  $('#btnUsb').disabled=on;$('#btnBle').disabled=on;$('#btnTcp').disabled=on;
+  updateCompose();
+}
+
+// ================= Parser =================
+function parseDevInfo(f){const r=new R(f);r.u8();const d={fw:r.u8()};
+  if(d.fw>=3&&r.left()>=6){d.maxContacts=r.u8()*2;d.maxChannels=r.u8();d.blePin=r.u32();d.build=r.cstr(12);d.model=r.cstr(40);d.version=r.cstr(20);
+    if(r.left()>=1)d.repeat=r.u8();if(r.left()>=1)d.pathHashMode=r.u8()}
+  return d}
+function parseSelf(f){const r=new R(f);r.u8();const s={advType:r.u8(),tx:r.i8(),maxTx:r.u8(),key:hex(r.bytes(32)),lat:r.i32()/1e6,lon:r.i32()/1e6,multiAcks:r.u8(),locPolicy:r.u8(),telem:r.u8(),manualAdd:r.u8(),freq:r.u32()/1000,bw:r.u32()/1000,sf:r.u8(),cr:r.u8()};s.name=dec.decode(r.rest());return s}
+function parseContact(f){const r=new R(f);r.u8();const c={key:hex(r.bytes(32)),type:r.u8(),flags:r.u8(),outPathLen:r.u8()};c.outPath=r.bytes(64);c.name=r.cstr(32);c.lastAdvert=r.u32();
+  if(r.left()>=8){c.lat=r.i32()/1e6;c.lon=r.i32()/1e6}if(r.left()>=4)c.lastmod=r.u32();c.raw=hex(f);return c}
+function pathDesc(len,pathBytes){if(len===0xFF)return {flood:true,hops:[],txt:'Flood'};const n=len&63,hs=(len>>6)+1;const hops=[];for(let i=0;i<n;i++)hops.push(hex(pathBytes.slice(i*hs,(i+1)*hs)));return {flood:false,hops,txt:n===0?'direkt':n+' Hop'+(n>1?'s':'')}}
+
+// ================= Kontakte & Knoten =================
+async function loadContacts(){
+  try{const frames=await request(bytes(CMD.GET_CONTACTS),{multi:true,timeout:8000});
+    S.contacts.clear();frames.forEach(f=>upsertContact(parseContact(f),true,false));renderAll()}
+  catch(e){toast('Kontakte laden fehlgeschlagen: '+e.message,'err')}
+}
+function upsertContact(c,saved,render=true){
+  const old=S.contacts.get(c.key);S.contacts.set(c.key,{...old,...c,saved:saved||(old&&old.saved)});
+  const n=S.nodes.get(c.key)||{key:c.key};
+  n.name=c.name||n.name;n.type=c.type;n.inContacts=true;
+  if(hasPos(c)){n.lat=c.lat;n.lon=c.lon}
+  if(c.lastAdvert&&c.lastAdvert>(n.advTs||0))n.advTs=c.lastAdvert;
+  S.nodes.set(c.key,n);scheduleSave();
+  if(render)renderSoon();
+}
+async function refreshContact(keyHex){try{const f=await request(bytes(CMD.GET_CONTACT_BY_KEY,unhex(keyHex)));if(f[0]===RESP.CONTACT)upsertContact(parseContact(f),true)}catch{}}
+const findContactByPrefix=p=>{for(const c of S.contacts.values())if(c.key.startsWith(p))return c;return null};
+function nodesByHash(h){const r=[];for(const n of S.nodes.values())if(n.key.startsWith(h))r.push(n);return r}
+function nodeName(h){const l=nodesByHash(h);return l.length===1?l[0].name:l.length>1?l.map(n=>n.name).join(' / '):null}
+const lastSeen=n=>Math.max(n.heard||0,(n.advTs||0)*1000>Date.now()+86400000?0:(n.advTs||0)*1000);
+
+// ================= Kanäle =================
+async function chanHash(secret){try{const d=new Uint8Array(await crypto.subtle.digest('SHA-256',secret));return hex(d.slice(0,1))}catch{return null}}
+let chLoading=null;
+function loadChannels(){
+  // nie zweimal gleichzeitig laden; Liste erst am Ende übernehmen
+  if(chLoading)return chLoading;
+  chLoading=(async()=>{
+    const list=new Map(),max=S.dev?.maxChannels||8;
+    for(let i=0;i<max;i++){
+      try{let f;
+        try{f=await request(bytes(CMD.GET_CHANNEL,i),{match:f=>f[1]===i})}
+        catch(e){if(e.code)throw e;f=await request(bytes(CMD.GET_CHANNEL,i),{match:f=>f[1]===i})} // Zeitüberschreitung → einmal wiederholen
+        const r=new R(f);r.u8();const idx=r.u8();const name=r.cstr(32);const sec=r.bytes(16);
+        if(!name&&sec.every(b=>b===0))continue;list.set(idx,{idx,name:name||('Kanal '+idx),secret:hex(sec),hash:await chanHash(sec)})}
+      catch(e){if(e.code===2&&i>0)break}
+    }
+    S.channels=[...list.values()].sort((a,b)=>a.idx-b.idx);
+    if((!S.active||(S.active.startsWith('ch:')&&!S.channels.some(c=>'ch:'+c.idx===S.active)))&&S.channels.length)S.active='ch:'+S.channels[0].idx;
+  })().finally(()=>{chLoading=null});
+  return chLoading;
+}
+
+// ================= Nachrichten =================
+let syncing=false;
+async function syncMessages(){
+  if(syncing||!S.connected)return;syncing=true;
+  try{for(let i=0;i<200;i++){const f=await request(bytes(CMD.SYNC_NEXT));if(f[0]===RESP.NO_MORE)break;handleMsgFrame(f)}}
+  catch(e){console.warn('Sync',e)}finally{syncing=false}
+}
+// Passendes empfangenes Funkpaket zu einer Nachricht suchen (für Region-Anzeige)
+function findRxPacket(types,pl,snr,check){
+  const t=Date.now();
+  for(let i=S.packets.length-1;i>=0;i--){const p=S.packets[i];if(t-p.t>180000)break;
+    if(p.used||!types.includes(p.ptype))continue;
+    if(pl===0xFF){if(p.route!==2&&p.route!==3)continue}else if(p.plByte!==pl)continue;
+    if(snr!=null&&Math.abs(p.snr-snr)>0.01)continue;if(check&&!check(p))continue;p.used=true;return p}
+  return null;
+}
+function linkPacket(m,p,pl){
+  if(pl!==0xFF){m.hashBytes=(pl>>6)+1}
+  if(!p)return;m.matched=true;
+  if(!p.tc){m.region='-';return}
+  m.regionCode=p.tc[0].toString(16).padStart(4,'0');
+  if(p.region){m.region=p.region;m.regionGuess=p.regionGuess}else p.onRegion=()=>{m.region=p.region;m.regionGuess=p.regionGuess;scheduleSave();renderSoon()};
+}
+function handleMsgFrame(f){
+  const c=f[0],r=new R(f);r.u8();let snr=null;
+  if(c===RESP.CMSG3||c===RESP.CHMSG3){snr=r.i8()/4;r.u8();r.u8()}
+  if(c===RESP.CMSG||c===RESP.CMSG3){
+    const prefix=hex(r.bytes(6)),pl=r.u8(),tt=r.u8(),ts=r.u32();let author=null;if(tt===2)author=hex(r.bytes(4));
+    const text=dec.decode(r.rest());const ct=findContactByPrefix(prefix);
+    let from=ct?ct.name:prefix;if(author){from=(nodeName(author)||author)+(ct?' @ '+ct.name:'')}
+    if(tt===1){onCliReply(prefix,text);return}
+    const msg={dir:'in',from,text,ts:ts*1000,rx:Date.now(),snr,hops:pl===0xFF?'direkt':(pl&63),cli:tt===1};
+    linkPacket(msg,findRxPacket([2],pl,snr,p=>!p.dec.src||prefix.startsWith(p.dec.src)),pl);
+    addMsg('c:'+prefix,msg);
+  }else if(c===RESP.CHMSG||c===RESP.CHMSG3){
+    const idx=r.u8(),pl=r.u8();r.u8();const ts=r.u32();const raw=dec.decode(r.rest());
+    const m=raw.match(/^([^:]{1,40}): ([\s\S]*)$/);
+    const msg={dir:'in',from:m?m[1]:'?',text:m?m[2]:raw,ts:ts*1000,rx:Date.now(),snr,hops:pl===0xFF?'direkt':(pl&63)};
+    const ch=S.channels.find(c=>c.idx===idx);
+    linkPacket(msg,findRxPacket([5],pl,snr,p=>!ch||!ch.hash||p.dec.ch===ch.hash),pl);
+    addMsg('ch:'+idx,msg);
+  }
+}
+function addMsg(conv,m){
+  m.id=m.id||(Date.now()+Math.random()).toString(36);
+  const arr=S.msgs[conv]||(S.msgs[conv]=[]);
+  if(m.dir==='in'&&arr.some(x=>x.dir==='in'&&x.ts===m.ts&&x.text===m.text&&x.from===m.from))return;
+  arr.push(m);if(arr.length>500)arr.splice(0,arr.length-500);
+  if(m.dir==='in'&&!conv.startsWith('dc:')&&!(curTab==='chat'&&S.active===conv&&!document.hidden)){S.unread[conv]=(S.unread[conv]||0)+1;notify(conv,m)}
+  scheduleSave();renderSoon();
+}
+function notify(conv,m){
+  if(!$('#setNotify').checked||!document.hidden||!('Notification' in window)||Notification.permission!=='granted')return;
+  try{new Notification(convTitle(conv),{body:m.from+': '+m.text,tag:conv})}catch{}
+}
+const chTitle=n=>String(n).startsWith('#')?n:'#'+n;
+function convTitle(conv){if(conv.startsWith('dc:')){const d=S.disc[conv.slice(3)];return chTitle(d?d.name:'?')}if(conv.startsWith('ch:')){const ch=S.channels.find(c=>c.idx==conv.slice(3));return chTitle(ch?ch.name:conv.slice(3))}const c=findContactByPrefix(conv.slice(2));return c?c.name:conv.slice(2)}
+async function sendMsg(){
+  const text=$('#msgIn').value.trim();if(!text||!S.active||!S.connected)return;
+  if(enc.encode(text).length>maxLen())return toast('Nachricht zu lang','err');
+  $('#msgIn').value='';updateLen();
+  const ts=now(),conv=S.active;
+  if(conv.startsWith('ch:')){
+    const m={dir:'out',from:S.self.name,text,ts:ts*1000,rx:Date.now(),status:'sending'};addMsg(conv,m);
+    await sendChan(conv,m);
+  }else{
+    const m={dir:'out',from:S.self.name,text,ts:ts*1000,rx:Date.now(),status:'sending',attempt:0};addMsg(conv,m);
+    await sendDirect(conv,m);
+  }
+}
+async function sendDirect(conv,m){
+  const prefix=unhex(conv.slice(2));m.status='sending';renderSoon();
+  try{await applyScope('')}catch{}
+  try{const f=await request(bytes(CMD.SEND_TXT,0,m.attempt||0,u32(Math.floor(m.ts/1000)),prefix,m.text));
+    const r=new R(f);r.u8();m.flood=!!r.u8();m.ack=r.u32();const est=r.u32();m.status='sent';
+    S.acks.set(m.ack,m);
+    setTimeout(()=>{if(m.status==='sent'){m.status='noack';renderSoon();scheduleSave()}},Math.max(est*1.5,8000));
+  }catch(e){m.status='fail';m.err=e.message}
+  renderSoon();scheduleSave();
+}
+async function sendChan(conv,m){
+  const ch=S.channels.find(c=>c.idx==conv.slice(3)),rg=chanRegion(ch);m.region=rg;m.status='sending';m.err=null;renderSoon();
+  try{try{await applyScope(rg)}catch(e){if(rg)throw new Error('Region konnte nicht gesetzt werden ('+e.message+')')}
+    await request(bytes(CMD.SEND_CHAN_TXT,0,+conv.slice(3),u32(Math.floor(m.ts/1000)),m.text));m.status='sent'}
+  catch(e){m.status='fail';m.err=e.message}
+  renderSoon();scheduleSave();
+}
+function retryMsg(conv,id){const m=(S.msgs[conv]||[]).find(x=>x.id===id);if(!m)return;
+  if(conv.startsWith('ch:')){m.ts=Date.now();m.rx=Date.now();sendChan(conv,m);return}
+  m.attempt=(m.attempt||0)+1;sendDirect(conv,m)}
+function maxLen(){if(!S.active)return MAX_TXT;if(S.active.startsWith('ch:'))return MAX_TXT-enc.encode(S.self?.name||'').length-2;return MAX_TXT}
+
+// ================= Pushes =================
+function handlePush(f){
+  const c=f[0];
+  if(c!==PUSH.LOG_RX&&checkPushWaiters(f))return;
+  if(c===PUSH.CONTROL){onControlPush(f);return}
+  switch(c){
+    case PUSH.LOG_RX:{const snr=(new DataView(f.buffer,f.byteOffset).getInt8(1))/4,rssi=new DataView(f.buffer,f.byteOffset).getInt8(2);onRawPacket(f.slice(3),snr,rssi);break}
+    case PUSH.MSG_WAITING:syncMessages();break;
+    case PUSH.ADVERT:case PUSH.PATH_UPDATED:refreshContact(hex(f.slice(1,33)));break;
+    case PUSH.NEW_ADVERT:{const ct=parseContact(f);upsertContact(ct,false);break}
+    case PUSH.SEND_CONFIRMED:{const r=new R(f);r.u8();const ack=r.u32(),rtt=r.u32();const m=S.acks.get(ack);if(m){m.status='ok';m.rtt=rtt;S.acks.delete(ack);renderSoon();scheduleSave()}break}
+    case PUSH.CONTACT_DELETED:{const k=hex(f.slice(1,33));S.contacts.delete(k);const n=S.nodes.get(k);if(n)n.inContacts=false;renderSoon();break}
+    case PUSH.CONTACTS_FULL:toast('Kontaktspeicher des Geräts ist voll','err');break;
+    default:break;
+  }
+}
+
+// ================= Region / Flood-Scope =================
+// ================= Krypto (synchron, ohne Abhängigkeiten) =================
+// SHA-256 mit wiederverwendbaren Zwischenzuständen, HMAC-SHA256, AES-128-ECB (Entschlüsselung)
+const MC=(()=>{
+  const K=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+  const IV=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const W=new Uint32Array(64);
+  function compress(H,b,o){
+    for(let i=0;i<16;i++)W[i]=(b[o+4*i]<<24)|(b[o+4*i+1]<<16)|(b[o+4*i+2]<<8)|b[o+4*i+3];
+    for(let i=16;i<64;i++){const x=W[i-15],y=W[i-2];
+      W[i]=(((x>>>7|x<<25)^(x>>>18|x<<14)^(x>>>3))+W[i-7]+((y>>>17|y<<15)^(y>>>19|y<<13)^(y>>>10))+W[i-16])|0}
+    let a=H[0],b2=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+    for(let i=0;i<64;i++){
+      const t1=(h+((e>>>6|e<<26)^(e>>>11|e<<21)^(e>>>25|e<<7))+((e&f)^(~e&g))+K[i]+W[i])|0;
+      const t2=(((a>>>2|a<<30)^(a>>>13|a<<19)^(a>>>22|a<<10))+((a&b2)^(a&c)^(b2&c)))|0;
+      h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b2;b2=a;a=(t1+t2)|0}
+    H[0]=(H[0]+a)|0;H[1]=(H[1]+b2)|0;H[2]=(H[2]+c)|0;H[3]=(H[3]+d)|0;H[4]=(H[4]+e)|0;H[5]=(H[5]+f)|0;H[6]=(H[6]+g)|0;H[7]=(H[7]+h)|0;
+  }
+  // Hash von data, fortgesetzt ab Zustand st (nach 'pre' bereits verarbeiteten Bytes)
+  function finish(st,pre,data){
+    const H=Int32Array.from(st),n=data.length,total=pre+n;
+    const padLen=((n+9+63)>>6)<<6,buf=new Uint8Array(padLen);buf.set(data);buf[n]=0x80;
+    const bits=total*8;const dv=new DataView(buf.buffer);dv.setUint32(padLen-4,bits>>>0);dv.setUint32(padLen-8,Math.floor(bits/4294967296));
+    for(let o=0;o<padLen;o+=64)compress(H,buf,o);
+    const out=new Uint8Array(32);for(let i=0;i<8;i++){out[4*i]=H[i]>>>24;out[4*i+1]=H[i]>>>16;out[4*i+2]=H[i]>>>8;out[4*i+3]=H[i]}
+    return out;
+  }
+  const sha256=data=>finish(IV,0,data);
+  // HMAC-Schlüssel vorbereiten (Schlüssel ≤ 64 Byte): innerer/äußerer Zustand nach dem Pad-Block
+  function hmacKey(key){
+    const k=new Uint8Array(64);k.set(key.length>64?sha256(key):key);
+    const ip=k.map(x=>x^0x36),op=k.map(x=>x^0x5c);
+    const si=Int32Array.from(IV),so=Int32Array.from(IV);compress(si,ip,0);compress(so,op,0);
+    return {si,so};
+  }
+  const hmac=(hk,data)=>finish(hk.so,64,finish(hk.si,64,data));
+
+  // ---- AES-128 (nur Entschlüsselung, ECB) ----
+  const S=new Uint8Array(256),SI=new Uint8Array(256);
+  (()=>{let p=1,q=1;do{p=p^((p<<1)&0xff)^(p&0x80?0x1b:0);q^=q<<1;q^=q<<2;q^=q<<4;q&=0xff;if(q&0x80)q^=0x09;
+    const x=q^(q<<1|q>>7)&0xff^(q<<2|q>>6)&0xff^(q<<3|q>>5)&0xff^(q<<4|q>>4)&0xff^0x63;S[p]=x&0xff;SI[x&0xff]=p}while(p!==1);S[0]=0x63;SI[0x63]=0})();
+  const xt=a=>((a<<1)^(a&0x80?0x1b:0))&0xff;
+  const mul=(a,b)=>{let r=0;while(b){if(b&1)r^=a;a=xt(a);b>>=1}return r};
+  function expand(key){
+    const w=new Uint8Array(176);w.set(key);let rc=1;
+    for(let i=16;i<176;i+=4){let t=w.slice(i-4,i);
+      if(i%16===0){t=new Uint8Array([S[t[1]]^rc,S[t[2]],S[t[3]],S[t[0]]]);rc=xt(rc)}
+      for(let j=0;j<4;j++)w[i+j]=w[i-16+j]^t[j]}
+    return w;
+  }
+  function decBlock(w,inp,o,out){
+    const s=new Uint8Array(16);for(let i=0;i<16;i++)s[i]=inp[o+i]^w[160+i];
+    for(let r=9;r>=0;r--){
+      // InvShiftRows + InvSubBytes
+      const t=new Uint8Array(16);
+      for(let c=0;c<4;c++)for(let row=0;row<4;row++)t[((c+row)%4)*4+row]=SI[s[c*4+row]];
+      for(let i=0;i<16;i++)t[i]^=w[r*16+i];
+      if(r>0){for(let c=0;c<4;c++){const a0=t[c*4],a1=t[c*4+1],a2=t[c*4+2],a3=t[c*4+3];
+        s[c*4]=mul(a0,14)^mul(a1,11)^mul(a2,13)^mul(a3,9);s[c*4+1]=mul(a0,9)^mul(a1,14)^mul(a2,11)^mul(a3,13);
+        s[c*4+2]=mul(a0,13)^mul(a1,9)^mul(a2,14)^mul(a3,11);s[c*4+3]=mul(a0,11)^mul(a1,13)^mul(a2,9)^mul(a3,14)}}
+      else s.set(t);
+    }
+    out.set(s,o);
+  }
+  function aesEcbDecrypt(key16,data){
+    const w=expand(key16),n=data.length-(data.length%16),out=new Uint8Array(n);
+    for(let o=0;o<n;o+=16)decBlock(w,data,o,out);return out;
+  }
+  return {sha256,hmacKey,hmac,aesEcbDecrypt};
+})();
+
+S.regions=[];
+const regionKeySync=name=>MC.sha256(enc.encode('#'+String(name).replace(/^#/,''))).slice(0,16);
+async function regionKey(name){return regionKeySync(name)}
+async function buildRegions(){
+  const out=[];
+  for(const n of knownRegionNames()){const raw=(S.scope&&S.scope.name===n&&S.scope.key)?unhex(S.scope.key):regionKeySync(n);out.push({name:n,hk:MC.hmacKey(raw)})}
+  S.regions=out;catRegionKeys=null;
+}
+let catRegionKeys=null;
+function catalogRegionKeys(){
+  if(!CAT.data||!useDir())return [];
+  if(!catRegionKeys){const own=new Set(S.regions.map(r=>r.name));catRegionKeys=CAT.regions.filter(n=>!own.has(n)).map(n=>({name:n,hk:MC.hmacKey(regionKeySync(n))}))}
+  return catRegionKeys;
+}
+function regionAffinity(r){const own=knownRegionNames();let s=0;for(const o of own){if(r===o)s+=100;else if(r.startsWith(o.split('-')[0]))s+=10}return s}
+function regionCode(hk,data){const sg=MC.hmac(hk,data);let c=sg[0]|(sg[1]<<8);if(c===0)c=1;else if(c===0xFFFF)c=0xFFFE;return c}
+// Transport-Code eines Pakets gegen eigene Regionen, danach gegen das öffentliche Verzeichnis prüfen.
+// Verzeichnis-Treffer sind nicht sicher (16-Bit-Code, viele Namen) und werden mit ≈ markiert.
+function matchRegion(p){
+  if(!p.tc)return;
+  const data=new Uint8Array(1+p.payload.length);data[0]=p.ptype;data.set(p.payload,1);
+  let hit=null,guess=false;
+  for(const r of S.regions)if(regionCode(r.hk,data)===p.tc[0]){hit=r.name;break}
+  if(!hit)for(const r of catalogRegionKeys())if(regionCode(r.hk,data)===p.tc[0]){hit=r.name;guess=true;break}
+  if(!hit)return;
+  p.region=hit;p.regionGuess=guess;
+  if(p.onRegion){p.onRegion();p.onRegion=null}
+  const tr=document.querySelector(`#pkts tr[data-id="${p.id}"]`);if(tr)tr.innerHTML=rowHtml(p);if(S.selPkt===p.id)showDetail(p.id);
+}
+const regionTag=(name,guess,cls)=>`<span class="hash${guess?'':' known'}"${guess?' title="Aus dem öffentlichen Verzeichnis – Treffer nicht eindeutig sicher"':''}>${guess?'≈':''}#${esc(name)}</span>`;
+
+// ================= Öffentliches Verzeichnis (Kanäle & Regionen) =================
+const CAT={data:null,byHash:new Map(),byName:new Map(),regions:[],state:'lädt …'};
+const CAT_URLS=['catalog.json','https://raw.githubusercontent.com/SaarMesh-Bot/meshcore-webapp/main/catalog.json'];
+const useDir=()=>store.get('mcw.useDir',true)!==false;
+async function loadCatalog(force){
+  if(!useDir()){CAT.state='aus';renderDirInfo();return}
+  CAT.state='lädt …';renderDirInfo();
+  for(const u of (location.protocol==='file:'?CAT_URLS.slice(1):CAT_URLS)){
+    try{const r=await fetch(u,{cache:force?'reload':'default'});if(!r.ok)continue;const d=await r.json();
+      if(d&&Array.isArray(d.channels)){setCatalog(d);try{store.set('mcw.catalog',d)}catch{}return}}catch{}
+  }
+  const c=store.get('mcw.catalog',null);
+  if(c){setCatalog(c);CAT.state='offline (zwischengespeichert)'}else CAT.state='nicht erreichbar';
+  renderDirInfo();
+}
+function setCatalog(d){
+  CAT.data=d;CAT.byHash=new Map();CAT.byName=new Map();const freq=new Map();
+  for(const c of d.channels){
+    let secret;try{secret=c.s?unhex(c.s):MC.sha256(enc.encode(c.n)).slice(0,16)}catch{continue}
+    if(secret.length!==16)continue;
+    const e={name:c.n,secret,secretHex:hex(secret),hash:hex(MC.sha256(secret).slice(0,1)),regions:c.r||[],msgs:c.m||0};
+    if(!CAT.byHash.has(e.hash))CAT.byHash.set(e.hash,[]);CAT.byHash.get(e.hash).push(e);
+    CAT.byName.set(e.name.toLowerCase(),e);(c.r||[]).forEach(r=>freq.set(r,(freq.get(r)||0)+1));
+  }
+  CAT.regions=(d.regions||[]).slice().sort((a,b)=>(freq.get(b)||0)-(freq.get(a)||0));
+  catRegionKeys=null;CAT.state='ok';
+  fillDatalists();
+  for(const p of S.packets){if(p.tc&&!p.region)matchRegion(p);if((p.ptype===5||p.ptype===6)&&!p.dec.chName)decryptGroup(p)}
+  renderLive();renderDirInfo();renderSoon();
+}
+function fillDatalists(){
+  const rl=$('#dlRegions'),cl=$('#dlChannels');if(!rl||!cl)return;
+  rl.innerHTML=CAT.regions.map(r=>`<option value="${esc(r)}">`).join('');
+  cl.innerHTML=[...CAT.byName.values()].sort((a,b)=>b.msgs-a.msgs).map(e=>`<option value="${esc(e.name)}">`).join('');
+}
+function renderDirInfo(){
+  const el=$('#dirInfo');if(!el)return;
+  const d=CAT.data;
+  el.innerHTML=!useDir()?'<span class="muted">ausgeschaltet</span>':
+    `Status: <b>${esc(CAT.state)}</b>`+(d?`<br>${CAT.byName.size} Kanäle · ${CAT.regions.length} Regionen<br>Stand: ${d.updated?new Date(d.updated).toLocaleString('de-DE'):'?'}<br>Quelle: <a href="${esc(d.source||'#')}" target="_blank" rel="noopener">${esc((d.source||'').replace(/^https?:\/\//,''))}</a>`:'');
+}
+
+// ---- Kanalnachrichten entschlüsseln (eigene Kanäle + öffentliches Verzeichnis) ----
+S.disc=store.get('mcw.disc',{})||{};
+function decryptGroup(p){
+  const b=p.payload;if(b.length<3+16||((b.length-3)%16))return false;
+  const h=hex(b.slice(0,1)),ct=b.slice(3);
+  const dev=S.channels.filter(c=>c.hash===h).map(c=>({name:c.name,secret:unhex(c.secret),src:'device'}));
+  const devSec=new Set(dev.map(c=>hex(c.secret)));
+  const dir=useDir()?(CAT.byHash.get(h)||[]).filter(e=>!devSec.has(e.secretHex)).map(e=>({name:e.name,secret:e.secret,src:'dir',e})):[];
+  for(const c of [...dev,...dir]){
+    const k32=new Uint8Array(32);k32.set(c.secret);
+    const hk=c.e?(c.e.hk||(c.e.hk=MC.hmacKey(k32))):MC.hmacKey(k32);
+    const m=MC.hmac(hk,ct);if(m[0]!==b[1]||m[1]!==b[2])continue;
+    const pt=MC.aesEcbDecrypt(c.secret,ct);
+    p.dec.chName=c.name;p.dec.chSrc=c.src;p.dec.chSecret=hex(c.secret);
+    p.dec.ts=(pt[0]|(pt[1]<<8)|(pt[2]<<16)|(pt[3]<<24))>>>0;
+    if(p.ptype===5){let t=dec.decode(pt.slice(5));const z=t.indexOf('\0');if(z>=0)t=t.slice(0,z);
+      const mm=t.match(/^([^:]{1,40}): ([\s\S]*)$/);p.dec.from=mm?mm[1]:null;p.dec.text=mm?mm[2]:t}
+    if(c.src==='dir'&&p.ptype===5)noteDiscovered(c,p);
+    return true;
+  }
+  return false;
+}
+function noteDiscovered(c,p){
+  const k=hex(c.secret);const d=S.disc[k]||(S.disc[k]={name:c.name,secret:k,count:0,first:Date.now()});
+  d.count++;d.last=Date.now();
+  addMsg('dc:'+k,{dir:'in',from:p.dec.from||'?',text:p.dec.text||'',ts:p.dec.ts*1000,rx:Date.now(),snr:p.snr,hops:p.route===1||p.route===0?p.hopCount:'direkt',
+    hashBytes:p.hs,region:p.region||(p.tc?null:'-'),regionGuess:p.regionGuess,regionCode:p.tc?p.tc[0].toString(16).padStart(4,'0'):null});
+  store.set('mcw.disc',S.disc);
+}
+async function addChannelToDevice(name,secret){
+  if(!S.connected)return toast('Nicht verbunden','err');
+  const max=S.dev?.maxChannels||8,used=new Set(S.channels.map(c=>c.idx));
+  let idx=-1;for(let i=0;i<max;i++)if(!used.has(i)){idx=i;break}
+  if(idx<0)return toast('Alle '+max+' Kanalplätze auf dem Gerät sind belegt','err');
+  const nb=new Uint8Array(32);nb.set(enc.encode(name).slice(0,31));
+  try{
+    await request(bytes(CMD.SET_CHANNEL,idx,nb,secret.slice(0,16)));
+    await loadChannels();
+    const k=hex(secret.slice(0,16));
+    if(S.msgs['dc:'+k]){S.msgs['ch:'+idx]=(S.msgs['ch:'+idx]||[]).concat(S.msgs['dc:'+k]);delete S.msgs['dc:'+k]}
+    delete S.disc[k];store.set('mcw.disc',S.disc);scheduleSave();
+    S.active='ch:'+idx;renderChat();toast(chTitle(name)+' auf Platz '+idx+' gespeichert','ok');
+  }catch(e){toast('Kanal hinzufügen fehlgeschlagen: '+e.message,'err')}
+}
+async function removeChannelFromDevice(idx){
+  const ch=S.channels.find(c=>c.idx==idx);if(!ch)return;
+  if(!confirm(chTitle(ch.name)+' vom Gerät entfernen?'))return;
+  try{await request(bytes(CMD.SET_CHANNEL,idx,new Uint8Array(32),new Uint8Array(16)));await loadChannels();S.active=S.channels.length?'ch:'+S.channels[0].idx:null;renderChat();toast('Kanal entfernt','ok')}
+  catch(e){toast('Entfernen fehlgeschlagen: '+e.message,'err')}
+}
+function parseSecret(str){
+  str=(str||'').trim();if(!str)return null;
+  if(/^[0-9a-fA-F]{32}$/.test(str))return unhex(str.toLowerCase());
+  try{const b=Uint8Array.from(atob(str),c=>c.charCodeAt(0));if(b.length===16||b.length===32)return b.slice(0,16)}catch{}
+  return undefined;
+}
+// Links und #kanäle in Nachrichten anklickbar machen
+const LINK_RE=/(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+\.[^\s<>"]+|#[\p{L}\p{N}_-]{2,31})/gu;
+function linkify(text){
+  text=String(text??'');let out='',last=0;
+  for(const m of text.matchAll(LINK_RE)){
+    let t=m[0];const i=m.index;
+    if(t[0]==='#'){const pre=i?text[i-1]:' ';if(!/[\s(\[,;:!?"'„“]/.test(pre))continue}
+    else{const cnt=c=>t.split(c).length-1;for(;;){const l=t.slice(-1);if(/[.,;:!?\]'"]/.test(l)||(l===')'&&cnt(')')>cnt('(')))t=t.slice(0,-1);else break}}
+    out+=esc(text.slice(last,i));
+    if(t[0]==='#')out+=`<a href="#" class="chlink" data-ch="${esc(t.toLowerCase())}" title="Kanal ${esc(t.toLowerCase())} öffnen">${esc(t)}</a>`;
+    else{const href=t.startsWith('www.')?'https://'+t:t;out+=`<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(t)}</a>`}
+    last=i+t.length;
+  }
+  return out+esc(text.slice(last));
+}
+async function openHashChannel(tag){
+  const bare=tag.replace(/^#/,'').toLowerCase();
+  const ch=S.channels.find(c=>c.name.replace(/^#/,'').toLowerCase()===bare);
+  if(ch){S.active='ch:'+ch.idx;delete S.unread[S.active];$('#sec-chat').classList.add('mdet');renderChat();return}
+  const e=CAT.byName&&CAT.byName.get('#'+bare);
+  if(!S.connected)return toast('Kanal #'+bare+' ist nicht auf dem Gerät – zum Hinzufügen erst verbinden','err');
+  if(!confirm('Kanal #'+bare+' ist noch nicht auf deinem Gerät.\n\nAls Hashtag-Kanal hinzufügen?'+(e?'\n(Bekannt aus dem öffentlichen Verzeichnis)':'')))return;
+  await addChannelToDevice(e?e.name:'#'+bare,e?e.secret:MC.sha256(enc.encode('#'+bare)).slice(0,16));
+  $('#sec-chat').classList.add('mdet');
+}
+document.addEventListener('click',e=>{const a=e.target.closest('a.chlink');if(!a)return;e.preventDefault();openHashChannel(a.dataset.ch)});
+function addChannelDialog(){
+  $('#chName').value='';$('#chSecret').value='';$('#chHint').textContent='';$('#chModal').hidden=false;setTimeout(()=>$('#chName').focus(),30);
+  const upd=()=>{const n=$('#chName').value.trim();const e=CAT.byName.get(n.toLowerCase());
+    $('#chHint').textContent=!n?'':e?`Im öffentlichen Verzeichnis gefunden (${e.msgs} Nachrichten gesehen) – Schlüssel wird übernommen.`:n.startsWith('#')?'Hashtag-Kanal – der Schlüssel wird aus dem Namen berechnet.':'Privater Kanal – bitte Schlüssel angeben.'};
+  $('#chName').oninput=upd;
+  const close=()=>{$('#chModal').hidden=true};
+  $('#chCancel').onclick=close;
+  $('#chModal').onkeydown=e=>{if(e.key==='Escape')close();else if(e.key==='Enter')$('#chOk').click()};
+  $('#chOk').onclick=async()=>{
+    let n=$('#chName').value.trim();if(!n)return toast('Kanalnamen eingeben','err');
+    let sec=parseSecret($('#chSecret').value);
+    if(sec===undefined)return toast('Schlüssel ungültig (32 Hex-Zeichen oder Base64)','err');
+    if(!sec){const e=CAT.byName.get(n.toLowerCase());if(e){sec=e.secret;n=e.name}else if(n.startsWith('#'))sec=MC.sha256(enc.encode(n)).slice(0,16);else return toast('Für private Kanäle wird ein Schlüssel benötigt','err')}
+    close();await addChannelToDevice(n,sec);
+  };
+}
+function pickRegionDialog(title,suggest){
+  return new Promise(res=>{
+    $('#rgTitle').textContent=title;$('#rgName').value='';
+    $('#rgSuggest').innerHTML=(suggest||[]).slice(0,40).map(r=>`<button class="sm" data-r="${esc(r)}">#${esc(r)}</button>`).join(' ');
+    $('#rgModal').hidden=false;setTimeout(()=>$('#rgName').focus(),30);
+    const done=v=>{$('#rgModal').hidden=true;res(v)};
+    $('#rgSuggest').onclick=e=>{const b=e.target.closest('button');if(b)done(b.dataset.r)};
+    $('#rgCancel').onclick=()=>done(null);
+    $('#rgOk').onclick=()=>{const v=$('#rgName').value.trim().replace(/^#/,'').toLowerCase();if(!v)return;done(v)};
+    $('#rgModal').onkeydown=e=>{if(e.key==='Escape')done(null);else if(e.key==='Enter')$('#rgOk').click()};
+  });
+}
+S.chanRegion=store.get('mcw.chanRegion',{})||{};
+const chanId=ch=>ch?(ch.name+':'+(ch.secret||'').slice(0,8)):'';
+function chanRegion(ch){return ch?(S.chanRegion[chanId(ch)]||''):''}
+function knownRegionNames(){const n=new Set();if(S.scope&&S.scope.name)n.add(S.scope.name);
+  ($('#extraRegions').value||'').split(',').map(x=>x.trim().replace(/^#/,'')).filter(Boolean).forEach(x=>n.add(x));
+  Object.values(S.chanRegion).forEach(v=>{if(v&&v!=='-')n.add(v)});return [...n]}
+async function setChanRegion(ch,v){if(!ch)return;if(v)S.chanRegion[chanId(ch)]=v;else delete S.chanRegion[chanId(ch)];store.set('mcw.chanRegion',S.chanRegion);
+  await buildRegions();renderChat();toast(chTitle(ch.name)+': '+(v==='-'?'ohne Region':v?'Region #'+v:'Standard-Region des Geräts'),'ok')}
+// Sende-Region für die nächsten Flood-Pakete setzen ('' = Gerätestandard, '-' = ohne Region, sonst Name)
+async function applyScope(v){
+  if(!v)return request(bytes(CMD.SET_SCOPE_KEY,0));
+  if(v==='-')return request(bytes(CMD.SET_SCOPE_KEY,1));
+  return request(bytes(CMD.SET_SCOPE_KEY,0,await regionKey(v)));
+}
+async function loadScope(){
+  try{const f=await request(bytes(CMD.GET_DEF_SCOPE));if(f.length>=48){const r=new R(f);r.u8();S.scope={name:r.cstr(31),key:hex(r.bytes(16))}}else S.scope={name:'',key:null}}
+  catch(e){S.scope=null}
+  await buildRegions();renderDevice();
+}
+async function setScope(name){
+  name=(name||'').trim().replace(/^#/,'');
+  try{
+    if(!name)await request(bytes(CMD.SET_DEF_SCOPE));
+    else{if(enc.encode(name).length>30)return toast('Name zu lang (max. 30 Zeichen)','err');
+      const nb=new Uint8Array(31);nb.set(enc.encode(name));await request(bytes(CMD.SET_DEF_SCOPE,nb,await regionKey(name)))}
+    await loadScope();toast(name?'Region #'+name+' gesetzt':'Region entfernt – Flood ohne Regionsfilter','ok');
+  }catch(e){toast('Region setzen fehlgeschlagen: '+e.message+(e.code===1?' (Firmware zu alt?)':''),'err')}
+}
+async function setHashMode(m){
+  try{await request(bytes(CMD.SET_HASH_MODE,0,m));if(S.dev)S.dev.pathHashMode=m;renderDevice();toast('Pfad-Hash-Größe: '+(m+1)+' Byte','ok')}
+  catch(e){toast('Fehlgeschlagen: '+e.message+(e.code===1?' (Firmware zu alt?)':''),'err');renderDevice()}
+}
+
+// ================= Live-Traffic =================
+function parsePacket(raw){
+  const p={raw,len:raw.length};let o=0;const h=raw[o++];
+  p.route=h&3;p.ptype=(h>>2)&15;p.ver=h>>6;
+  if(p.route===0||p.route===3){p.tc=[raw[o]|raw[o+1]<<8,raw[o+2]|raw[o+3]<<8];o+=4}
+  const pl=raw[o++];p.plByte=pl;p.hs=(pl>>6)+1;p.hopCount=pl&63;p.path=[];
+  for(let i=0;i<p.hopCount;i++)p.path.push(hex(raw.slice(o+i*p.hs,o+(i+1)*p.hs)));
+  o+=p.hopCount*p.hs;if(o>raw.length)throw new Error('kaputt');
+  p.payload=raw.slice(o);
+  const hb=new Uint8Array(p.payload.length+(p.ptype===9?2:1));hb[0]=p.ptype;if(p.ptype===9)hb[1]=pl;hb.set(p.payload,p.ptype===9?2:1);
+  p.phash=hex(MC.sha256(hb).slice(0,8));
+  decodePayload(p);return p;
+}
+function decodePayload(p){
+  const b=p.payload,d=p.dec={};
+  try{
+    switch(p.ptype){
+      case 4:{ // ADVERT
+        if(b.length<101)break;const r=new R(b);d.key=hex(r.bytes(32));d.ts=r.u32();r.bytes(64);const fl=r.u8();d.ntype=fl&15;
+        if(fl&0x10){d.lat=r.i32()/1e6;d.lon=r.i32()/1e6}if(fl&0x20)r.u16();if(fl&0x40)r.u16();if(fl&0x80)d.name=dec.decode(r.rest()).replace(/\0.*$/,'');
+        break}
+      case 3:if(b.length>=4)d.ack=hex(b.slice(0,4));break;
+      case 0:case 1:case 2:case 8:if(b.length>=2){d.dst=hex(b.slice(0,1));d.src=hex(b.slice(1,2))}break;
+      case 7:if(b.length>=33){d.dst=hex(b.slice(0,1));d.srcKey=hex(b.slice(1,33))}break;
+      case 5:case 6:if(b.length>=1){d.ch=hex(b.slice(0,1));const ch=S.channels.find(c=>c.hash===d.ch);if(ch)d.chName=ch.name}break;
+      case 9:if(b.length>=9){const r=new R(b);d.tag=r.u32().toString(16);d.auth=r.u32();d.flags=r.u8();d.trace=hex(r.rest())}break;
+    }
+  }catch{}
+}
+function pktInfo(p){
+  const d=p.dec||{};
+  switch(p.ptype){
+    case 4:{const self=S.self&&d.key===S.self.key;let s=(self?'⟲ Eigenes Advert: ':'')+'<b>'+esc(d.name||'(ohne Name)')+'</b> · '+NTYPE[d.ntype]+(hasPos(d)?' · 📍':'');
+      if(d.key)s+=' <span class="muted mono">'+d.key.slice(0,8)+'</span>';return s}
+    case 3:return 'ACK '+(d.ack||'');
+    case 0:case 1:case 2:case 8:{if(!d.dst)return '';const dn=nodeName(d.dst),sn=nodeName(d.src);return `${esc(sn||d.src)} → ${esc(dn||d.dst)}`}
+    case 7:{const n=d.srcKey&&S.nodes.get(d.srcKey);return `Anon von ${esc(n?n.name:(d.srcKey||'').slice(0,8))} → ${esc(nodeName(d.dst)||d.dst)}`}
+    case 5:case 6:{if(!d.chName)return 'Kanal-Hash '+(d.ch||'?')+' (unbekannt)';
+      let s='Kanal <b>'+esc(chTitle(d.chName))+'</b>'+(d.chSrc==='dir'?' <span class="hash" title="Aus dem öffentlichen Verzeichnis erkannt">Verzeichnis</span>':'');
+      if(d.text!=null){const t=d.text.length>90?d.text.slice(0,90)+'…':d.text;s+=' · '+(d.from?'<b>'+esc(d.from)+'</b>: ':'')+esc(t)}
+      return s}
+    case 9:return 'Trace '+(d.tag||'');
+  }
+  return '';
+}
+function onRawPacket(raw,snr,rssi){
+  let p;try{p=parsePacket(raw)}catch{p={raw,len:raw.length,ptype:15,route:1,path:[],hopCount:0,dec:{},bad:true}}
+  p.t=Date.now();p.snr=snr;p.rssi=rssi;p.id=++pktSeq;
+  S.stats.total++;S.stats.byType[PT[p.ptype]]=(S.stats.byType[PT[p.ptype]]||0)+1;minuteBucket();
+  // Knoten aus Adverts
+  if(p.ptype===4&&p.dec.key&&!(S.self&&p.dec.key===S.self.key)){
+    const d=p.dec,n=S.nodes.get(d.key)||{key:d.key};
+    if(d.name)n.name=d.name;n.type=d.ntype;if(hasPos(d)){n.lat=d.lat;n.lon=d.lon}
+    n.heard=p.t;n.snr=snr;n.rssi=rssi;n.hops=p.hopCount;n.path=p.path;n.advTs=Math.max(n.advTs||0,d.ts||0);
+    S.nodes.set(d.key,n);scheduleSave();
+  }
+  // Direkte Nachbarn (zuletzt gehörte Sendestation)
+  if(p.ptype!==9&&(p.route===0||p.route===1)){
+    let nk=null;
+    if(p.hopCount>0)nk=p.path[p.path.length-1];
+    else if(p.ptype===4&&p.dec.key)nk=p.dec.key.slice(0,2*Math.max(1,p.hs));
+    if(nk&&!(S.self&&S.self.key.startsWith(nk))){const e=S.neighbors.get(nk)||{n:0,snrSum:0};e.n++;e.snrSum+=snr;e.snr=snr;e.rssi=rssi;e.t=p.t;S.neighbors.set(nk,e)}
+  }
+  if(p.tc)matchRegion(p);
+  if(p.ptype===5||p.ptype===6)decryptGroup(p);
+  S.packets.push(p);if(S.packets.length>MAX_PKTS)S.packets.splice(0,S.packets.length-MAX_PKTS);
+  if(!S.paused&&passFilter(p))prependRow(p);
+  renderStatsSoon();
+  if(curTab==='map')renderMapSoon();
+}
+let pktSeq=0;
+function passFilter(p){
+  const t=$('#fType').value,r=$('#fRoute').value,q=$('#fText').value.trim().toLowerCase();
+  if(t&&PT[p.ptype]!==t)return false;if(r&&ROUTES[p.route]!==r)return false;
+  if(q){const s=(pktInfo(p)+' '+p.path.join(' ')+' '+(p.dec.key||'')+' '+(p.dec.name||'')).toLowerCase();if(!s.includes(q))return false}
+  return true;
+}
+function pathHtml(p){
+  if(p.ptype===9)return '<span class="muted">Trace</span>';
+  if(!p.hopCount)return '<span class="muted">0</span>'+(p.hs>1?` <span class="muted mono">${p.hs}B</span>`:'');
+  return p.path.map(h=>{const n=nodeName(h);return `<span class="hash${n?' known':''}" title="${esc(n||'unbekannt')}">${h}</span>`}).join('')+` <span class="muted mono" title="Pfad-Hash-Größe">${p.hs}B</span>`;
+}
+function rowHtml(p){
+  const ty=PT[p.ptype];
+  return `<td class="mono">${tfmt(p.t)}</td><td><span class="pt pt-${ty}">${ty}</span></td><td class="mono">${ROUTES[p.route]}${p.region?' '+regionTag(p.region,p.regionGuess):p.tc?' <span class="hash" title="unbekannte Region">?'+p.tc[0].toString(16).padStart(4,'0')+'</span>':''}</td><td>${pathHtml(p)}</td><td class="mono ${snrCls(p.snr)}">${p.snr.toFixed(1)}</td><td class="mono">${p.rssi}</td><td class="mono">${p.len}</td><td>${pktInfo(p)}</td>`;
+}
+let groupMode=store.get('mcw.groupHash',false);
+const obsOf=p=>p.phash?S.packets.filter(x=>x.phash===p.phash):[p];
+function groupRowHtml(g){
+  const p=g[0],best=g.reduce((a,x)=>x.snr>a.snr?x:a,g[0]),ty=PT[p.ptype],paths=new Set(g.map(x=>x.path.join('>')));
+  const cnt=g.length>1?` <span class="cnt" title="${g.length}× empfangen über ${paths.size} Weg${paths.size>1?'e':''}">×${g.length}</span>`:'';
+  return `<td class="mono">${tfmt(p.t)}</td><td><span class="pt pt-${ty}">${ty}</span>${cnt}</td><td class="mono">${ROUTES[p.route]}${p.region?' '+regionTag(p.region,p.regionGuess):p.tc?' <span class="hash" title="unbekannte Region">?'+p.tc[0].toString(16).padStart(4,'0')+'</span>':''}</td><td>${pathHtml(best)}${paths.size>1?` <span class="muted" style="font-size:11px">+${paths.size-1} Weg${paths.size>2?'e':''}</span>`:''}</td><td class="mono ${snrCls(best.snr)}" title="bester Empfang">${best.snr.toFixed(1)}</td><td class="mono">${best.rssi}</td><td class="mono">${p.len}</td><td>${pktInfo(p)}</td>`;
+}
+function groups(list){const m=new Map();for(const p of list){const k=p.phash||('#'+p.id);let g=m.get(k);if(!g){g=[];m.set(k,g)}g.push(p)}return [...m.values()]}
+let grpT=null;function renderLiveSoon(){if(!grpT)grpT=setTimeout(()=>{grpT=null;renderLive()},300)}
+function prependRow(p){
+  if(groupMode){renderLiveSoon();return}
+  const tb=$('#pkts'),tr=document.createElement('tr');tr.dataset.id=p.id;tr.innerHTML=rowHtml(p);tb.prepend(tr);
+  while(tb.children.length>MAX_ROWS)tb.lastChild.remove();$('#liveEmpty').style.display='none';
+}
+function renderLive(){
+  const tb=$('#pkts');$('#btnGroup').classList.toggle('blue',groupMode);
+  if(groupMode){
+    const gs=groups(S.packets.filter(passFilter)).slice(-MAX_ROWS).reverse();
+    tb.innerHTML=gs.map(g=>`<tr data-id="${g[0].id}"${g.some(p=>p.id===S.selPkt)?' class="sel"':''}>${groupRowHtml(g)}</tr>`).join('');
+    $('#liveEmpty').style.display=S.packets.length?'none':'';return}
+  const list=S.packets.filter(passFilter).slice(-MAX_ROWS).reverse();
+  tb.innerHTML=list.map(p=>`<tr data-id="${p.id}"${S.selPkt===p.id?' class="sel"':''}>${rowHtml(p)}</tr>`).join('');
+  $('#liveEmpty').style.display=S.packets.length?'none':'';
+}
+function showDetail(id){
+  const p=S.packets.find(x=>x.id===id);if(!p)return;S.selPkt=id;
+  $$('#pkts tr').forEach(tr=>tr.classList.toggle('sel',+tr.dataset.id===id));
+  const d=p.dec||{},kv=[['Zeit',new Date(p.t).toLocaleString('de-DE')],['Typ',PT[p.ptype]+' (v'+(p.ver+1)+')'],['Route',ROUTES[p.route]],['SNR / RSSI',p.snr.toFixed(2)+' dB / '+p.rssi+' dBm'],['Größe',p.len+' Byte'],['Hash-Größe',p.hs+' Byte']];
+  if(p.phash)kv.push(['Paket-Hash','<span class="mono">'+p.phash+'</span>']);
+  if(p.tc)kv.push(['Region',p.region?regionTag(p.region,p.regionGuess)+(p.regionGuess?' <span class="muted">(Verzeichnis, unsicher)</span>':''):'unbekannt (Code '+p.tc[0].toString(16).padStart(4,'0')+')']);
+  if(d.chName&&(p.ptype===5||p.ptype===6)){kv.push(['Kanal',esc(chTitle(d.chName))+(d.chSrc==='dir'?' <span class="muted">(öffentliches Verzeichnis)</span>':'')]);
+    if(d.ts)kv.push(['Gesendet',new Date(d.ts*1000).toLocaleString('de-DE')]);if(d.from)kv.push(['Absender',esc(d.from)]);if(d.text!=null)kv.push(['Text',esc(d.text)])}
+  if(p.hopCount&&p.ptype!==9)kv.push(['Pfad',p.path.map(h=>h+(nodeName(h)?' ('+esc(nodeName(h))+')':'')).join('<br>')]);
+  if(d.name)kv.push(['Name',esc(d.name)]);if(d.key)kv.push(['Public Key','<span class="mono">'+d.key+'</span>']);
+  if(d.ntype!=null)kv.push(['Knotentyp',NTYPE[d.ntype]]);if(hasPos(d))kv.push(['Position',d.lat.toFixed(5)+', '+d.lon.toFixed(5)+(hasPos(S.self)?' ('+hav(S.self.lat,S.self.lon,d.lat,d.lon).toFixed(1)+' km)':'')]);
+  if(d.ts)kv.push(['Advert-Zeit',new Date(d.ts*1000).toLocaleString('de-DE')]);
+  if(d.dst)kv.push(['Ziel-Hash',d.dst+(nodeName(d.dst)?' ('+esc(nodeName(d.dst))+')':'')]);if(d.src)kv.push(['Quell-Hash',d.src+(nodeName(d.src)?' ('+esc(nodeName(d.src))+')':'')]);
+  if(d.ch)kv.push(['Kanal-Hash',d.ch+(d.chName?' (#'+esc(d.chName)+')':'')]);if(d.ack)kv.push(['ACK',d.ack]);
+  const canMap=(p.hopCount&&p.ptype!==9)||hasPos(d);
+  $('#detail').innerHTML=`<h3>Paket #${p.id} <button class="sm" style="float:right" onclick="$('#detail').classList.remove('show')">✕</button></h3><div class="kv">${kv.map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('')}</div>
+   ${canMap?`<button class="blue sm" onclick="showPathOnMap(${p.id})">🗺 Pfad auf Karte</button>`:''}
+   ${(()=>{const g=obsOf(p);if(g.length<2)return '';const t0=g[0].t;
+     return `<h4 class="muted" style="margin:12px 0 4px;font-size:12px">${g.length}× empfangen</h4><table class="obs"><thead><tr><th>+Zeit</th><th>Pfad</th><th>SNR</th><th>RSSI</th></tr></thead><tbody>`+
+       g.map(x=>`<tr data-obs="${x.id}"${x.id===p.id?' class="sel"':''}><td class="mono">+${((x.t-t0)/1000).toFixed(1)} s</td><td>${pathHtml(x)}</td><td class="mono ${snrCls(x.snr)}">${x.snr.toFixed(1)}</td><td class="mono">${x.rssi}</td></tr>`).join('')+'</tbody></table>'})()}
+   <h4 class="muted" style="margin:12px 0 4px;font-size:12px">Rohdaten</h4><div class="hex">${hex(p.raw).match(/.{1,2}/g).join(' ')}</div>`;
+  $('#detail').classList.add('show');
+}
+// Statistik
+const minutes=new Map();
+function minuteBucket(){const m=Math.floor(Date.now()/60000);minutes.set(m,(minutes.get(m)||0)+1);for(const k of minutes.keys())if(k<m-60)minutes.delete(k)}
+let statTimer=null;function renderStatsSoon(){if(!statTimer)statTimer=setTimeout(()=>{statTimer=null;renderStats()},500)}
+function renderStats(){
+  const st=S.stats,recent=S.packets.slice(-50),avg=recent.length?recent.reduce((a,p)=>a+p.snr,0)/recent.length:null;
+  const m=Math.floor(Date.now()/60000),last=(minutes.get(m)||0)+(minutes.get(m-1)||0);
+  const types=Object.entries(st.byType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="pt pt-${k}">${k}</span> ${v}`).join(' ');
+  $('#statsbar').innerHTML=`<span>Pakete <b>${st.total}</b></span><span>~<b>${(last/2).toFixed(1)}</b>/min</span><span>Ø SNR (50) <b class="${snrCls(avg)}">${avg==null?'–':avg.toFixed(1)}</b></span><span>Nachbarn <b>${S.neighbors.size}</b></span><canvas id="spark" width="240" height="34" title="Pakete pro Minute (60 min)"></canvas><span>${types}</span>`;
+  drawSpark();
+}
+function drawSpark(){
+  const c=$('#spark');if(!c)return;const g=c.getContext('2d'),m=Math.floor(Date.now()/60000),vals=[];for(let i=59;i>=0;i--)vals.push(minutes.get(m-i)||0);
+  const mx=Math.max(1,...vals),w=c.width/60;g.clearRect(0,0,c.width,c.height);
+  g.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');vals.forEach((v,i)=>{const h=Math.max(v?2:0,v/mx*(c.height-2));g.fillRect(i*w,c.height-h,w-1,h)});
+}
+function exportPkts(kind){
+  const rows=S.packets.map(p=>({zeit:new Date(p.t).toISOString(),hash:p.phash||'',typ:PT[p.ptype],route:ROUTES[p.route],hops:p.hopCount,pfad:p.path.join(' '),snr:p.snr,rssi:p.rssi,laenge:p.len,name:p.dec.name||'',key:p.dec.key||'',lat:p.dec.lat??'',lon:p.dec.lon??'',hex:hex(p.raw)}));
+  let data,mime,ext;
+  if(kind==='json'){data=JSON.stringify(rows,null,1);mime='application/json';ext='json'}
+  else{const h=Object.keys(rows[0]||{zeit:1});data=[h.join(';')].concat(rows.map(r=>h.map(k=>String(r[k]).replace(/;/g,',')).join(';'))).join('\n');mime='text/csv';ext='csv'}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:mime}));a.download='meshcore-traffic-'+new Date().toISOString().slice(0,19).replace(/:/g,'')+'.'+ext;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+// ================= Chat-UI =================
+function renderChat(){
+  if(curTab==='chat'&&S.active&&S.unread[S.active]&&!document.hidden)delete S.unread[S.active];
+  const q=$('#chatSearch').value.trim().toLowerCase();let h='';
+  h+='<h4 style="display:flex;align-items:center">Kanäle<span class="spacer"></span><button class="sm" id="btnAddCh" title="Kanal hinzufügen" style="padding:0 7px" '+(S.connected?'':'disabled')+'>＋</button></h4>';
+  S.channels.filter(c=>!q||c.name.toLowerCase().includes(q)).forEach(c=>{const id='ch:'+c.idx;const rg=chanRegion(c);h+=item(id,chTitle(c.name),'',null,rg?(rg==='-'?'ohne':'#'+rg):'')});
+  if(!S.channels.length)h+='<div class="muted" style="padding:4px 12px;font-size:12px">'+(S.connected?'keine':'nicht verbunden')+'</div>';
+  const ds=Object.values(S.disc).filter(d=>!q||d.name.toLowerCase().includes(q)).sort((a,b)=>(b.last||0)-(a.last||0));
+  if(ds.length&&useDir()){h+='<h4 title="Öffentliche Kanäle, die dein Gerät nicht kennt – aus dem Live-Traffic entschlüsselt">Entdeckt · nur mitlesen</h4>';
+    ds.slice(0,30).forEach(d=>{h+=item('dc:'+d.secret,chTitle(d.name),'👂',null,'',d.count)})}
+  const cs=[...S.contacts.values()].filter(c=>(c.type===1||c.type===3)&&(!q||c.name.toLowerCase().includes(q))).sort((a,b)=>{const la=lastMsgT('c:'+a.key.slice(0,12)),lb=lastMsgT('c:'+b.key.slice(0,12));return lb-la||a.name.localeCompare(b.name)});
+  h+='<h4>Kontakte ('+cs.length+')</h4>';
+  cs.forEach(c=>{h+=item('c:'+c.key.slice(0,12),c.name,c.type===3?'🏠':'',c)});
+  $('#chatlist').innerHTML=h;
+  function item(id,name,icon,c,tag,cnt){const u=S.unread[id];return `<div class="citem${S.active===id?' active':''}" data-conv="${id}">${icon?`<span>${icon}</span>`:''}<span class="nm">${esc(name)}</span>${tag?`<span class="hash" title="Region">${esc(tag)}</span>`:''}${c&&c.outPathLen!==0xFF&&c.outPathLen!=null?`<span class="muted mono" title="Pfad">${(c.outPathLen&63)}h</span>`:''}${cnt?`<span class="muted mono" title="Nachrichten gesehen">${cnt}</span>`:''}${u?`<span class="badge">${u}</span>`:''}</div>`}
+  renderConv();updateBadge();
+}
+const lastMsgT=c=>{const a=S.msgs[c];return a&&a.length?a[a.length-1].rx:0};
+function renderConv(){
+  const conv=S.active,box=$('#msgs');
+  if(!conv){$('#chathead').innerHTML='<span class="muted">Kanal oder Kontakt wählen</span>';box.innerHTML='<div class="empty">💬</div>';updateCompose();return}
+  if(curTab==='chat'&&S.unread[conv]){delete S.unread[conv];updateBadge()}
+  let head=`<button class="sm mback" onclick="mBack('chat')" title="Zurück">‹</button><span class="t">${esc(convTitle(conv))}</span>`;
+  if(conv.startsWith('dc:')){const d=S.disc[conv.slice(3)];
+    head+=`<span class="muted">Öffentlicher Kanal aus dem Verzeichnis – nur mitlesen</span><span class="spacer"></span><button class="primary sm" id="btnAdoptCh" ${S.connected?'':'disabled'}>＋ Zum Gerät hinzufügen</button>`;
+    setTimeout(()=>{const b=$('#btnAdoptCh');if(b&&d)b.onclick=()=>addChannelToDevice(d.name,unhex(d.secret))},0)}
+  else if(conv.startsWith('c:')){const c=findContactByPrefix(conv.slice(2));if(c){const pd=pathDesc(c.outPathLen,c.outPath);head+=`<span class="muted">${NTYPE[c.type]} · Pfad: ${pd.flood?'Flood':pd.hops.length?pd.hops.join('→'):'direkt'}</span><span class="spacer"></span><button class="sm" onclick="resetPath('${c.key}')">Pfad zurücksetzen</button>`}}
+  else{const ch=S.channels.find(c=>c.idx==conv.slice(3));const cur=chanRegion(ch);
+    const names=new Set(knownRegionNames());if(cur&&cur!=='-')names.add(cur);
+    let opts=`<option value="">Standard (${S.scope&&S.scope.name?'#'+esc(S.scope.name):'keine Region'})</option><option value="-">Ohne Region (ungefiltert)</option>`;
+    [...names].sort().forEach(n=>opts+=`<option value="${esc(n)}">#${esc(n)}</option>`);opts+='<option value="+">Andere Region…</option>';
+    head+=`<span class="muted">Gruppenkanal – keine Zustellbestätigung</span><span class="spacer"></span><label class="muted" for="chRegion">Region</label><select id="chRegion" ${S.connected?'':'disabled'}>${opts}</select><button class="sm danger" id="btnDelCh" title="Kanal vom Gerät entfernen" ${S.connected?'':'disabled'}>🗑</button>`;
+    setTimeout(()=>{const sel=$('#chRegion');if(!sel)return;sel.value=cur||'';
+      const dl=$('#btnDelCh');if(dl&&ch)dl.onclick=()=>removeChannelFromDevice(ch.idx);
+      sel.onchange=async()=>{let v=sel.value;if(v==='+'){
+        const ce=ch&&CAT.byName.get(ch.name.toLowerCase());
+        const near=(ce?ce.regions:[]).slice().sort((a,b)=>regionAffinity(b)-regionAffinity(a));
+        v=await pickRegionDialog('Region für '+chTitle(ch.name),near);if(!v){sel.value=cur||'';return}}setChanRegion(ch,v)}},0)}
+  $('#chathead').innerHTML=head;
+  const arr=S.msgs[conv]||[];
+  const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<60;
+  box.innerHTML=arr.length?arr.map(m=>{
+    const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(m.hops==='direkt'?'direkt':m.hops+' Hops'):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
+    let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?'✓ gesendet'+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
+      if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`}
+    return `<div class="msg ${m.dir}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
+  if(atBottom||arr.length<30)box.scrollTop=box.scrollHeight;
+  updateCompose();
+}
+function replyBtns(conv,m){
+  if(m.dir!=='in')return '';
+  let h=` <button class="sm rbtn" title="Antworten (@${esc(m.from)})" data-reply="${esc(m.from)}">↩</button>`;
+  if(conv.startsWith('ch:')){const c=[...S.contacts.values()].find(c=>c.name===m.from&&(c.type===1||c.type===3));if(c)h+=` <button class="sm rbtn" title="Direktnachricht an ${esc(m.from)}" data-dm="${c.key}">✉</button>`}
+  return h;
+}
+function updateCompose(){const ro=!!S.active&&S.active.startsWith('dc:');const on=S.connected&&!!S.active&&!ro;$('#msgIn').disabled=!on;$('#btnSend').disabled=!on;
+  $('#msgIn').placeholder=ro?'Nur mitlesen – zum Senden den Kanal zum Gerät hinzufügen':'Nachricht…';updateLen()}
+function updateLen(){const n=enc.encode($('#msgIn').value).length,mx=maxLen();$('#msgLen').textContent=n?n+'/'+mx:'';$('#msgLen').style.color=n>mx?'var(--err)':''}
+function updateBadge(){const n=Object.values(S.unread).reduce((a,b)=>a+b,0);const b=$('#unreadBadge');b.style.display=n?'':'none';b.textContent=n}
+
+// ================= Karte =================
+let map=null,markers=new Map(),selfMarker=null,neighLayer=null,pathLayer=null,picking=false,fitted=false;
+function initMap(){
+  if(map||typeof L==='undefined'){if(typeof L==='undefined')$('#map').innerHTML='<div class="empty">Leaflet konnte nicht geladen werden (offline?).</div>';return}
+  map=L.map('map',{preferCanvas:false}).setView([49.38,6.95],9);
+  const esri=(svc,max,attr)=>L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/'+svc+'/MapServer/tile/{z}/{y}/{x}',{maxZoom:max,attribution:attr});
+  const base={
+    'Straße (Esri)':esri('World_Street_Map',19,'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap-Mitwirkende'),
+    'Dunkel (Esri)':esri('Canvas/World_Dark_Gray_Base',16,'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap-Mitwirkende'),
+    'Hell (Esri)':esri('Canvas/World_Light_Gray_Base',16,'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap-Mitwirkende'),
+    'Topo (Esri)':esri('World_Topo_Map',19,'Tiles © Esri — Esri, HERE, Garmin, USGS, OpenStreetMap-Mitwirkende'),
+    'Satellit (Esri)':esri('World_Imagery',19,'Tiles © Esri — Esri, Maxar, Earthstar Geographics')};
+  if(location.protocol!=='file:'){ // OSM verlangt einen Referer – geht nur, wenn die Seite über http(s) ausgeliefert wird
+    base['OSM']=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap-Mitwirkende'});
+    base['OpenTopoMap']=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenStreetMap-Mitwirkende, SRTM | © OpenTopoMap'});
+  }
+  const saved=store.get('mcw.basemap',null);
+  (base[saved]||(matchMedia('(prefers-color-scheme: dark)').matches?base['Dunkel (Esri)']:base['Straße (Esri)'])).addTo(map);
+  map.on('baselayerchange',e=>store.set('mcw.basemap',e.name));
+  L.control.layers(base,null,{position:'topleft'}).addTo(map);
+  L.control.scale({imperial:false}).addTo(map);
+  neighLayer=L.layerGroup().addTo(map);pathLayer=L.layerGroup().addTo(map);
+  map.on('click',e=>{if(!picking)return;picking=false;document.body.classList.remove('picking');setPosition(e.latlng.lat,e.latlng.lng)});
+}
+function icon(n,old){return L.divIcon({className:'',html:`<div class="mk mk-${n.type??0}${old?' old':''}">${NLETTER[n.type??0]}</div>`,iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-10]})}
+function popupHtml(n){
+  const ct=S.contacts.get(n.key),dist=hasPos(S.self)?hav(S.self.lat,S.self.lon,n.lat,n.lon):null;
+  const nb=[...S.neighbors.entries()].find(([h])=>n.key.startsWith(h));
+  return `<b>${esc(n.name||'?')}</b><br>${NTYPE[n.type??0]} · <span class="mono">${n.key.slice(0,12)}</span><br>`+
+   (n.heard?`Zuletzt gehört: vor ${ago(n.heard)}<br>`:'')+(n.advTs?`Advert: ${new Date(n.advTs*1000).toLocaleString('de-DE')}<br>`:'')+
+   (n.snr!=null?`SNR ${n.snr.toFixed(1)} dB · RSSI ${n.rssi} dBm · ${n.hops===0?'direkt':n.hops+' Hops'}<br>`:'')+
+   (nb?`<b>Direkter Nachbar</b> (${nb[1].n}× gehört, Ø SNR ${(nb[1].snrSum/nb[1].n).toFixed(1)})<br>`:'')+
+   (dist!=null?`Entfernung: ${dist.toFixed(1)} km<br>`:'')+
+   `${n.lat.toFixed(5)}, ${n.lon.toFixed(5)}<br>`+
+   (ct?(ct.type===1||ct.type===3?`<button class="sm" onclick="openChat('${n.key}')">💬 Chat</button> `:'')+(ADM_TYPES.includes(ct.type)?`<button class="sm" onclick="openAdmin('${n.key}')">🛠 Admin</button> `:'')+'<span class="muted">im Gerät gespeichert</span>':'<span class="muted">nicht in Kontakten</span>');
+}
+let mapT=null;function renderMapSoon(){if(!mapT)mapT=setTimeout(()=>{mapT=null;renderMap()},800)}
+function renderMap(){
+  if(!map)return;
+  const types=new Set($$('.mf').filter(x=>x.checked).map(x=>+x.dataset.t)),age=+$('#mAge').value,labels=$('#mLabels').checked;
+  const seen=new Set();let cnt=0;
+  for(const n of S.nodes.values()){
+    if(!hasPos(n)||!types.has(n.type??0))continue;
+    const ls=lastSeen(n);if(age&&ls&&Date.now()-ls>age*1000)continue;if(age&&!ls)continue;
+    const old=ls&&Date.now()-ls>86400000;seen.add(n.key);cnt++;
+    let m=markers.get(n.key);
+    if(!m){m=L.marker([n.lat,n.lon],{icon:icon(n,old)}).addTo(map);m.bindPopup('');m.on('popupopen',()=>m.setPopupContent(popupHtml(n)));markers.set(n.key,m)}
+    else{m.setLatLng([n.lat,n.lon]);m.setIcon(icon(n,old))}
+    m.unbindTooltip();if(labels)m.bindTooltip(esc(n.name||n.key.slice(0,6)),{permanent:true,direction:'right',offset:[10,0],className:'lbl'});
+  }
+  for(const [k,m] of markers)if(!seen.has(k)){m.remove();markers.delete(k)}
+  // eigene Position
+  if(hasPos(S.self)){const ll=[S.self.lat,S.self.lon];if(!selfMarker)selfMarker=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="mk mk-self">ICH</div>',iconSize:[26,26],iconAnchor:[13,13]}),zIndexOffset:1000}).addTo(map).bindTooltip('Eigene Position: '+esc(S.self.name));else selfMarker.setLatLng(ll)}
+  else if(selfMarker){selfMarker.remove();selfMarker=null}
+  // Nachbar-Linien
+  neighLayer.clearLayers();let nl=0;
+  if($('#mNeigh').checked&&hasPos(S.self)){
+    for(const [h,e] of S.neighbors){const l=nodesByHash(h).filter(hasPos);if(l.length!==1)continue;const n=l[0];const avg=e.snrSum/e.n;
+      L.polyline([[S.self.lat,S.self.lon],[n.lat,n.lon]],{color:avg>=5?'#2da44e':avg>=-5?'#d29922':'#cf222e',weight:3,opacity:.75}).bindTooltip(`${esc(n.name)}: Ø SNR ${avg.toFixed(1)} dB (${e.n}×)`).addTo(neighLayer);nl++}
+  }
+  $('#mapInfo').textContent=`${cnt} Knoten mit Position · ${nl} Nachbar-Linien`+(hasPos(S.self)?'':' · eigene Position unbekannt');
+  if(!fitted&&cnt){fitAll();fitted=true}
+}
+function fitAll(){if(!map)return;const pts=[...markers.values()].map(m=>m.getLatLng());if(selfMarker)pts.push(selfMarker.getLatLng());if(pts.length)map.fitBounds(L.latLngBounds(pts).pad(.15),{maxZoom:13})}
+function showPathOnMap(id){
+  const p=S.packets.find(x=>x.id===id);if(!p)return;switchTab('map');
+  setTimeout(()=>{
+    pathLayer.clearLayers();const pts=[],labels=[];let unres=0;
+    if(p.ptype===4&&hasPos(p.dec)){pts.push([p.dec.lat,p.dec.lon]);labels.push('Start: '+(p.dec.name||'?'))}
+    p.path.forEach((h,i)=>{const l=nodesByHash(h).filter(hasPos);let n=null;
+      if(l.length===1)n=l[0];else if(l.length>1&&pts.length){const last=pts[pts.length-1];n=l.sort((a,b)=>hav(last[0],last[1],a.lat,a.lon)-hav(last[0],last[1],b.lat,b.lon))[0]}
+      if(n){pts.push([n.lat,n.lon]);labels.push(`Hop ${i+1}: ${n.name} (${h})${l.length>1?' – mehrdeutig':''}`)}else unres++});
+    if(hasPos(S.self)){pts.push([S.self.lat,S.self.lon]);labels.push('Empfänger (ich)')}
+    if(pts.length<2){toast('Für diesen Pfad sind zu wenige Positionen bekannt'+(unres?` (${unres} Hops unbekannt)`:''),'err');return}
+    L.polyline(pts,{color:'#bf3989',weight:4,dashArray:'8 6'}).addTo(pathLayer);
+    pts.forEach((pt,i)=>L.circleMarker(pt,{radius:6,color:'#bf3989',fillOpacity:1}).bindTooltip(esc(labels[i]),{permanent:i===0||i===pts.length-1,direction:'top'}).addTo(pathLayer));
+    map.fitBounds(L.latLngBounds(pts).pad(.2));
+    if(unres)toast(unres+' Hop(s) ohne bekannte Position übersprungen');
+  },60);
+}
+function openChat(key){S.active='c:'+key.slice(0,12);$('#sec-chat').classList.add('mdet');switchTab('chat')}
+const isMobile=()=>matchMedia('(max-width:700px)').matches;
+function mBack(t){$('#sec-'+t).classList.remove('mdet');if(t==='chat'){S.active=null;renderChat()}if(t==='admin'){ADM.key=null;renderAdmin()}}
+
+// ================= Kontakte-UI =================
+function renderContacts(){
+  const q=$('#cSearch').value.trim().toLowerCase(),t=$('#cType').value,heard=$('#cHeard').checked;
+  let list=[...S.nodes.values()].filter(n=>S.contacts.has(n.key)||heard);
+  for(const c of S.contacts.values())if(!S.nodes.has(c.key))list.push({key:c.key,name:c.name,type:c.type});
+  list=list.filter(n=>(!t||String(n.type)===t)&&(!q||(n.name||'').toLowerCase().includes(q)||n.key.startsWith(q))).sort((a,b)=>lastSeen(b)-lastSeen(a));
+  $('#ctable').innerHTML=list.map(n=>{const c=S.contacts.get(n.key);const pd=c?pathDesc(c.outPathLen,c.outPath):null;
+    const dist=hasPos(n)&&hasPos(S.self)?hav(S.self.lat,S.self.lon,n.lat,n.lon).toFixed(1)+' km':'–';
+    let act='';
+    if(c){if(c.type===1||c.type===3)act+=`<button class="sm" onclick="openChat('${n.key}')">💬</button> `;
+      if(!c.saved)act+=`<button class="sm" onclick="addContact('${n.key}')" title="Im Gerät speichern">＋</button> `;
+      else act+=`<button class="sm" onclick="resetPath('${n.key}')" title="Pfad zurücksetzen">↺</button> <button class="sm" onclick="shareContact('${n.key}')" title="Per Zero-Hop teilen">⇪</button> <button class="sm danger" onclick="removeContact('${n.key}')" title="Löschen">🗑</button> `}
+    if(c&&ADM_TYPES.includes(c.type))act+=`<button class="sm" onclick="openAdmin('${n.key}')" title="Repeater-Admin">🛠</button> `;
+    else if(c&&(c.type===1||c.type===4))act+=`<button class="sm" onclick="openTelemetry('${n.key}')" title="Telemetrie">📊</button> `;
+    if(c&&c.saved&&(c.type===1||c.type===2||c.type===3))act+=`<button class="sm" onclick="traceTo('${n.key}')" title="Trace-Route">📍</button> `;
+    if(hasPos(n))act+=`<button class="sm" onclick="zoomTo('${n.key}')">🗺</button>`;
+    return `<tr><td>${esc(n.name||'?')}${c&&!c.saved?' <span class="muted">(neu)</span>':''}${!c?' <span class="muted">(gehört)</span>':''}</td><td>${NTYPE[n.type??0]}</td><td class="mono">${n.key.slice(0,12)}</td><td>${ago(lastSeen(n))}</td><td class="mono">${pd?(pd.flood?'Flood':pd.hops.length?pd.hops.join('→'):'direkt'):'–'}</td><td class="mono ${snrCls(n.snr)}">${n.snr!=null?n.snr.toFixed(1):'–'}</td><td>${dist}</td><td style="white-space:nowrap">${act}</td></tr>`}).join('')||'<tr><td colspan="8" class="muted">Keine Einträge</td></tr>';
+}
+function zoomTo(key){const n=S.nodes.get(key);switchTab('map');setTimeout(()=>{if(!map||!hasPos(n))return;map.setView([n.lat,n.lon],14);const m=markers.get(key);if(m)m.openPopup()},80)}
+async function resetPath(key){try{await request(bytes(CMD.RESET_PATH,unhex(key)));toast('Pfad zurückgesetzt – nächste Nachricht wird geflutet','ok');refreshContact(key)}catch(e){toast(e.message,'err')}}
+async function shareContact(key){try{await request(bytes(CMD.SHARE_CONTACT,unhex(key)));toast('Kontakt per Zero-Hop geteilt','ok')}catch(e){toast(e.message,'err')}}
+async function removeContact(key){const c=S.contacts.get(key);if(!confirm('Kontakt „'+(c?.name||key.slice(0,8))+'“ vom Gerät löschen?'))return;
+  try{await request(bytes(CMD.REMOVE_CONTACT,unhex(key)));S.contacts.delete(key);const n=S.nodes.get(key);if(n)n.inContacts=false;toast('Gelöscht','ok');renderAll()}catch(e){toast(e.message,'err')}}
+async function addContact(key){const c=S.contacts.get(key);if(!c||!c.raw)return;const f=unhex(c.raw);f[0]=CMD.ADD_UPDATE_CONTACT;
+  try{await request(f);c.saved=true;toast('Im Gerät gespeichert','ok');renderAll()}catch(e){toast(e.message,'err')}}
+
+// ================= Gerät =================
+async function refreshStats(){
+  if(!S.connected)return;const st=S.radio;
+  try{const f=await request(bytes(CMD.GET_BATT));const r=new R(f);r.u8();st.batt=r.u16();if(r.left()>=8){st.used=r.u32();st.total=r.u32()}}catch{}
+  try{const f=await request(bytes(CMD.GET_STATS,0),{match:f=>f[1]===0});const r=new R(f);r.u8();r.u8();r.u16();st.uptime=r.u32();r.u16();st.queue=r.u8()}catch{}
+  try{const f=await request(bytes(CMD.GET_STATS,1),{match:f=>f[1]===1});const r=new R(f);r.u8();r.u8();st.noise=r.i16();st.lastRssi=r.i8();st.lastSnr=r.i8()/4;st.txAir=r.u32();st.rxAir=r.u32()}catch{}
+  try{const f=await request(bytes(CMD.GET_STATS,2),{match:f=>f[1]===2});const r=new R(f);r.u8();r.u8();st.recv=r.u32();st.sent=r.u32();st.sFlood=r.u32();st.sDirect=r.u32();st.rFlood=r.u32();st.rDirect=r.u32();st.rErr=r.u32()}catch{}
+  updateHeader();renderDevice();
+}
+const dur=s=>s==null?'–':s>=86400?Math.floor(s/86400)+' d '+Math.floor(s%86400/3600)+' h':s>=3600?Math.floor(s/3600)+' h '+Math.floor(s%3600/60)+' min':Math.floor(s/60)+' min '+(s%60)+' s';
+function renderDevice(){
+  const s=S.self,d=S.dev,r=S.radio;const kv=a=>a.filter(x=>x[1]!=null&&x[1]!=='').map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('');
+  $('#kvInfo').innerHTML=s?kv([['Name',esc(s.name)],['Verbindung',esc(S.tr?.label||'')],['Firmware',esc(d?.version||'v'+d?.fw)+(d?.build?' ('+esc(d.build)+')':'')],['Hardware',esc(d?.model)],['Public Key','<span class="mono" style="word-break:break-all">'+s.key+'</span>'],['Position',hasPos(s)?s.lat.toFixed(5)+', '+s.lon.toFixed(5):'nicht gesetzt'],['Kontakte',S.contacts.size+(d?.maxContacts?' / '+d.maxContacts:'')],['Kanäle',S.channels.length+(d?.maxChannels?' / '+d.maxChannels:'')]]):'<div class="muted">nicht verbunden</div><div></div>';
+  $('#kvStats').innerHTML=s?kv([['Frequenz',s.freq.toFixed(3)+' MHz'],['Bandbreite',s.bw+' kHz'],['SF / CR','SF'+s.sf+' / 4:'+s.cr],['TX-Leistung',s.tx+' dBm (max '+s.maxTx+')'],['Batterie',r.batt?(r.batt/1000).toFixed(2)+' V':null],['Speicher',r.total?r.used+' / '+r.total+' kB':null],['Laufzeit',r.uptime!=null?dur(r.uptime):null],['Rauschpegel',r.noise!=null?r.noise+' dBm':null],['Letzt. RSSI/SNR',r.lastRssi!=null?r.lastRssi+' dBm / '+r.lastSnr.toFixed(1)+' dB':null],['Airtime TX / RX',r.txAir!=null?dur(r.txAir)+' / '+dur(r.rxAir):null],['Pakete RX / TX',r.recv!=null?r.recv+' / '+r.sent:null],['RX Flood / Direkt',r.rFlood!=null?r.rFlood+' / '+r.rDirect:null],['TX Flood / Direkt',r.sFlood!=null?r.sFlood+' / '+r.sDirect:null],['RX-Fehler',r.rErr]]):'';
+  const hm=d?.pathHashMode;
+  $('#kvRegion').innerHTML=s?kv([['Region',S.scope==null?'<span class="muted">nicht unterstützt</span>':S.scope.name?'<b>#'+esc(S.scope.name)+'</b>':'keine (ungefiltert)'],['Pfad-Hash',hm!=null?(hm+1)+' Byte':'<span class="muted">unbekannt</span>'],['Erkannte Regionen',S.regions.length?S.regions.map(r=>'#'+esc(r.name)).join(', '):'–']]):'';
+  if(s&&document.activeElement!==$('#setHashMode')&&hm!=null)$('#setHashMode').value=hm;
+  if(s){if(document.activeElement!==$('#setName'))$('#setName').value=s.name;$('#setTx').placeholder='TX dBm ('+s.tx+')';$('#setLocAdv').checked=!!s.locPolicy;renderTelPerm();$('#setAutoAdd').checked=!(s.manualAdd&1);
+    if(hasPos(s)&&!$('#setLat').value){$('#setLat').value=s.lat.toFixed(5);$('#setLon').value=s.lon.toFixed(5)}}
+}
+function updateHeader(){
+  $('#dot').classList.toggle('on',S.connected);
+  if(!S.connected||!S.self){$('#devinfo').innerHTML='<span>nicht verbunden</span>';return}
+  const s=S.self,r=S.radio;
+  $('#devinfo').innerHTML=`<span><b>${esc(s.name)}</b></span><span>${s.freq.toFixed(3)} MHz · BW${s.bw} · SF${s.sf}</span>${r.batt?`<span>🔋 ${(r.batt/1000).toFixed(2)} V</span>`:''}${r.noise!=null?`<span>Rauschen ${r.noise} dBm</span>`:''}<span class="muted">${esc(S.tr?.label||'')}</span>`;
+}
+async function reloadSelf(){try{S.self=parseSelf(await request(bytes(CMD.APP_START,1,0,0,0,0,0,0,'SaarMesh Webapp')));updateHeader();renderDevice();renderMapSoon()}catch{}}
+async function setPosition(lat,lon){
+  if(!(Math.abs(lat)<=90&&Math.abs(lon)<=180))return toast('Ungültige Koordinaten','err');
+  try{await request(bytes(CMD.SET_LATLON,i32(Math.round(lat*1e6)),i32(Math.round(lon*1e6))));await reloadSelf();$('#setLat').value=lat.toFixed(5);$('#setLon').value=lon.toFixed(5);
+    toast('Position gesetzt'+(S.self.locPolicy?' – mit dem nächsten Advert sichtbar':' – Hinweis: „Standort in Adverts mitsenden“ ist aus'),'ok')}catch(e){toast(e.message,'err')}
+}
+async function setOther(manualAdd,locPolicy,telem){const s=S.self;try{await request(bytes(CMD.SET_OTHER,manualAdd,telem??s.telem,locPolicy,s.multiAcks));await reloadSelf();toast('Gespeichert','ok')}catch(e){toast(e.message,'err');renderDevice()}}
+const rawlog=[];
+function logFrame(dir,f){if(!$('#logOn').checked)return;rawlog.push(`${tfmt(Date.now())} ${dir} ${hex(f)}`);if(rawlog.length>300)rawlog.shift();if(curTab==='device'){const el=$('#rawlog');el.textContent=rawlog.slice().reverse().join('\n')}}
+
+// ================= Tabs & Rendering =================
+let curTab='live',rT=null;
+function switchTab(t){curTab=t;$$('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));$$('main section').forEach(s=>s.classList.toggle('active',s.id==='sec-'+t));
+  if(t==='admin'){ADM.shown=S.connected;renderAdmin()}
+  if(t==='map'){initMap();setTimeout(()=>{map&&map.invalidateSize();renderMap()},30)}renderAll()}
+function renderSoon(){if(!rT)rT=setTimeout(()=>{rT=null;renderAll()},150)}
+function renderAll(){if(curTab==='chat')renderChat();else updateBadge();if(curTab==='contacts')renderContacts();if(curTab==='device'){renderDevice();$('#rawlog').textContent=rawlog.slice().reverse().join('\n')}if(curTab==='map')renderMapSoon();if(curTab==='tools')renderNetTools();if(curTab==='admin'){if(ADM.shown!==S.connected){ADM.shown=S.connected;renderAdmin()}else renderAdminList()}}
+
+// ================= Repeater-Admin =================
+// Login, Status, Nachbarn, Zugriffsliste und CLI über die Companion (Remote-Verwaltung).
+Object.assign(CMD,{SEND_LOGIN:26,STATUS_REQ:27,LOGOUT:29,BINARY_REQ:50});
+Object.assign(EXPECT,{26:[6],27:[6],50:[6]});
+PUSH.BINARY=0x8C;
+const REQ={STATUS:1,TELEMETRY:3,ACL:5,NEIGHBOURS:6,OWNER:7};
+const ROLE=['Gast','Nur lesen','Lesen/Schreiben','Admin'];
+const ADM_TYPES=[2,3,4];
+const pushWaiters=[];
+function waitPush(match,ms){return new Promise((res,rej)=>{const w={match,res,timer:null};
+  w.timer=setTimeout(()=>{const i=pushWaiters.indexOf(w);if(i>=0)pushWaiters.splice(i,1);rej(new Error('keine Antwort (Zeitüberschreitung)'))},ms);pushWaiters.push(w)})}
+function checkPushWaiters(f){for(const w of [...pushWaiters]){let ok=false;try{ok=w.match(f)}catch{}if(ok){clearTimeout(w.timer);pushWaiters.splice(pushWaiters.indexOf(w),1);w.res(f);return true}}return false}
+// Wartezeit aus der vom Gerät geschätzten Laufzeit (ms) ableiten
+const replyTimeout=est=>Math.min(Math.max(est*1.5+4000,12000),90000);
+function parseSent(f){const r=new R(f);r.u8();return {flood:!!r.u8(),tag:r.u32(),est:r.u32()}}
+
+const ADM={key:null,sess:new Map(),busy:false,cliQ:Promise.resolve()};
+function admS(key){let s=ADM.sess.get(key);if(!s){s={key,log:[],status:null,neigh:null,acl:null,owner:null,settings:null,logged:false};ADM.sess.set(key,s)}return s}
+const admCur=()=>ADM.key?admS(ADM.key):null;
+const admName=k=>(S.contacts.get(k)||S.nodes.get(k)||{}).name||k.slice(0,8);
+function admLog(s,kind,text){s.log.push({t:Date.now(),kind,text});if(s.log.length>300)s.log.splice(0,s.log.length-300);if(s===admCur())renderAdminLog()}
+
+async function ensureContact(key){
+  const c=S.contacts.get(key);if(!c)throw new Error('Knoten ist nicht in den Kontakten');
+  if(!c.saved){const f=unhex(c.raw);f[0]=CMD.ADD_UPDATE_CONTACT;await request(f);c.saved=true}
+}
+
+// ---- Login ----
+async function admLogin(){
+  const s=admCur();if(!s)return;const pw=$('#admPw').value;
+  const remember=$('#admRemember').checked;
+  if(remember)store.set('mcw.admpw.'+s.key.slice(0,12),pw);else store.del('mcw.admpw.'+s.key.slice(0,12));
+  admBusy(true,'Anmelden …');
+  try{
+    await ensureContact(s.key);
+    const sent=parseSent(await request(bytes(CMD.SEND_LOGIN,unhex(s.key),pw)));
+    admLog(s,'sys','Login gesendet ('+(sent.flood?'Flood':'direkt')+')');
+    const pre=s.key.slice(0,12);
+    const f=await waitPush(x=>(x[0]===PUSH.LOGIN_OK||x[0]===PUSH.LOGIN_FAIL)&&hex(x.slice(2,8))===pre,replyTimeout(sent.est));
+    if(f[0]===PUSH.LOGIN_FAIL){s.logged=false;admLog(s,'err','Login abgelehnt – Passwort falsch?');toast('Login abgelehnt – Passwort falsch?','err');return}
+    const r=new R(f);r.u8();const isAdmin=r.u8();r.bytes(6);
+    s.logged=true;s.isAdmin=!!isAdmin;s.perms=null;s.fwLevel=null;s.clockDiff=null;
+    if(r.left()>=4){const st=r.u32();s.clockDiff=st-now()}
+    if(r.left()>=1)s.perms=r.u8();if(r.left()>=1)s.fwLevel=r.u8();
+    s.role=s.perms!=null?ROLE[s.perms&3]:(s.isAdmin?'Admin':'Gast');
+    admLog(s,'ok','Angemeldet als '+s.role);toast('Angemeldet bei '+admName(s.key)+' ('+s.role+')','ok');
+    renderAdmin();
+    await admStatus(true);
+  }catch(e){admLog(s,'err','Login: '+e.message);toast('Login fehlgeschlagen: '+e.message,'err')}
+  finally{admBusy(false);renderAdmin()}
+}
+async function admLogout(){
+  const s=admCur();if(!s)return;
+  try{await request(bytes(CMD.LOGOUT,unhex(s.key)))}catch{}
+  s.logged=false;s.status=s.neigh=s.acl=s.settings=null;admLog(s,'sys','Abgemeldet');renderAdmin();
+}
+
+// ---- Status ----
+function parseRepStats(b){
+  const dv=new DataView(b.buffer,b.byteOffset,b.byteLength),n=b.length,o={};
+  const g16=(p,s)=>p+2<=n?(s?dv.getInt16(p,true):dv.getUint16(p,true)):null,g32=p=>p+4<=n?dv.getUint32(p,true):null;
+  o.batt=g16(0);o.queue=g16(2);o.noise=g16(4,1);o.rssi=g16(6,1);o.recv=g32(8);o.sent=g32(12);o.air=g32(16);o.up=g32(20);
+  o.sFlood=g32(24);o.sDirect=g32(28);o.rFlood=g32(32);o.rDirect=g32(36);o.err=g16(40);
+  const snr=g16(42,1);o.snr=snr==null?null:snr/4;o.dDup=g16(44);o.fDup=g16(46);o.rxAir=g32(48);o.rErr=g32(52);
+  return o}
+async function admStatus(quiet){
+  const s=admCur();if(!s)return;if(!quiet)admBusy(true,'Status abrufen …');
+  try{
+    const sent=parseSent(await request(bytes(CMD.STATUS_REQ,unhex(s.key))));const pre=s.key.slice(0,12);
+    const f=await waitPush(x=>x[0]===PUSH.STATUS&&hex(x.slice(2,8))===pre,replyTimeout(sent.est));
+    s.status=parseRepStats(f.slice(8));s.statusT=Date.now();admLog(s,'ok','Status empfangen');
+  }catch(e){admLog(s,'err','Status: '+e.message);if(!quiet)toast('Status: '+e.message,'err')}
+  finally{if(!quiet)admBusy(false);renderAdmin()}
+}
+
+// ---- Binäre Anfragen (Nachbarn, Zugriffsliste, Owner-Info) ----
+async function binReq(key,data){
+  const sent=parseSent(await request(bytes(CMD.BINARY_REQ,unhex(key),data)));
+  const f=await waitPush(x=>x[0]===PUSH.BINARY&&new DataView(x.buffer,x.byteOffset+2,4).getUint32(0,true)===sent.tag,replyTimeout(sent.est));
+  return f.slice(6);
+}
+const rnd4=()=>crypto.getRandomValues(new Uint8Array(4));
+async function admNeighbours(){
+  const s=admCur();if(!s)return;admBusy(true,'Nachbarn abrufen …');
+  try{
+    const PL=6,list=[];let total=null,off=0;
+    for(let page=0;page<8;page++){
+      const d=await binReq(s.key,bytes(REQ.NEIGHBOURS,0,20,off&255,off>>8,2,PL,rnd4()));
+      const r=new R(d);total=r.u16();const cnt=r.u16();
+      for(let i=0;i<cnt&&r.left()>=PL+5;i++){const k=hex(r.bytes(PL)),ago=r.u32(),snr=r.i8()/4;list.push({k,ago,snr})}
+      off+=cnt;if(!cnt||off>=total)break;
+    }
+    s.neigh={t:Date.now(),total,list};admLog(s,'ok',list.length+' Nachbarn empfangen');
+  }catch(e){admLog(s,'err','Nachbarn: '+e.message);toast('Nachbarn: '+e.message,'err')}
+  finally{admBusy(false);renderAdmin()}
+}
+async function admAcl(){
+  const s=admCur();if(!s)return;admBusy(true,'Zugriffsliste abrufen …');
+  try{const d=await binReq(s.key,bytes(REQ.ACL,0,0));const list=[];for(let o=0;o+7<=d.length;o+=7)list.push({k:hex(d.slice(o,o+6)),perm:d[o+6]});
+    s.acl={t:Date.now(),list};admLog(s,'ok',list.length+' Einträge in der Zugriffsliste')}
+  catch(e){admLog(s,'err','Zugriffsliste: '+e.message);toast('Zugriffsliste: '+e.message,'err')}
+  finally{admBusy(false);renderAdmin()}
+}
+async function admOwner(){
+  const s=admCur();if(!s)return;admBusy(true,'Infos abrufen …');
+  try{const d=await binReq(s.key,bytes(REQ.OWNER,0,0,0,rnd4()));const [ver,name,...own]=dec.decode(d).split('\n');s.owner={ver,name,info:own.join('\n')};admLog(s,'ok','Firmware '+ver)}
+  catch(e){admLog(s,'err','Infos: '+e.message);toast('Infos: '+e.message,'err')}
+  finally{admBusy(false);renderAdmin()}
+}
+
+// ---- CLI ----
+const cliWaiters=[];
+// Ausgabe von „neighbors“ (PREFIX:sekunden:snr×4) lesbar machen
+function fmtCliNeighbors(text){
+  const lines=text.split('\n');if(!lines.length||!lines.every(l=>/^[0-9A-Fa-f]{8}:\d+:-?\d+$/.test(l.trim())))return text;
+  return lines.map(l=>{const [h,sec,snr]=l.trim().split(':');const nm=nodeName(h.toLowerCase());
+    return `${(nm||'?').padEnd(26).slice(0,26)} ${h}  SNR ${(snr/4).toFixed(1).padStart(5)} dB  vor ${ago(Date.now()-sec*1000)}`}).join('\n')+
+    '\n(Die Firmware zeigt hier höchstens 8 – die vollständige Liste gibt es oben unter „Nachbarn“.)';
+}
+function onCliReply(prefix,text){
+  const key=[...ADM.sess.keys()].find(k=>k.startsWith(prefix))||(findContactByPrefix(prefix)||{}).key;
+  const i=cliWaiters.findIndex(w=>w.prefix===prefix),w=i>=0?cliWaiters.splice(i,1)[0]:null;
+  if(key&&!(w&&w.quiet))admLog(admS(key),'in',fmtCliNeighbors(text));
+  if(w){clearTimeout(w.timer);w.res(text)}
+}
+// Befehle nacheinander senden – Antworten tragen keine Kennung, deshalb immer nur einer offen
+function cli(key,cmd,{log=true}={}){
+  const run=async()=>{
+    const s=admS(key);if(log)admLog(s,'out',cmd);
+    const prefix=key.slice(0,12);
+    const sent=parseSent(await request(bytes(CMD.SEND_TXT,1,0,u32(now()),unhex(prefix),cmd)));
+    return await new Promise((res,rej)=>{const w={prefix,res,quiet:!log};w.timer=setTimeout(()=>{const i=cliWaiters.indexOf(w);if(i>=0)cliWaiters.splice(i,1);rej(new Error('keine Antwort auf „'+cmd+'“'))},replyTimeout(sent.est));cliWaiters.push(w)});
+  };
+  const p=ADM.cliQ.then(run,run);ADM.cliQ=p.catch(()=>{});return p;
+}
+const cliVal=t=>t.startsWith('> ')?t.slice(2):t.startsWith('>')?t.slice(1):t;
+async function admCmd(cmd,{confirmMsg,quiet}={}){
+  const s=admCur();if(!s||!cmd)return;if(confirmMsg&&!confirm(confirmMsg))return;
+  try{const r=await cli(s.key,cmd);if(!quiet)toast(admName(s.key)+': '+r,/^(err|error|unknown)/i.test(r)?'err':'ok');return r}
+  catch(e){admLog(s,'err',e.message);if(!quiet)toast(e.message,'err')}
+}
+
+// ---- Einstellungen ----
+const ADM_FIELDS=[
+  {k:'name',l:'Name',max:31},
+  {k:'lat',l:'Breite',num:1},{k:'lon',l:'Länge',num:1},
+  {k:'owner.info',l:'Owner-Info',max:119,hint:'Zeilenumbruch als |'},
+  {k:'tx',l:'TX-Leistung (dBm)',num:1},
+  {k:'repeat',l:'Weiterleiten',sel:['on','off']},
+  {k:'advert.interval',l:'Zero-Hop-Advert (min)',num:1,hint:'0 = aus, sonst 60–240'},
+  {k:'flood.advert.interval',l:'Flood-Advert (h)',num:1,hint:'0 = aus, sonst 3–168'},
+  {k:'flood.max',l:'Max. Flood-Hops',num:1,hint:'0–64'},
+  {k:'guest.password',l:'Gast-Passwort',max:15},
+  {k:'radio',l:'Funk (MHz,BW,SF,CR)',ro:1,hint:'Nur ansehen – Änderung über das Terminal'},
+];
+async function admLoadSettings(){
+  const s=admCur();if(!s)return;admBusy(true,'Einstellungen laden …');const vals={};
+  try{
+    for(let i=0;i<ADM_FIELDS.length;i++){const f=ADM_FIELDS[i];admBusy(true,'Einstellungen laden … '+(i+1)+'/'+ADM_FIELDS.length);
+      try{const r=await cli(s.key,'get '+f.k,{log:false});let v=cliVal(r).trim();
+        if(f.k==='radio'){const p=v.split(',');if(p.length>=4&&!isNaN(+p[0]))v=[(+p[0]).toFixed(3),+p[1],p[2],p[3]].join(',')}
+        vals[f.k]=v}catch(e){vals[f.k]=null}}
+    s.settings=vals;admLog(s,'ok','Einstellungen geladen');
+  }finally{admBusy(false);ADM.lastKey=null;renderAdmin()}
+}
+async function admSaveSettings(){
+  const s=admCur();if(!s||!s.settings)return;const ch=[];
+  for(const f of ADM_FIELDS){if(f.ro)continue;const el=$('#adm_'+f.k.replace(/\./g,'_'));if(!el)continue;
+    const v=el.value.trim(),old=s.settings[f.k];if(old==null||v===old)continue;
+    if(f.num&&v!==''&&isNaN(parseFloat(v.replace(',','.'))))return toast(f.l+': keine Zahl','err');
+    ch.push([f,f.num?v.replace(',','.'):v])}
+  if(!ch.length)return toast('Keine Änderungen');
+  if(!confirm('Folgende Einstellungen am Repeater „'+admName(s.key)+'“ ändern?\n\n'+ch.map(([f,v])=>f.l+': '+s.settings[f.k]+' → '+v).join('\n')))return;
+  admBusy(true,'Speichern …');let ok=0;
+  try{for(const [f,v] of ch){try{const r=await cli(s.key,'set '+f.k+' '+v);if(/^ok/i.test(r)){s.settings[f.k]=v;ok++}else toast(f.l+': '+r,'err')}catch(e){toast(f.l+': '+e.message,'err')}}}
+  finally{admBusy(false);renderAdmin()}
+  if(ok)toast(ok+' Einstellung(en) gespeichert'+(ch.some(([f])=>['name','lat','lon'].includes(f.k))?' – Advert senden, damit andere es sehen':''),'ok');
+}
+
+// ---- Karte ----
+function admNeighMap(){
+  const s=admCur();if(!s||!s.neigh)return;const me=S.nodes.get(s.key);
+  if(!hasPos(me))return toast('Position des Repeaters unbekannt','err');
+  switchTab('map');
+  setTimeout(()=>{if(!map)return;pathLayer.clearLayers();const pts=[[me.lat,me.lon]];let miss=0;
+    for(const n of s.neigh.list){const l=nodesByHash(n.k).filter(hasPos);if(l.length!==1){miss++;continue}const t=l[0];
+      L.polyline([[me.lat,me.lon],[t.lat,t.lon]],{color:n.snr>=5?'#2da44e':n.snr>=-5?'#d29922':'#cf222e',weight:3,opacity:.85}).bindTooltip(`${esc(admName(s.key))} ↔ ${esc(t.name)}: SNR ${n.snr.toFixed(1)} dB`).addTo(pathLayer);pts.push([t.lat,t.lon])}
+    L.circleMarker([me.lat,me.lon],{radius:9,color:'#bf3989',fillOpacity:.3}).bindTooltip(esc(admName(s.key)),{permanent:true,direction:'top'}).addTo(pathLayer);
+    map.fitBounds(L.latLngBounds(pts).pad(.2),{maxZoom:13});
+    if(miss)toast(miss+' Nachbar(n) ohne bekannte Position nicht eingezeichnet')},80);
+}
+
+// ---- UI ----
+function admBusy(on,txt){ADM.busy=on;ADM.busyTxt=on?txt:'';const b=$('#admBusy');if(b){b.textContent=on?txt||'…':'';b.style.display=on?'':'none'}$$('#admMain button[data-a]').forEach(x=>x.disabled=on||!S.connected)}
+function openAdmin(key){ADM.key=key;$('#sec-admin').classList.add('mdet');switchTab('admin')}
+function renderAdminList(){
+  const q=($('#admSearch').value||'').trim().toLowerCase();
+  const list=[...S.contacts.values()].filter(c=>ADM_TYPES.includes(c.type)&&(!q||(c.name||'').toLowerCase().includes(q)||c.key.startsWith(q)))
+    .sort((a,b)=>(ADM.sess.get(b.key)?.logged?1:0)-(ADM.sess.get(a.key)?.logged?1:0)||(a.name||'').localeCompare(b.name||''));
+  $('#admList').innerHTML=list.map(c=>{const s=ADM.sess.get(c.key);
+    return `<div class="citem${ADM.key===c.key?' active':''}" data-key="${c.key}"><div class="mk mk-${c.type}" style="width:18px;height:18px;font-size:10px">${NLETTER[c.type]}</div><span class="nm">${esc(c.name||c.key.slice(0,8))}</span>${s&&s.logged?'<span title="angemeldet">🔓</span>':''}</div>`}).join('')
+    ||'<div class="empty" style="font-size:13px">Keine Repeater oder Rooms in den Kontakten.<br>Unter „Kontakte“ mit „auch nur gehörte Knoten“ einen Repeater hinzufügen.</div>';
+}
+function kvRows(rows){return rows.filter(r=>r[1]!=null&&r[1]!=='').map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('')}
+const fmtN=v=>v==null?null:v.toLocaleString('de-DE');
+function clockTxt(d){if(d==null)return null;const a=Math.abs(d);const t=a<60?a+' s':a<3600?Math.round(a/60)+' min':a<86400?Math.round(a/3600)+' h':Math.round(a/86400)+' Tage';
+  return a<=120?'<span class="snr-g">stimmt</span>':`<span class="snr-r">${d>0?'geht '+t+' vor':'geht '+t+' nach'}</span>`}
+function renderAdmin(){
+  renderAdminList();const s=admCur(),el=$('#admMain');
+  if(!S.connected){el.innerHTML='<div class="empty">Nicht verbunden. Zuerst eine Companion per USB, Bluetooth oder TCP verbinden.</div>';return}
+  if(!s){el.innerHTML='<div class="empty">Links einen Repeater oder Room wählen.<br><span class="muted" style="font-size:13px">Anmelden mit Admin- oder Gast-Passwort. Alle Abfragen laufen über Funk – bitte sparsam nutzen.</span></div>';return}
+  const c=S.contacts.get(s.key)||{},n=S.nodes.get(s.key)||{},st=s.status;
+  const pw=store.get('mcw.admpw.'+s.key.slice(0,12),null);
+  let h=`<div class="admhead"><button class="sm mback" onclick="mBack('admin')" title="Zurück">‹</button><div><h2>${esc(admName(s.key))}</h2><div class="muted mono">${NTYPE[c.type]||''} · ${s.key.slice(0,16)}… ${s.logged?'· <b class="snr-g">angemeldet als '+esc(s.role)+'</b>':''}</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>`;
+  if(s.logged)h+=`<button data-a="logout">Abmelden</button>`;
+  h+=`</div>`;
+  if(!s.logged){
+    h+=`<div class="card" style="max-width:440px"><h3>Anmelden</h3>
+      <div class="frm"><input id="admPw" type="password" placeholder="Passwort (leer = Gast ohne Passwort)" autocomplete="off" value="${esc(pw||'')}"><button class="primary" data-a="login">Anmelden</button></div>
+      <label class="frm"><input type="checkbox" id="admRemember"${pw!=null?' checked':''}> Passwort in diesem Browser merken</label>
+      <p class="muted" style="font-size:12px">Mit dem Admin-Passwort sind alle Funktionen verfügbar, mit dem Gast-Passwort nur Status und Nachbarn. Ein gemerktes Passwort liegt unverschlüsselt im Browser-Speicher.</p><div class="hex log admlog" id="admLog" style="min-height:0"></div></div>`;
+  }else{
+    h+=`<div class="cards">`;
+    h+=`<div class="card"><h3>Status <button class="sm" data-a="status" style="float:right">↻</button></h3>`+
+      (st?`<div class="kv">${kvRows([['Akku',st.batt!=null?(st.batt/1000).toFixed(2)+' V':null],['Laufzeit',dur(st.up)],['Uhr',clockTxt(s.clockDiff)],
+        ['Rauschen',st.noise!=null?st.noise+' dBm':null],['Letztes Paket',st.rssi!=null?`RSSI ${st.rssi} dBm · SNR ${st.snr!=null?st.snr.toFixed(1):'–'} dB`:null],
+        ['Airtime TX',st.air!=null?dur(st.air)+(st.up?' ('+(st.air/st.up*100).toFixed(1)+' %)':''):null],['Airtime RX',st.rxAir!=null?dur(st.rxAir)+(st.up?' ('+(st.rxAir/st.up*100).toFixed(1)+' %)':''):null],
+        ['Empfangen',st.recv!=null?`${fmtN(st.recv)} (Flood ${fmtN(st.rFlood)}, direkt ${fmtN(st.rDirect)})`:null],['Gesendet',st.sent!=null?`${fmtN(st.sent)} (Flood ${fmtN(st.sFlood)}, direkt ${fmtN(st.sDirect)})`:null],
+        ['Duplikate',st.fDup!=null?`Flood ${fmtN(st.fDup)}, direkt ${fmtN(st.dDup)}`:null],['Empfangsfehler',fmtN(st.rErr)],['Warteschlange',st.queue],['Fehler-Flags',st.err?'0x'+st.err.toString(16):null]])}</div>
+        <div class="muted" style="font-size:12px">Stand ${tfmt(s.statusT)}</div>`:'<div class="muted">Noch nicht abgerufen.</div>')+`</div>`;
+    h+=`<div class="card"><h3>Aktionen</h3>
+      ${s.isAdmin?`<div class="frm"><button data-a="clock" title="Uhr des Repeaters auf die Zeit der Companion stellen">🕑 Uhr synchronisieren</button><button data-a="info">ℹ Firmware & Owner</button></div>
+      <div class="frm"><button data-a="adv0">📣 Advert Zero-Hop</button><button data-a="advf">📡 Advert Flood</button></div>
+      <div class="frm"><button data-a="clrstats">Statistik zurücksetzen</button><button class="danger" data-a="reboot">Neustart</button></div>`
+      :`<div class="frm"><button data-a="info">ℹ Firmware & Owner</button></div><p class="muted" style="font-size:12px">Uhr, Adverts, Neustart, Einstellungen und Terminal gibt es nur mit dem Admin-Passwort.</p>`}
+      ${s.owner?`<div class="kv">${kvRows([['Firmware',esc(s.owner.ver)],['Name',esc(s.owner.name)],['Owner',esc(s.owner.info).replace(/\|/g,'<br>')]])}</div>`:''}
+      ${s.clockDiff!=null&&s.clockDiff>120?'<p class="muted" style="font-size:12px">Die Uhr geht vor. MeshCore stellt die Uhr nur vorwärts, zurückstellen geht nur über „clkreboot“ im Terminal.</p>':''}</div>`;
+    // Nachbarn
+    h+=`<div class="card"><h3>Nachbarn <span style="float:right"><button class="sm" data-a="neighmap"${s.neigh?'':' disabled'}>🗺 Karte</button> <button class="sm" data-a="neigh">↻</button></span></h3>`+
+      (s.neigh?`<div class="tablewrap" style="max-height:260px"><table><thead><tr><th>Name</th><th>SNR</th><th>Gehört</th></tr></thead><tbody>`+
+        s.neigh.list.map(x=>{const nm=nodeName(x.k);return `<tr><td>${esc(nm||'?')} <span class="muted mono">${x.k.slice(0,6)}</span></td><td class="mono ${snrCls(x.snr)}">${x.snr.toFixed(1)}</td><td>${ago(Date.now()-x.ago*1000)}</td></tr>`}).join('')+
+        `</tbody></table></div><div class="muted" style="font-size:12px">${s.neigh.list.length} von ${s.neigh.total} · Stand ${tfmt(s.neigh.t)}</div>`:'<div class="muted">Noch nicht abgerufen.</div>')+`</div>`;
+    h+=`<div class="card"><h3>Telemetrie</h3><div class="telbox" data-key="${s.key}">${telHtml(s.key)}</div></div>`;
+    if(s.isAdmin){
+      // Einstellungen
+      h+=`<div class="card"><h3>Einstellungen <button class="sm" data-a="loadset" style="float:right">${s.settings?'↻':'Laden'}</button></h3>`;
+      if(s.settings){h+=ADM_FIELDS.map(f=>{const id='adm_'+f.k.replace(/\./g,'_'),v=s.settings[f.k];
+          const inp=f.sel?`<select id="${id}"${v==null?' disabled':''}>${f.sel.map(o=>`<option${o===v?' selected':''}>${o}</option>`).join('')}</select>`
+            :`<input id="${id}" value="${esc(v??'')}"${f.ro||v==null?' disabled':''}${f.max?` maxlength="${f.max}"`:''}${v==null?' placeholder="nicht verfügbar"':''}>`;
+          return `<label class="admf"><span>${f.l}${f.hint?`<small class="muted">${f.hint}</small>`:''}</span>${inp}</label>`}).join('')+
+        `<div class="frm" style="justify-content:flex-end"><button class="primary" data-a="saveset">Änderungen speichern</button></div>`}
+      else h+='<div class="muted">Lädt Name, Standort, Sendeleistung, Advert-Intervalle u. a. einzeln per Funk (11 Abfragen).</div>';
+      h+=`</div>`;
+      // ACL
+      h+=`<div class="card"><h3>Zugriffsliste <button class="sm" data-a="acl" style="float:right">↻</button></h3>`+
+        (s.acl?(s.acl.list.length?`<table><tbody>${s.acl.list.map(a=>`<tr><td>${esc(nodeName(a.k)||'?')} <span class="muted mono">${a.k.slice(0,8)}</span></td><td>${ROLE[a.perm&3]}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">Leer.</div>'):'<div class="muted">Noch nicht abgerufen.</div>')+`</div>`;
+    }
+    // Terminal (nur Admin – Repeater beantworten CLI-Befehle nur von Admins)
+    if(!s.isAdmin)h+=`<div class="card" style="grid-column:1/-1"><h3>Protokoll</h3><div class="hex log admlog" id="admLog"></div></div>`;
+    else h+=`<div class="card" style="grid-column:1/-1"><h3>Terminal</h3><div class="hex log admlog" id="admLog"></div>
+      <div class="frm"><input id="admCmd" list="dlCli" placeholder="CLI-Befehl, z. B. get radio, ver, region" autocomplete="off"><button data-a="send">Senden</button></div>
+      <div class="frm">${['ver','board','clock','get radio','get repeat','region','neighbors'].map(x=>`<button class="sm" data-cli="${x}">${x}</button>`).join('')}</div>
+      <p class="muted" style="font-size:12px;margin-bottom:0">Befehlsübersicht: <a href="https://github.com/meshcore-dev/MeshCore/blob/main/docs/cli_commands.md" target="_blank" rel="noopener">MeshCore CLI-Befehle</a>. Jeder Befehl ist ein Funkpaket hin und eins zurück.</p></div>`;
+    h+=`</div>`;
+  }
+  // Eingaben beim Neuzeichnen behalten
+  const keep=ADM.lastKey===s.key?Object.fromEntries($$('#admMain input,#admMain select').filter(x=>x.id&&x.type!=='checkbox').map(x=>[x.id,x.value])):{};
+  el.innerHTML=h;ADM.lastKey=s.key;
+  for(const [id,v] of Object.entries(keep)){const x=document.getElementById(id);if(x&&!x.disabled)x.value=v}
+  renderAdminLog();admBusy(ADM.busy,ADM.busyTxt);
+}
+function renderAdminLog(){const s=admCur(),el=$('#admLog');if(!s||!el)return;
+  el.innerHTML=s.log.map(l=>`<div class="al-${l.kind}"><span class="muted">${tfmt(l.t)}</span> ${l.kind==='out'?'&gt; ':l.kind==='in'?'&lt; ':''}${esc(l.text)}</div>`).join('')||'<span class="muted">Noch keine Befehle.</span>';
+  el.scrollTop=el.scrollHeight}
+const CLI_SUGGEST=['ver','board','clock','clock sync','clkreboot','reboot','advert','advert.zerohop','neighbors','neighbor.remove ','discover.neighbors','clear stats','powersaving','powersaving on','powersaving off',
+  'region','region list','region get ','region home','region home ','region default','region default ','region put ','region allowf ','region denyf ','region save','region remove ',
+  'log start','log stop','log erase','password ','tempradio ','sensor list','sensor get ','gps','gps on','gps off','gps sync',
+  ...['name','lat','lon','tx','radio','freq','repeat','owner.info','guest.password','advert.interval','flood.advert.interval','flood.max','flood.max.unscoped','path.hash.mode','loop.detect','rxdelay','txdelay','direct.txdelay','af','dutycycle','multi.acks','allow.read.only','cad','int.thresh','agc.reset.interval','radio.rxgain','acl','role','public.key','bridge.enabled']
+    .flatMap(k=>['get '+k,'set '+k+' '])];
+$('#dlCli')||document.body.insertAdjacentHTML('beforeend','<datalist id="dlCli">'+CLI_SUGGEST.map(x=>`<option value="${esc(x)}">`).join('')+'</datalist>');
+const admHist=[];let admHi=-1;
+$('#admList').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;ADM.key=it.dataset.key;$('#sec-admin').classList.add('mdet');renderAdmin()});
+$('#admSearch').oninput=renderAdminList;
+$('#admMain').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;
+  if(b.dataset.cli){$('#admCmd').value=b.dataset.cli;admSendCmd();return}
+  const a=b.dataset.a,nm=admCur()?admName(admCur().key):'';
+  ({login:admLogin,logout:admLogout,status:()=>admStatus(),neigh:admNeighbours,neighmap:admNeighMap,acl:admAcl,info:admOwner,loadset:admLoadSettings,saveset:admSaveSettings,send:admSendCmd,
+    clock:()=>admCmd('clock sync'),adv0:()=>admCmd('advert.zerohop'),advf:()=>admCmd('advert'),clrstats:()=>admCmd('clear stats',{confirmMsg:'Statistik von „'+nm+'“ zurücksetzen?'}),
+    reboot:()=>admRebootCmd(nm)}[a]||(()=>{}))()});
+$('#admMain').addEventListener('keydown',e=>{
+  if(e.target.id==='admPw'&&e.key==='Enter'){e.preventDefault();admLogin()}
+  if(e.target.id!=='admCmd')return;
+  if(e.key==='Enter'){e.preventDefault();admSendCmd()}
+  else if(e.key==='ArrowUp'&&admHist.length){e.preventDefault();admHi=Math.max(0,(admHi<0?admHist.length:admHi)-1);e.target.value=admHist[admHi]}
+  else if(e.key==='ArrowDown'&&admHi>=0){e.preventDefault();admHi++;if(admHi>=admHist.length){admHi=-1;e.target.value=''}else e.target.value=admHist[admHi]}});
+async function admSendCmd(){const inp=$('#admCmd');const v=inp.value.trim();if(!v)return;
+  if(/^(reboot|clkreboot|erase|start ota|poweroff|shutdown)\b/.test(v)&&!confirm('„'+v+'“ wirklich an „'+admName(admCur().key)+'“ senden?'))return;
+  if(/^set (radio|freq) /.test(v)&&!confirm('Achtung: Mit geänderten Funkparametern ist der Repeater nach dem Neustart für das restliche Netz nicht mehr erreichbar. Trotzdem senden?'))return;
+  inp.value='';if(admHist[admHist.length-1]!==v)admHist.push(v);admHi=-1;await admCmd(v,{quiet:true})}
+async function admRebootCmd(nm){
+  const s=admCur();if(!s||!confirm('Repeater „'+nm+'“ neu starten?'))return;
+  // Auf reboot kommt keine Antwort – nur senden
+  try{admLog(s,'out','reboot');await request(bytes(CMD.SEND_TXT,1,0,u32(now()),unhex(s.key.slice(0,12)),'reboot'));toast('Neustart an '+nm+' gesendet','ok');s.logged=false;admLog(s,'sys','Neustart gesendet – danach neu anmelden');renderAdmin()}
+  catch(e){toast(e.message,'err')}
+}
+
+// ================= Telemetrie =================
+// Cayenne LPP von Repeatern, Sensoren, Kontakten und dem eigenen Gerät; Verlauf lokal im Browser.
+CMD.TELEMETRY_REQ=39;EXPECT[39]=[6];
+// Typ → [Name, Einheit, Bytes, Teiler, vorzeichenbehaftet]
+const LPP={0:['Digitaleingang','',1,1],1:['Digitalausgang','',1,1],2:['Analogeingang','',2,100,1],3:['Analogausgang','',2,100,1],
+  100:['Sensorwert','',4,1],101:['Helligkeit','lx',2,1],102:['Anwesenheit','',1,1],103:['Temperatur','°C',2,10,1],104:['Luftfeuchte','%',1,2],
+  113:['Beschleunigung','g',6,1000,1],115:['Luftdruck','hPa',2,10],116:['Spannung','V',2,100,1],117:['Strom','A',2,1000,1],118:['Frequenz','Hz',4,1],
+  120:['Anteil','%',1,1],121:['Höhe','m',2,1,1],125:['Konzentration','ppm',2,1],128:['Leistung','W',2,1],130:['Entfernung','m',4,1000],
+  131:['Energie','kWh',4,1000],132:['Richtung','°',2,1],133:['Zeit','',4,1],134:['Drehrate','°/s',6,100,1],135:['Farbe','',3,1],136:['GPS','',9,1],142:['Schalter','',1,1]};
+function parseLPP(b){
+  const out=[];let o=0;const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+  const rd=(p,n,s)=>{let v=0;for(let i=0;i<n;i++)v=v*256+b[p+i];if(s&&v>=2**(8*n-1))v-=2**(8*n);return v};
+  while(o+2<=b.length){
+    const ch=b[o],t=b[o+1];if(ch===0&&t===0)break;const d=LPP[t];if(!d||o+2+d[2]>b.length)break;o+=2;
+    let v;
+    if(t===136)v={lat:rd(o,3,1)/1e4,lon:rd(o+3,3,1)/1e4,alt:rd(o+6,3,1)/100};
+    else if(t===113||t===134)v=[0,2,4].map(i=>rd(o+i,2,1)/d[3]);
+    else if(t===135)v=[b[o],b[o+1],b[o+2]];
+    else v=rd(o,d[2],d[4])/d[3];
+    out.push({ch,t,v});o+=d[2];
+  }
+  return out;
+}
+const telName=x=>(LPP[x.t]||['Typ '+x.t])[0]+(x.ch>1?' ('+x.ch+')':'');
+function telVal(x){const d=LPP[x.t]||['','',0,1];
+  if(x.t===136)return `${x.v.lat.toFixed(4)}, ${x.v.lon.toFixed(4)} · ${x.v.alt.toFixed(0)} m`;
+  if(Array.isArray(x.v))return x.v.map(n=>n.toFixed(2)).join(' / ')+' '+d[1];
+  if(x.t===133)return new Date(x.v*1000).toLocaleString('de-DE');
+  if(x.t===142||x.t===102)return x.v?'an':'aus';
+  const dec=d[3]>=1000?3:d[3]>=100?2:d[3]>=2?1:0;return x.v.toLocaleString('de-DE',{minimumFractionDigits:dec,maximumFractionDigits:dec})+(d[1]?' '+d[1]:'')}
+const TEL={auto:store.get('mcw.telAuto',{})||{},busy:new Set()};
+const telKey=k=>'mcw.tel.'+k.slice(0,12);
+const telLabel=k=>S.self&&k===S.self.key?S.self.name:admName(k);
+const telHist=k=>store.get(telKey(k),[])||[];
+async function telRequest(key,{quiet}={}){
+  if(!S.connected)throw new Error('nicht verbunden');
+  if(TEL.busy.has(key))return;TEL.busy.add(key);renderTelemetry(key);
+  try{
+    const self=S.self&&key===S.self.key,pre=key.slice(0,12);let f;
+    if(self){const p=waitPush(x=>x[0]===PUSH.TELEMETRY&&hex(x.slice(2,8))===pre,8000);await S.tr.send(bytes(CMD.TELEMETRY_REQ,0,0,0));logFrame('TX',bytes(CMD.TELEMETRY_REQ,0,0,0));f=await p}
+    else{await ensureContact(key);const sent=parseSent(await request(bytes(CMD.TELEMETRY_REQ,0,0,0,unhex(key))));
+      f=await waitPush(x=>x[0]===PUSH.TELEMETRY&&hex(x.slice(2,8))===pre,replyTimeout(sent.est))}
+    const vals=parseLPP(f.slice(8));
+    const h=telHist(key);h.push({t:Date.now(),v:vals});if(h.length>500)h.splice(0,h.length-500);store.set(telKey(key),h);
+    const s=ADM.sess.get(key);if(s)admLog(s,'ok','Telemetrie empfangen ('+vals.length+' Werte)');
+    // GPS aus der Telemetrie als Position übernehmen, wenn der Knoten noch keine hat
+    const g=vals.find(x=>x.t===136),n=S.nodes.get(key);if(g&&n&&!hasPos(n)&&(g.v.lat||g.v.lon)){n.lat=g.v.lat;n.lon=g.v.lon;scheduleSave()}
+    return vals;
+  }catch(e){const s=ADM.sess.get(key);if(s)admLog(s,'err','Telemetrie: '+e.message);if(!quiet)toast('Telemetrie: '+e.message,'err');throw e}
+  finally{TEL.busy.delete(key);renderTelemetry(key)}
+}
+// Kleines Liniendiagramm (SVG) für eine Messgröße
+function telSpark(pts,unit){
+  if(pts.length<2)return '';const W=300,H=60,P=4;
+  const t0=pts[0][0],t1=pts[pts.length-1][0]||t0+1;let lo=Math.min(...pts.map(p=>p[1])),hi=Math.max(...pts.map(p=>p[1]));const rlo=lo,rhi=hi;if(hi-lo<1e-9){hi+=.5;lo-=.5}
+  const X=t=>P+(W-2*P)*(t-t0)/Math.max(1,t1-t0),Y=v=>H-P-(H-2*P)*(v-lo)/(hi-lo);
+  const d=pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('');
+  return `<svg class="tspark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="var(--accent2)" stroke-width="1.8" vector-effect="non-scaling-stroke"/>${pts.length<40?pts.map(p=>`<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="2" fill="var(--accent2)"/>`).join(''):''}</svg>
+    <div class="tsrange muted"><span>${dtfmt(t0)}</span><span>${rlo===rhi?rlo.toLocaleString('de-DE',{maximumFractionDigits:2}):rlo.toLocaleString('de-DE',{maximumFractionDigits:2})+' – '+rhi.toLocaleString('de-DE',{maximumFractionDigits:2})} ${unit}</span><span>${dtfmt(t1)}</span></div>`;
+}
+function telHtml(key){
+  const h=telHist(key),last=h[h.length-1],busy=TEL.busy.has(key),auto=TEL.auto[key]||0;
+  let x=`<div class="frm"><button data-tel="req" data-key="${key}"${busy||!S.connected?' disabled':''}>${busy?'Frage ab …':'📊 Jetzt abfragen'}</button>
+    <select data-tel="auto" data-key="${key}" title="Automatisch abfragen, solange die Webapp offen ist">${[[0,'nicht automatisch'],[30,'alle 30 min'],[60,'jede Stunde'],[180,'alle 3 h'],[720,'alle 12 h']].map(([v,l])=>`<option value="${v}"${v==auto?' selected':''}>${l}</option>`).join('')}</select>
+    ${h.length?`<button class="sm" data-tel="csv" data-key="${key}" title="Verlauf als CSV">CSV</button> <button class="sm danger" data-tel="clr" data-key="${key}" title="Verlauf löschen">🗑</button>`:''}</div>`;
+  if(!last)return x+'<div class="muted">Noch keine Telemetrie abgerufen.</div>';
+  x+=`<div class="kv">${last.v.map(v=>`<div>${esc(telName(v))}</div><div>${esc(telVal(v))}</div>`).join('')||'<div>–</div><div>keine Werte</div>'}</div><div class="muted" style="font-size:12px">Stand ${dtfmt(last.t)} · ${h.length} Messung${h.length>1?'en':''} gespeichert</div>`;
+  // Verlauf je numerischer Messgröße
+  const series=new Map();
+  for(const m of h)for(const v of m.v){if(typeof v.v!=='number'||[133,142,102,0,1].includes(v.t))continue;const id=v.ch+':'+v.t;if(!series.has(id))series.set(id,{v,pts:[]});series.get(id).pts.push([m.t,v.v])}
+  for(const {v,pts} of series.values())if(pts.length>=2)x+=`<div class="tseries"><div class="tsname">${esc(telName(v))}</div>${telSpark(pts.slice(-200),(LPP[v.t]||[])[1]||'')}</div>`;
+  return x;
+}
+function renderTelemetry(key){
+  $$(`.telbox[data-key="${key}"]`).forEach(el=>el.innerHTML=telHtml(key));
+  if(!$('#telModal').hidden&&$('#telModal').dataset.key===key)$('#telBody').innerHTML=`<div class="telbox" data-key="${key}">${telHtml(key)}</div>`;
+}
+function openTelemetry(key){
+  const self=S.self&&key===S.self.key;
+  $('#telTitle').textContent='📊 Telemetrie – '+(self?S.self.name+' (dieses Gerät)':admName(key));
+  $('#telModal').dataset.key=key;$('#telModal').hidden=false;renderTelemetry(key);
+  const c=S.contacts.get(key);
+  $('#telNote').textContent=self?'Eigene Werte werden direkt vom Gerät gelesen, ohne Funk.':c&&ADM_TYPES.includes(c.type)?'Repeater und Rooms antworten nur nach einem Login (Repeater-Admin). Jede Abfrage ist ein Funkpaket hin und zurück.':'Antwortet nur, wenn der Kontakt seine Telemetrie freigegeben hat. Jede Abfrage ist ein Funkpaket hin und zurück.';
+}
+function telCsv(key){
+  const h=telHist(key),cols=[...new Set(h.flatMap(m=>m.v.filter(v=>typeof v.v==='number').map(v=>telName(v)+((LPP[v.t]||[])[1]?' ['+LPP[v.t][1]+']':''))))];
+  const rows=[['Zeit',...cols].join(';')].concat(h.map(m=>{const r={};m.v.forEach(v=>{if(typeof v.v==='number')r[telName(v)+((LPP[v.t]||[])[1]?' ['+LPP[v.t][1]+']':'')]=String(v.v).replace('.',',')});return [new Date(m.t).toISOString(),...cols.map(c=>r[c]??'')].join(';')}));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download='telemetrie-'+telLabel(key).replace(/[^\w-]+/g,'_')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+document.addEventListener('click',e=>{const b=e.target.closest('button[data-tel]');if(!b||b.disabled)return;const k=b.dataset.key;
+  if(b.dataset.tel==='req')telRequest(k).catch(()=>{});
+  else if(b.dataset.tel==='csv')telCsv(k);
+  else if(b.dataset.tel==='clr'){if(confirm('Gespeicherten Telemetrie-Verlauf von „'+telLabel(k)+'“ löschen?')){store.del(telKey(k));renderTelemetry(k)}}});
+document.addEventListener('change',e=>{const s=e.target.closest('select[data-tel=auto]');if(!s)return;const k=s.dataset.key,v=+s.value;
+  if(v)TEL.auto[k]=v;else delete TEL.auto[k];store.set('mcw.telAuto',TEL.auto);
+  if(v)toast('Telemetrie von „'+telLabel(k)+'“ wird '+s.selectedOptions[0].textContent+' abgefragt, solange die Webapp verbunden ist','ok')});
+$('#telClose').onclick=()=>{$('#telModal').hidden=true};
+// Automatische Abfragen – höchstens eine pro Minute, damit das Netz nicht belastet wird
+setInterval(()=>{if(!S.connected)return;const nowMs=Date.now();
+  for(const [k,min] of Object.entries(TEL.auto)){const h=telHist(k),last=h.length?h[h.length-1].t:0;if(nowMs-last<min*60000||TEL.busy.has(k))continue;
+    const c=S.contacts.get(k),self=S.self&&k===S.self.key;if(!self&&!c)continue;
+    if(!self&&ADM_TYPES.includes(c.type)&&!(ADM.sess.get(k)||{}).logged)continue; // Repeater nur mit Login
+    telRequest(k,{quiet:true}).catch(()=>{});break}},60000);
+
+const TEL_MODES=[[0,'Niemand'],[1,'Nur markierte Kontakte'],[2,'Alle']];
+function renderTelPerm(){const s=S.self;if(!s)return;const m=s.telem||0;
+  [['#telBase',m&3],['#telLoc',(m>>2)&3],['#telEnv',(m>>4)&3]].forEach(([id,v])=>{const el=$(id);if(!el.options.length)el.innerHTML=TEL_MODES.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');el.value=v})}
+['#telBase','#telLoc','#telEnv'].forEach(id=>$(id).onchange=()=>{const v=(+$('#telBase').value)|(+$('#telLoc').value<<2)|(+$('#telEnv').value<<4);setOther(S.self.manualAdd,S.self.locPolicy,v)});
+$('#btnSelfTel').onclick=()=>{openTelemetry(S.self.key);telRequest(S.self.key).catch(()=>{})};
+// ================= Netz-Tools: Trace-Route & Repeater in der Nähe =================
+Object.assign(CMD,{TRACE:36,CONTROL:55});EXPECT[36]=[6];
+PUSH.CONTROL=0x8E;
+const NT={trace:null,traceBusy:false,disc:null,discBusy:false,discUntil:0,lastDisc:0};
+const ntName=h=>{const l=nodesByHash(h);return l.length===1?l[0].name:l.length>1?l.map(n=>n.name).join(' / '):null};
+
+// ---- Trace ----
+// Pfad zum Kontakt als Hop-Liste (hex) inkl. Rückweg, wie meshcore-cli: p1 p2 … [Ziel] … p2 p1
+function tracePathFor(key){
+  const c=S.contacts.get(key);if(!c)throw new Error('Kontakt nicht gefunden');
+  const pd=pathDesc(c.outPathLen,c.outPath);
+  if(pd.flood)throw new Error('Kein Pfad zu „'+(c.name||key.slice(0,8))+'“ bekannt. Erst eine Nachricht senden oder einloggen, dann ist der Pfad bekannt.');
+  let hs=pd.hops.length?pd.hops[0].length/2:((S.dev&&S.dev.pathHashMode)||0)+1;if(hs===3)hs=2;
+  const hops=pd.hops.map(h=>h.slice(0,hs*2));
+  const isRep=c.type===2||c.type===3;
+  if(!isRep&&!hops.length)throw new Error('„'+c.name+'“ ist direkt erreichbar – Trace geht nur über Repeater.');
+  const mid=isRep?[key.slice(0,hs*2)]:[];
+  const out=isRep?hops:hops.slice(0,-1),last=isRep?null:hops[hops.length-1];
+  const path=[...out,...mid,...(last?[last]:[]),...out.slice().reverse()];
+  return {hops:path,hs};
+}
+async function runTrace(hops,hs){
+  if(!S.connected)return toast('Nicht verbunden','err');
+  if(!hops.length)return toast('Mindestens einen Repeater angeben','err');
+  if(hops.some(h=>h.length!==hs*2||!/^[0-9a-f]+$/.test(h)))return toast('Jeder Hop braucht '+hs+' Byte ('+hs*2+' Hex-Zeichen)','err');
+  NT.traceBusy=true;NT.trace={hops,hs,t:Date.now(),state:'läuft'};renderNetTools();
+  try{
+    const tag=crypto.getRandomValues(new Uint32Array(1))[0];
+    const flags=hs===2?1:hs===4?2:0;
+    const sent=parseSent(await request(bytes(CMD.TRACE,u32(tag),u32(0),flags,unhex(hops.join('')))));
+    const f=await waitPush(x=>x[0]===PUSH.TRACE&&new DataView(x.buffer,x.byteOffset+4,4).getUint32(0,true)===tag,Math.max(sent.est*1.5+3000,10000));
+    const r=new R(f);r.u8();r.u8();const plen=r.u8(),fl=r.u8();r.u32();r.u32();const sz=1<<(fl&3);
+    const ph=r.bytes(plen),n=plen/sz,snrs=[];for(let i=0;i<n&&r.left();i++)snrs.push(r.i8()/4);const fin=r.left()?r.i8()/4:null;
+    // snrs[i] = SNR, mit dem Hop i das Paket empfangen hat; fin = SNR beim Empfang hier
+    NT.trace={hops,hs,t:Date.now(),state:'ok',snrs,fin,rtt:Date.now()-NT.trace.t};
+  }catch(e){NT.trace={...NT.trace,state:'fail',err:e.message}}
+  finally{NT.traceBusy=false;renderNetTools()}
+}
+function traceRowsHtml(tr){
+  if(!tr)return '<div class="muted">Noch kein Trace.</div>';
+  if(tr.state==='läuft')return '<div class="muted">Trace läuft …</div>';
+  if(tr.state==='fail')return `<div class="snr-r">Keine Antwort: ${esc(tr.err)}</div><p class="muted" style="font-size:12px">Ein Repeater auf dem Weg hat das Paket nicht weitergegeben oder die Antwort nicht gehört.</p>`;
+  const segs=[];const names=['Ich',...tr.hops.map(h=>ntName(h)||'?'),'Ich'];const ids=['',...tr.hops,''];
+  const snr=[...tr.snrs,tr.fin];
+  for(let i=0;i<snr.length;i++)segs.push(`<tr><td>${esc(names[i])} <span class="muted mono">${ids[i]}</span></td><td>→</td><td>${esc(names[i+1])} <span class="muted mono">${ids[i+1]}</span></td><td class="mono ${snrCls(snr[i])}">${snr[i]==null?'–':snr[i].toFixed(2)+' dB'}</td></tr>`);
+  const worst=Math.min(...snr.filter(v=>v!=null));
+  return `<table><thead><tr><th>Von</th><th></th><th>Nach</th><th>SNR</th></tr></thead><tbody>${segs.join('')}</tbody></table>
+    <div class="muted" style="font-size:12px;margin-top:4px">${tr.hops.length} Hop${tr.hops.length>1?'s':''} · Laufzeit ${(tr.rtt/1000).toFixed(1)} s · schwächste Strecke <b class="${snrCls(worst)}">${worst.toFixed(2)} dB</b></div>
+    <div class="frm"><button class="sm" data-nt="tracemap">🗺 Auf der Karte</button></div>`;
+}
+function traceMap(){
+  const tr=NT.trace;if(!tr||tr.state!=='ok')return;switchTab('map');
+  setTimeout(()=>{if(!map)return;pathLayer.clearLayers();
+    const pts=[hasPos(S.self)?{lat:S.self.lat,lon:S.self.lon,name:'Ich'}:null,...tr.hops.map(h=>{const l=nodesByHash(h).filter(hasPos);return l.length===1?l[0]:null}),hasPos(S.self)?{lat:S.self.lat,lon:S.self.lon,name:'Ich'}:null];
+    const snr=[...tr.snrs,tr.fin];let miss=0;const all=[];
+    for(let i=0;i<snr.length;i++){const a=pts[i],b=pts[i+1];if(!a||!b){miss++;continue}
+      const off=i>=snr.length/2?.0004:0; // Rückweg leicht versetzt zeichnen
+      L.polyline([[a.lat+off,a.lon+off],[b.lat+off,b.lon+off]],{color:snr[i]>=5?'#2da44e':snr[i]>=-5?'#d29922':'#cf222e',weight:4,opacity:.85,dashArray:off?'6 6':null})
+        .bindTooltip(`${esc(a.name)} → ${esc(b.name)}: ${snr[i]==null?'–':snr[i].toFixed(2)+' dB'}`,{sticky:true}).addTo(pathLayer);all.push([a.lat,a.lon],[b.lat,b.lon])}
+    if(all.length)map.fitBounds(L.latLngBounds(all).pad(.2),{maxZoom:13});
+    if(miss)toast(miss+' Strecke(n) ohne bekannte Position nicht eingezeichnet')},80);
+}
+
+// ---- Repeater in der Nähe (Zero-Hop-Discovery) ----
+async function runDiscover(){
+  if(!S.connected)return toast('Nicht verbunden','err');
+  const wait=30000-(Date.now()-NT.lastDisc);if(wait>0)return toast('Bitte noch '+Math.ceil(wait/1000)+' s warten – Repeater beantworten Suchanfragen nur begrenzt oft','err');
+  NT.lastDisc=Date.now();
+  const tag=crypto.getRandomValues(new Uint32Array(1))[0];
+  NT.disc={tag,t:Date.now(),list:new Map()};NT.discBusy=true;NT.discUntil=Date.now()+15000;renderNetTools();
+  try{await request(bytes(CMD.CONTROL,0x80,(1<<2)|(1<<3),u32(tag),u32(0)))}
+  catch(e){NT.discBusy=false;toast('Suche fehlgeschlagen: '+e.message,'err');renderNetTools();return}
+  const tick=setInterval(()=>{if(Date.now()>=NT.discUntil){clearInterval(tick);NT.discBusy=false}renderNetTools()},1000);
+}
+function onControlPush(f){
+  if(!NT.disc)return;const r=new R(f);r.u8();const snrBack=r.i8()/4,rssi=r.i8();r.u8();
+  if(r.left()<6)return;const t0=r.u8();if((t0&0xF0)!==0x90)return;const type=t0&0x0F,snrOut=r.i8()/4,tag=r.u32();
+  if(tag!==NT.disc.tag)return;const key=hex(r.bytes(Math.min(32,r.left())));
+  NT.disc.list.set(key,{key,type,snrOut,snrBack,rssi,t:Date.now()});
+  const n=S.nodes.get(key)||{key};n.type=n.type??type;n.heard=Date.now();n.snr=snrBack;n.rssi=rssi;n.hops=0;S.nodes.set(key,n);scheduleSave();renderNetTools();
+}
+function discRowsHtml(){
+  const d=NT.disc;if(!d)return '<div class="muted">Sendet eine kurze Anfrage an alle direkt erreichbaren Repeater (Zero-Hop). Sie antworten mit ihrer Kennung und wie gut sie dich hören.</div>';
+  const list=[...d.list.values()].sort((a,b)=>Math.min(b.snrOut,b.snrBack)-Math.min(a.snrOut,a.snrBack));
+  let h=NT.discBusy?`<div class="muted">Warte auf Antworten … ${Math.max(0,Math.ceil((NT.discUntil-Date.now())/1000))} s</div>`:`<div class="muted" style="font-size:12px">${list.length} Repeater geantwortet · ${dtfmt(d.t)}</div>`;
+  if(list.length)h+=`<table><thead><tr><th>Name</th><th title="So gut hört der Repeater dich">SNR hin</th><th title="So gut hörst du den Repeater">SNR zurück</th><th>RSSI</th><th></th></tr></thead><tbody>`+list.map(x=>{const n=S.nodes.get(x.key),c=S.contacts.get(x.key);
+    return `<tr><td>${esc(n&&n.name||'?')} <span class="muted mono">${x.key.slice(0,8)}</span></td><td class="mono ${snrCls(x.snrOut)}">${x.snrOut.toFixed(2)}</td><td class="mono ${snrCls(x.snrBack)}">${x.snrBack.toFixed(2)}</td><td class="mono">${x.rssi}</td>
+      <td style="white-space:nowrap">${c?`<button class="sm" onclick="openAdmin('${x.key}')" title="Repeater-Admin">🛠</button> <button class="sm" data-nt="traceto" data-key="${x.key}" title="Trace">📍</button>`:`<button class="sm" data-nt="addrep" data-key="${x.key}" title="Als Kontakt speichern">＋</button>`}</td></tr>`}).join('')+'</tbody></table>'+
+    `<div class="frm"><button class="sm" data-nt="discmap">🗺 Auf der Karte</button></div>`;
+  return h;
+}
+async function addDiscovered(key){
+  const x=NT.disc&&NT.disc.list.get(key);if(!x)return;const n=S.nodes.get(key)||{};
+  // Minimaler Kontakt: Schlüssel, Typ, direkter Pfad; Name/Position kommen mit dem nächsten Advert
+  const name=(n.name||('Repeater '+key.slice(0,8))).slice(0,31),nb=new Uint8Array(32);nb.set(enc.encode(name).slice(0,31));
+  const f=bytes(CMD.ADD_UPDATE_CONTACT,unhex(key),x.type||2,0,0,new Uint8Array(64),nb,u32(0),i32(Math.round((n.lat||0)*1e6)),i32(Math.round((n.lon||0)*1e6)));
+  try{await request(f);const cf=f.slice();cf[0]=RESP.CONTACT;upsertContact(parseContact(cf),true);await refreshContact(key);toast('„'+name+'“ als Kontakt gespeichert','ok');renderNetTools()}catch(e){toast(e.message,'err')}
+}
+function discMap(){
+  const d=NT.disc;if(!d)return;switchTab('map');
+  setTimeout(()=>{if(!map)return;pathLayer.clearLayers();if(!hasPos(S.self))return toast('Eigene Position unbekannt','err');const all=[[S.self.lat,S.self.lon]];let miss=0;
+    for(const x of d.list.values()){const n=S.nodes.get(x.key);if(!hasPos(n)){miss++;continue}const w=Math.min(x.snrOut,x.snrBack);
+      L.polyline([[S.self.lat,S.self.lon],[n.lat,n.lon]],{color:w>=5?'#2da44e':w>=-5?'#d29922':'#cf222e',weight:4,opacity:.85}).bindTooltip(`${esc(n.name||'?')}: hin ${x.snrOut.toFixed(1)} dB, zurück ${x.snrBack.toFixed(1)} dB`,{sticky:true}).addTo(pathLayer);all.push([n.lat,n.lon])}
+    map.fitBounds(L.latLngBounds(all).pad(.2),{maxZoom:13});if(miss)toast(miss+' Repeater ohne bekannte Position nicht eingezeichnet')},80);
+}
+
+// ---- UI ----
+function renderNetTools(){
+  if(curTab!=='tools')return;
+  $('#ntDisc').innerHTML=discRowsHtml();$('#btnDisc2').disabled=!S.connected||NT.discBusy;
+  $('#ntTrace').innerHTML=traceRowsHtml(NT.trace);$('#btnTrace').disabled=!S.connected||NT.traceBusy;
+  const sel=$('#trAdd');if(sel&&sel.options.length<=1){const reps=[...S.nodes.values()].filter(n=>n.type===2||n.type===3).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    sel.innerHTML='<option value="">+ Repeater einfügen …</option>'+reps.map(n=>`<option value="${n.key}">${esc(n.name||'?')} (${n.key.slice(0,4)})</option>`).join('')}
+}
+function traceFromInput(){
+  const hs=+$('#trHs').value;let hops=$('#trPath').value.toLowerCase().split(/[\s,→>-]+/).filter(Boolean);
+  if(hops.length===1&&hops[0].length>hs*2&&hops[0].length%(hs*2)===0)hops=hops[0].match(new RegExp('.{'+hs*2+'}','g'));
+  if($('#trBack').checked&&hops.length)hops=[...hops,...hops.slice(0,-1).reverse()];
+  runTrace(hops,hs);
+}
+function traceTo(key){
+  switchTab('tools');
+  try{const {hops,hs}=tracePathFor(key);$('#trHs').value=String(hs);$('#trPath').value=hops.join(',');$('#trBack').checked=false;runTrace(hops,hs)}
+  catch(e){toast(e.message,'err')}
+}
+$('#btnDisc2').onclick=runDiscover;$('#btnTrace').onclick=traceFromInput;
+$('#trPath').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();traceFromInput()}});
+$('#trAdd').onchange=e=>{const k=e.target.value;if(!k)return;const hs=+$('#trHs').value,v=$('#trPath').value.trim();$('#trPath').value=(v?v+',':'')+k.slice(0,hs*2);e.target.value=''};
+$('#trHs').onchange=()=>{const hs=+$('#trHs').value;$('#trPath').value=$('#trPath').value.split(',').filter(Boolean).map(h=>{const n=nodesByHash(h.trim().toLowerCase());return n.length===1?n[0].key.slice(0,hs*2):h.trim().slice(0,hs*2)}).join(',')};
+document.addEventListener('click',e=>{const b=e.target.closest('button[data-nt]');if(!b)return;
+  ({tracemap:traceMap,discmap:discMap,traceto:()=>traceTo(b.dataset.key),addrep:()=>addDiscovered(b.dataset.key)}[b.dataset.nt]||(()=>{}))()});
+
+// ================= Events =================
+PT.forEach(t=>{if(!/^T1/.test(t)){const o=document.createElement('option');o.textContent=t;$('#fType').appendChild(o)}});
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)switchTab(b.dataset.tab)});
+$('#btnUsb').onclick=()=>connect('usb');$('#btnTcp').onclick=()=>connect('tcp');$('#btnBle').onclick=()=>connect('ble');$('#btnDisc').onclick=()=>disconnect();
+async function advert(flood){try{await request(bytes(CMD.SELF_ADVERT,flood?1:0));toast((flood?'Flood':'Zero-Hop')+'-Advert gesendet','ok')}catch(e){toast('Advert fehlgeschlagen: '+e.message,'err')}}
+$('#btnAdv0').onclick=()=>advert(false);$('#btnAdvF').onclick=()=>advert(true);
+['#fType','#fRoute'].forEach(s=>$(s).onchange=renderLive);$('#fText').oninput=renderLive;
+$('#btnPause').onclick=()=>{S.paused=!S.paused;$('#btnPause').textContent=S.paused?'▶ Weiter':'⏸ Pause';if(!S.paused)renderLive()};
+$('#btnClear').onclick=()=>{S.packets=[];S.stats={total:0,byType:{}};minutes.clear();renderLive();renderStats();$('#detail').classList.remove('show')};
+$('#btnGroup').classList.toggle('blue',groupMode);
+$('#btnGroup').onclick=()=>{groupMode=!groupMode;store.set('mcw.groupHash',groupMode);renderLive()};
+$('#detail').addEventListener('click',e=>{const tr=e.target.closest('tr[data-obs]');if(tr)showDetail(+tr.dataset.obs)});
+$('#btnCsv').onclick=()=>exportPkts('csv');$('#btnJson').onclick=()=>exportPkts('json');
+$('#pkts').addEventListener('click',e=>{const tr=e.target.closest('tr');if(tr)showDetail(+tr.dataset.id)});
+$('#chatlist').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;S.active=it.dataset.conv;delete S.unread[S.active];$('#sec-chat').classList.add('mdet');renderChat();if(!isMobile())$('#msgIn').focus()});
+$('#chatSearch').oninput=renderChat;
+$('#chatlist').addEventListener('click',e=>{if(e.target.closest('#btnAddCh')){e.stopPropagation();addChannelDialog()}},true);
+$('#msgs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.reply!=null){const inp=$('#msgIn');const tag=S.active.startsWith('ch:')?'@['+b.dataset.reply+'] ':'';if(tag&&!inp.value.startsWith(tag))inp.value=tag+inp.value.replace(/^@\[[^\]]*\]\s*/,'');inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);updateLen()}
+  else if(b.dataset.dm){openChat(b.dataset.dm);setTimeout(()=>$('#msgIn').focus(),50)}});
+$('#msgIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});$('#msgIn').oninput=updateLen;$('#btnSend').onclick=sendMsg;
+$$('.mf').forEach(x=>x.onchange=renderMap);['#mLabels','#mNeigh','#mAge'].forEach(s=>$(s).onchange=renderMap);
+$('#btnFit').onclick=fitAll;$('#btnMapPanel').onclick=()=>$('#sec-map').classList.toggle('mpanel');$('#btnClrPath').onclick=()=>pathLayer&&pathLayer.clearLayers();
+$('#btnPick').onclick=()=>{picking=true;document.body.classList.add('picking');toast('Klicke auf die Karte, um die eigene Position zu setzen')};
+['#cSearch'].forEach(s=>$(s).oninput=renderContacts);['#cType','#cHeard'].forEach(s=>$(s).onchange=renderContacts);
+$('#btnReloadC').onclick=async()=>{await loadContacts();toast(S.contacts.size+' Kontakte geladen','ok')};
+$('#btnStats').onclick=refreshStats;
+$('#btnSetName').onclick=async()=>{const n=$('#setName').value.trim();if(!n)return;try{await request(bytes(CMD.SET_NAME,n.slice(0,31)));await reloadSelf();toast('Name gesetzt – Advert senden, damit andere ihn sehen','ok')}catch(e){toast(e.message,'err')}};
+$('#btnSetPos').onclick=()=>setPosition(parseFloat($('#setLat').value.replace(',','.')),parseFloat($('#setLon').value.replace(',','.')));
+$('#btnSetTx').onclick=async()=>{const v=parseInt($('#setTx').value,10);if(isNaN(v))return;try{await request(bytes(CMD.SET_TX,v));await reloadSelf();toast('TX-Leistung: '+v+' dBm','ok')}catch(e){toast(e.message,'err')}};
+$('#setLocAdv').onchange=e=>setOther(S.self.manualAdd,e.target.checked?1:0);
+$('#setAutoAdd').onchange=e=>setOther(e.target.checked?(S.self.manualAdd&~1):(S.self.manualAdd|1),S.self.locPolicy);
+$('#setNotify').checked=store.get('mcw.notify',false);
+$('#setNotify').onchange=async e=>{if(e.target.checked&&'Notification' in window&&Notification.permission!=='granted'){const p=await Notification.requestPermission();if(p!=='granted')e.target.checked=false}store.set('mcw.notify',e.target.checked)};
+$('#btnTime').onclick=async()=>{try{await request(bytes(CMD.SET_TIME,u32(now())));toast('Uhrzeit gesetzt','ok')}catch(e){toast('Gerätezeit liegt vorne oder Fehler: '+e.message,'err')}};
+$('#btnSync').onclick=syncMessages;
+$('#useDir').checked=useDir();
+$('#useDir').onchange=e=>{store.set('mcw.useDir',e.target.checked);catRegionKeys=null;if(e.target.checked)loadCatalog();else{CAT.state='aus';renderDirInfo();renderChat()}};
+$('#btnDirReload').onclick=()=>loadCatalog(true);
+$('#btnSetRegion').onclick=()=>{const n=$('#setRegion').value.trim();if(!n)return toast('Regionsnamen eingeben','err');setScope(n)};
+$('#btnClrRegion').onclick=()=>{if(confirm('Region entfernen? Flood-Pakete werden dann ungefiltert gesendet.'))setScope('')};
+$('#btnSetHash').onclick=()=>{const m=+$('#setHashMode').value;if(m>0&&!confirm((m+1)+'-Byte-Pfad-Hashes setzen? Repeater mit älterer Firmware können solche Pakete eventuell nicht weiterleiten.'))return;setHashMode(m)};
+$('#extraRegions').value=store.get('mcw.extraRegions','');
+$('#extraRegions').onchange=async()=>{store.set('mcw.extraRegions',$('#extraRegions').value);await buildRegions();S.packets.forEach(p=>{if(p.tc&&!p.region)matchRegion(p)});renderDevice()};
+$('#btnReboot').onclick=async()=>{if(!confirm('Gerät neu starten?'))return;try{await S.tr.send(bytes(CMD.REBOOT,'reboot'))}catch{}toast('Neustart ausgelöst');setTimeout(()=>onDisconnected(),500)};
+$('#btnWipe').onclick=()=>{if(!confirm('Gespeicherte Knoten und Chatverläufe in diesem Browser löschen?'))return;Object.keys(localStorage).filter(k=>k.startsWith('mcw.')).forEach(k=>store.del(k));S.nodes.clear();for(const c of S.contacts.values())upsertContact(c,c.saved,false);S.msgs={};renderAll();renderMap();toast('Lokale Daten gelöscht','ok')};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderSoon()});
+setInterval(()=>{drawSpark();if(curTab==='contacts')renderContacts()},10000);
+if(navigator.serial)navigator.serial.addEventListener('disconnect',()=>{if(S.tr instanceof SerialTransport)onDisconnected('USB-Gerät getrennt')});
+{const hasS='serial' in navigator,hasB='bluetooth' in navigator;document.body.classList.toggle('noserial',!hasS);document.body.classList.toggle('noble',!hasB);
+  if(!hasS){const w=$('#warn');w.style.display='block';w.textContent=!window.isSecureContext?'Web Serial braucht einen sicheren Kontext: Seite über https:// oder http://localhost öffnen.':hasB?'USB (Web Serial) gibt es in diesem Browser nicht – verbinde per Bluetooth oder TCP/WiFi.':'Dieser Browser kann weder USB noch Bluetooth. Verbinden geht hier nur per TCP/WiFi (Bridge) – für USB/Bluetooth Chrome, Edge oder Opera nutzen (auf dem Handy: Chrome für Android).'}}
+renderStats();renderChat();buildRegions();renderDirInfo();setTimeout(()=>loadCatalog(),300);
+</script>
+</body>
+</html>
