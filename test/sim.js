@@ -16,7 +16,7 @@ const NODES=[
 ];
 const REP=NODES[0];
 const st={logged:{},queue:[],now:()=>Math.floor(Date.now()/1000),settings:{name:'SaarRepeater Völklingen',lat:'49.25',lon:'6.85','owner.info':'SaarMesh|mathias','tx':'22',repeat:'on','advert.interval':'120','flood.advert.interval':'12','flood.max':'64','guest.password':'gast',radio:'869.6179809,62.5,8,8'},
-  calls:[],telem:0,telemCount:0,aa:0x1e,aah:0,radio:[869618,62500,8,8],name:'Mathias Test',
+  calls:[],telem:0,telemCount:0,aa:0x1e,aah:0,radio:[869618,62500,8,8],lat:49250000,lon:6870000,locp:1,vars:{gps:'0'},varLog:[],name:'Mathias Test',
   regions:[{name:'*',parent:null,flood:true},{name:'saarlorlux',parent:'*',flood:true},{name:'saarland',parent:'saarlorlux',flood:true,home:true},{name:'lux',parent:'saarlorlux',flood:false}]};
 function regTree(){const out=[];const pr=(r,ind)=>{out.push(' '.repeat(ind)+r.name+(r.home?'^':'')+(r.flood?' F':''));st.regions.filter(x=>x.parent===r.name).forEach(x=>pr(x,ind+1))};pr(st.regions[0],0);return out.join('\n')}
 window.__sim=st;
@@ -36,8 +36,8 @@ class FakeWS{
     const tagOf=()=>(Math.random()*0xffffffff)>>>0;
     switch(c){
       case 22:return this.emit(W().u8(13).u8(8).u8(50).u8(8).u32(0).s('01-Jan-2026',12).s('Heltec V3',40).s('v1.13.0',20).u8(1).u8(0).out());
-      case 1:return this.emit(W().u8(5).u8(1).i8(22).u8(22).b(SELF).i32(49250000).i32(6870000).u8(0).u8(1).u8(st.telem).u8(0).u32(st.radio[0]).u32(st.radio[1]).u8(st.radio[2]).u8(st.radio[3]).s(st.name).out());
-      case 38:st.telem=f[2];return this.emit(ok);
+      case 1:return this.emit(W().u8(5).u8(1).i8(22).u8(22).b(SELF).i32(st.lat).i32(st.lon).u8(0).u8(st.locp).u8(st.telem).u8(0).u32(st.radio[0]).u32(st.radio[1]).u8(st.radio[2]).u8(st.radio[3]).s(st.name).out());
+      case 38:st.telem=f[2];if(f.length>3)st.locp=f[3];return this.emit(ok);
       case 39:{
         const lpp=(i)=>{st.telemCount++;const v=4.10-0.01*st.telemCount;const w=W().u8(1).u8(116).be16(Math.round(v*100)).u8(1).u8(103).be16(235+st.telemCount*3).u8(2).u8(104).u8(110).u8(2).u8(115).be16(10132);
           if(i==='gps'){const g=W().u8(3).u8(136);const e3=x=>{x=Math.round(x);g.u8((x>>16)&255).u8((x>>8)&255).u8(x&255)};e3(49.3*1e4);e3(6.9*1e4);e3(250*100);w.b(g.out())}return w.out()};
@@ -56,7 +56,9 @@ class FakeWS{
       case 9:{(st.paths||(st.paths={}))[hex(f.slice(1,33))]=[f[35],f.slice(36,100)];return this.emit(ok)}
       case 13:{if(st.paths)delete st.paths[hex(f.slice(1,33))];return this.emit(ok)}
       case 6:case 29:case 63:return this.emit(ok);
-      case 14:return this.emit(W().u8(0).out());
+      case 14:{const dv=new DataView(f.buffer,f.byteOffset);st.lat=dv.getInt32(1,true);st.lon=dv.getInt32(5,true);return this.emit(W().u8(0).out())}
+      case 40:return st.vars?this.emit(W().u8(21).s(Object.entries(st.vars).map(([k,v])=>k+':'+v).join(',')).out()):this.emit(W().u8(1).u8(1).out());
+      case 41:{const t=dec.decode(f.slice(1)),i=t.indexOf(':');st.varLog.push(t);if(st.vars&&t.slice(0,i) in st.vars)st.vars[t.slice(0,i)]=t.slice(i+1);return this.emit(W().u8(0).out())}
       case 8:st.name=dec.decode(f.slice(1));return this.emit(ok);
       case 11:{const dv=new DataView(f.buffer,f.byteOffset);st.radio=[dv.getUint32(1,true),dv.getUint32(5,true),f[9],f[10]];return this.emit(ok)}
       case 17:return this.emit(W().u8(11).u8(0x11).b(f.length>=33?f.slice(1,33):SELF).u32(st.now()).b(new Uint8Array(64)).u8(0x81).s(f.length>=33?'X':st.name).out());

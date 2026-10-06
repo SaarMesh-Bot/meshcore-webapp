@@ -371,11 +371,17 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
           <div class="card"><h3>Funk & Statistik <button class="sm" id="btnStats" disabled style="float:right">↻</button></h3><div class="kv" id="kvStats"></div></div>
           <div class="card"><h3>Einstellungen</h3>
             <div class="frm"><input id="setName" placeholder="Name"><button id="btnSetName" disabled>Name setzen</button></div>
-            <div class="frm"><input id="setLat" placeholder="Breite (49.23)"><input id="setLon" placeholder="Länge (6.99)"><button id="btnSetPos" disabled>Position</button></div>
             <div class="frm"><input id="setTx" type="number" placeholder="TX dBm" style="max-width:110px"><button id="btnSetTx" disabled>TX-Leistung</button></div>
-            <label class="frm"><input type="checkbox" id="setLocAdv" disabled> Standort in Adverts mitsenden</label>
             <label class="frm"><input type="checkbox" id="setAutoAdd" disabled> Neue Knoten automatisch als Kontakt speichern</label>
             <div id="aaBox"></div>
+          </div>
+          <div class="card"><h3>📍 Standort</h3>
+            <div class="kv" id="kvPos"></div>
+            <div class="frm"><label class="muted" for="posMode">Quelle</label><select id="posMode" disabled></select></div>
+            <div class="frm" id="posManual"><input id="setLat" placeholder="Breite (49.23)"><input id="setLon" placeholder="Länge (6.99)"><button id="btnSetPos" disabled>Setzen</button></div>
+            <div id="posOpts"></div>
+            <label class="frm"><input type="checkbox" id="setLocAdv" disabled> Standort in Adverts mitsenden</label>
+            <p class="muted" style="font-size:12px;margin-bottom:0">Fest: Koordinaten eintragen oder auf der Karte „📍 Eigene Position“ anklicken. GPS im Companion: das Gerät aktualisiert sich selbst. Vom Handy/Browser: die Webapp überträgt deinen aktuellen Standort, solange sie offen ist.</p>
           </div>
           <div class="card"><h3>App & Benachrichtigungen</h3>
             <div class="frm"><label class="muted" for="setNotify">Benachrichtigen bei</label><select id="setNotify"><option value="off">aus</option><option value="mention">Direktnachrichten &amp; @Erwähnungen</option><option value="all">allen Nachrichten</option></select></div>
@@ -777,6 +783,7 @@ async function connect(kind){
   await loadScope();
   await syncMessages();
   await loadAutoAdd();
+  await initPosition();
   refreshStats();fwCheck();maybeWizard();
   clearInterval(S.statTimer);S.statTimer=setInterval(refreshStats,30000);
   renderAll();
@@ -786,7 +793,7 @@ function onDisconnected(msg){
   if(S.tr){const tr=S.tr;S.tr=null;tr.close&&tr.close()}
   if(waiter)failWaiter(new Error('getrennt'));while(queue.length)queue.shift().rej(new Error('getrennt'));
   for(const s of ADM.sess.values())s.logged=false;
-  AA.cfg=null;
+  AA.cfg=null;stopWatch();clearInterval(GPS.timer);GPS.timer=null;
   const was=S.connected;S.connected=false;clearInterval(S.statTimer);setEnabled(false);updateHeader();
   if(was&&msg)toast(msg,'err');
 }
@@ -1587,7 +1594,7 @@ function renderDevice(){
   const s=S.self,d=S.dev,r=S.radio;const kv=a=>a.filter(x=>x[1]!=null&&x[1]!=='').map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('');
   $('#kvInfo').innerHTML=s?kv([['Name',esc(s.name)],['Verbindung',esc(S.tr?.label||'')],['Firmware',esc(d?.version||'v'+d?.fw)+(d?.build?' ('+esc(d.build)+')':'')+fwBadge(d?.version,'companion')],['Hardware',esc(d?.model)],['Public Key','<span class="mono" style="word-break:break-all">'+s.key+'</span>'],['Position',hasPos(s)?s.lat.toFixed(5)+', '+s.lon.toFixed(5):'nicht gesetzt'],['Kontakte',S.contacts.size+(d?.maxContacts?' / '+d.maxContacts:'')],['Kanäle',S.channels.length+(d?.maxChannels?' / '+d.maxChannels:'')]]):'<div class="muted">nicht verbunden</div><div></div>';
   $('#kvStats').innerHTML=s?kv([['Frequenz',s.freq.toFixed(3)+' MHz'],['Bandbreite',s.bw+' kHz'],['SF / CR','SF'+s.sf+' / 4:'+s.cr],['TX-Leistung',s.tx+' dBm (max '+s.maxTx+')'],['Batterie',r.batt?(r.batt/1000).toFixed(2)+' V':null],['Speicher',r.total?r.used+' / '+r.total+' kB':null],['Laufzeit',r.uptime!=null?dur(r.uptime):null],['Rauschpegel',r.noise!=null?r.noise+' dBm':null],['Letzt. RSSI/SNR',r.lastRssi!=null?r.lastRssi+' dBm / '+r.lastSnr.toFixed(1)+' dB':null],['Airtime TX / RX',r.txAir!=null?dur(r.txAir)+' / '+dur(r.rxAir):null],['Pakete RX / TX',r.recv!=null?r.recv+' / '+r.sent:null],['RX Flood / Direkt',r.rFlood!=null?r.rFlood+' / '+r.rDirect:null],['TX Flood / Direkt',r.sFlood!=null?r.sFlood+' / '+r.sDirect:null],['RX-Fehler',r.rErr]]):'';
-  renderAutoAdd();fwCheck();
+  renderAutoAdd();renderPos();fwCheck();
   const hm=d?.pathHashMode;
   $('#kvRegion').innerHTML=s?kv([['Region',S.scope==null?'<span class="muted">nicht unterstützt</span>':S.scope.name?'<b>#'+esc(S.scope.name)+'</b>':'keine (ungefiltert)'],['Pfad-Hash',hm!=null?(hm+1)+' Byte':'<span class="muted">unbekannt</span>'],['Erkannte Regionen',S.regions.length?S.regions.map(r=>'#'+esc(r.name)).join(', '):'–']]):'';
   if(s&&document.activeElement!==$('#setHashMode')&&hm!=null)$('#setHashMode').value=hm;
@@ -1603,6 +1610,8 @@ function updateHeader(){
 async function reloadSelf(){try{S.self=parseSelf(await request(bytes(CMD.APP_START,1,0,0,0,0,0,0,'SaarMesh Webapp')));updateHeader();renderDevice();renderMapSoon()}catch{}}
 async function setPosition(lat,lon){
   if(!(Math.abs(lat)<=90&&Math.abs(lon)<=180))return toast('Ungültige Koordinaten','err');
+  if(GPS.mode!=='manual'&&!confirm('Standort-Quelle ist „'+POS_MODES[GPS.mode]+'“ – eine feste Position würde gleich wieder überschrieben.\n\nQuelle auf „Fest eingestellt“ umstellen und Position setzen?'))return;
+  if(GPS.mode!=='manual'){await setPosMode('manual');if(GPS.mode!=='manual')return}
   try{await request(bytes(CMD.SET_LATLON,i32(Math.round(lat*1e6)),i32(Math.round(lon*1e6))));await reloadSelf();$('#setLat').value=lat.toFixed(5);$('#setLon').value=lon.toFixed(5);
     toast('Position gesetzt'+(S.self.locPolicy?' – mit dem nächsten Advert sichtbar':' – Hinweis: „Standort in Adverts mitsenden“ ist aus'),'ok')}catch(e){toast(e.message,'err')}
 }
@@ -2770,6 +2779,103 @@ $('#pathBar').addEventListener('click',e=>{const b=e.target.closest('button[data
   PE.picking=false;renderPathPick();pathLayer&&pathLayer.clearLayers();
   if(PE.back&&PE.back!=='map')switchTab(PE.back);
   if(a==='done'){$('#pathModal').hidden=false;renderPathEditor()}});
+
+// ================= Standort: fest, GPS im Companion oder vom Handy/Browser =================
+Object.assign(CMD,{GET_CUSTOM_VARS:40,SET_CUSTOM_VAR:41});EXPECT[40]=[21];
+const POS_MODES={manual:'Fest eingestellt',gps:'GPS im Companion',phone:'Vom Handy / Browser'};
+const GPS={vars:null,mode:'manual',watch:null,last:null,lastSent:null,lastSentT:0,lastAdvT:0,err:null,timer:null,
+  opt:Object.assign({exact:true,minMove:100,minInt:60,advert:'off',interval:60},store.get('mcw.posOpt',{})||{})};
+const posKey=()=>S.self?'mcw.posMode.'+S.self.key.slice(0,12):null;
+const hasGps=()=>!!(GPS.vars&&'gps' in GPS.vars);
+const gpsOn=()=>hasGps()&&GPS.vars.gps!=='0';
+async function loadCustomVars(){
+  try{const f=await request(bytes(CMD.GET_CUSTOM_VARS));const o={};
+    dec.decode(f.slice(1)).split(',').filter(Boolean).forEach(p=>{const i=p.indexOf(':');if(i>0)o[p.slice(0,i).trim()]=p.slice(i+1).trim()});GPS.vars=o}
+  catch{GPS.vars=null}
+}
+async function setCustomVar(name,val){await request(bytes(CMD.SET_CUSTOM_VAR,name+':'+val));if(GPS.vars&&name in GPS.vars)GPS.vars[name]=String(val)}
+// Nach dem Verbinden: gespeicherte Quelle wieder aufnehmen
+async function initPosition(){
+  await loadCustomVars();
+  let m=store.get(posKey(),null);
+  if(!m)m=gpsOn()?'gps':'manual';
+  if(m==='gps'&&!hasGps())m='manual';
+  GPS.mode=m;applyPosMode(false);renderPos();
+}
+async function setPosMode(m){
+  const prev=GPS.mode;
+  try{
+    if(m==='gps'){if(!hasGps())throw new Error('Dieser Companion hat kein GPS-Modul');if(!gpsOn())await setCustomVar('gps',1);await setCustomVar('gps_interval',GPS.opt.interval)}
+    else if(gpsOn()&&confirm('Das GPS im Companion ausschalten?\n\nSonst überschreibt es die Position '+(m==='phone'?'vom Handy':'die du einstellst')+' (und spart Strom).'))await setCustomVar('gps',0);
+    if(m==='phone'&&!('geolocation' in navigator))throw new Error('Dieser Browser kann keinen Standort liefern');
+    GPS.mode=m;store.set(posKey(),m);applyPosMode(true);
+    toast('Standort-Quelle: '+POS_MODES[m],'ok');
+  }catch(e){toast(e.message,'err');GPS.mode=prev}
+  renderPos();
+}
+function applyPosMode(fresh){
+  stopWatch();clearInterval(GPS.timer);GPS.timer=null;
+  if(!S.connected)return;
+  if(GPS.mode==='phone')startWatch(fresh);
+  else if(GPS.mode==='gps')GPS.timer=setInterval(()=>{if(S.connected)reloadSelf().then(renderPos)},60000);
+}
+function startWatch(fresh){
+  if(!('geolocation' in navigator))return;GPS.err=null;if(fresh){GPS.lastSent=null;GPS.lastSentT=0}
+  GPS.watch=navigator.geolocation.watchPosition(onGeo,e=>{GPS.err=e.code===1?'Standortfreigabe im Browser verweigert':e.message;renderPos()},{enableHighAccuracy:!!GPS.opt.exact,maximumAge:30000,timeout:60000});
+}
+function stopWatch(){if(GPS.watch!=null){navigator.geolocation.clearWatch(GPS.watch);GPS.watch=null}}
+const roundPos=v=>GPS.opt.exact?Math.round(v*1e5)/1e5:Math.round(v*100)/100;
+async function onGeo(p,force){
+  const c=p.coords;GPS.last={lat:c.latitude,lon:c.longitude,acc:c.accuracy,t:Date.now()};GPS.err=null;
+  if(!S.connected||(GPS.mode!=='phone'&&!force)){renderPos();return}
+  if(GPS.opt.exact&&c.accuracy>1500&&!force){renderPos();return} // zu ungenau (z. B. nur WLAN-Ortung)
+  const lat=roundPos(c.latitude),lon=roundPos(c.longitude),ls=GPS.lastSent;
+  const moved=ls?hav(ls.lat,ls.lon,lat,lon)*1000:Infinity,since=Date.now()-GPS.lastSentT;
+  if(!force&&(moved<(GPS.opt.exact?GPS.opt.minMove:Math.max(GPS.opt.minMove,500))||since<GPS.opt.minInt*1000)){renderPos();return}
+  try{
+    await request(bytes(CMD.SET_LATLON,i32(Math.round(lat*1e6)),i32(Math.round(lon*1e6))));
+    GPS.lastSent={lat,lon};GPS.lastSentT=Date.now();await reloadSelf();renderMapSoon();
+    const adv=GPS.opt.advert;
+    if(adv!=='off'&&ls&&Date.now()-GPS.lastAdvT>=(adv==='flood'?30:10)*60000){GPS.lastAdvT=Date.now();try{await request(bytes(CMD.SELF_ADVERT,adv==='flood'?1:0))}catch{}}
+    if(force)toast('Position übernommen ('+lat.toFixed(4)+', '+lon.toFixed(4)+')','ok');
+  }catch(e){GPS.err='Position setzen: '+e.message}
+  renderPos();
+}
+function posNow(){
+  if(!('geolocation' in navigator))return toast('Dieser Browser kann keinen Standort liefern','err');
+  navigator.geolocation.getCurrentPosition(p=>onGeo(p,true),e=>toast('Standort: '+(e.code===1?'Freigabe verweigert':e.message),'err'),{enableHighAccuracy:true,timeout:20000,maximumAge:10000});
+}
+function renderPos(){
+  const el=$('#posOpts');if(!el)return;const s=S.self,on=S.connected&&!!s;
+  const sel=$('#posMode');
+  sel.innerHTML=Object.entries(POS_MODES).map(([k,l])=>`<option value="${k}"${k==='gps'&&!hasGps()?' disabled':''}>${l}${k==='gps'&&!hasGps()&&on?' (kein GPS-Modul)':''}</option>`).join('');
+  sel.value=GPS.mode;sel.disabled=!on;
+  $('#posManual').style.display=GPS.mode==='manual'?'':'none';
+  $('#kvPos').innerHTML=on?kvRows([['Position',hasPos(s)?`${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}`:'<span class="muted">nicht gesetzt</span>'],
+    ['Quelle',esc(POS_MODES[GPS.mode])],['GPS-Modul',GPS.vars==null?'<span class="muted">unbekannt</span>':hasGps()?(gpsOn()?'<span class="snr-g">an</span>':'aus'):'nicht vorhanden'],
+    ['In Adverts',s.locPolicy?'<span class="snr-g">wird mitgesendet</span>':'<span class="snr-y">nicht mitgesendet</span>']]):'<div class="muted">nicht verbunden</div><div></div>';
+  let h='';const o=GPS.opt;
+  if(GPS.mode==='gps'&&on){
+    h=`<div class="frm"><label class="muted" for="gpsInt">GPS-Abfrage</label><select id="gpsInt">${[[10,'alle 10 s'],[30,'alle 30 s'],[60,'jede Minute'],[300,'alle 5 min'],[900,'alle 15 min']].map(([v,l])=>`<option value="${v}"${v==o.interval?' selected':''}>${l}</option>`).join('')}</select><button class="sm" data-pos="reload">↻ Position lesen</button></div>
+      <p class="muted" style="font-size:12px">Der Companion übernimmt seine Position selbst vom GPS-Modul – auch ohne Webapp. Seltener abfragen spart Strom.</p>`;
+  }else if(GPS.mode==='phone'&&on){
+    const l=GPS.last;
+    h=`<div class="frm"><label style="display:flex;gap:5px;align-items:center;font-size:13px"><input type="checkbox" id="posExact"${o.exact?' checked':''}> genau</label><span class="muted" style="font-size:12px">${o.exact?'GPS-genau':'auf ca. 1 km gerundet'}</span></div>
+      <div class="frm"><label class="muted" for="posMove">Übernehmen ab</label><select id="posMove">${[[25,'25 m'],[100,'100 m'],[500,'500 m'],[2000,'2 km']].map(([v,t])=>`<option value="${v}"${v==o.minMove?' selected':''}>${t}</option>`).join('')}</select>
+        <label class="muted" for="posInt">höchstens</label><select id="posInt">${[[30,'alle 30 s'],[60,'jede Minute'],[300,'alle 5 min'],[900,'alle 15 min']].map(([v,t])=>`<option value="${v}"${v==o.minInt?' selected':''}>${t}</option>`).join('')}</select></div>
+      <div class="frm"><label class="muted" for="posAdv">Danach Advert</label><select id="posAdv">${[['off','nein'],['zero','Zero-Hop (max. alle 10 min)'],['flood','Flood (max. alle 30 min)']].map(([v,t])=>`<option value="${v}"${v===o.advert?' selected':''}>${t}</option>`).join('')}</select><button class="sm" data-pos="now">📍 Jetzt übernehmen</button></div>
+      <div class="muted" style="font-size:12px">${GPS.err?`<span class="snr-r">${esc(GPS.err)}</span>`:l?`Browser-Standort ±${Math.round(l.acc)} m, ${ago(l.t)} alt`+(GPS.lastSentT?` · zuletzt übernommen vor ${ago(GPS.lastSentT)}`:''):'Warte auf Standort vom Browser …'}</div>
+      <p class="muted" style="font-size:12px">Läuft, solange die Webapp offen ist (auf dem Handy im Vordergrund). Die Position wird nur ins Gerät geschrieben – sichtbar für andere erst mit dem nächsten Advert.</p>`;
+  }
+  el.innerHTML=h;
+}
+$('#posMode').onchange=e=>setPosMode(e.target.value);
+$('#posOpts').addEventListener('change',async e=>{const t=e.target,o=GPS.opt;
+  if(t.id==='gpsInt'){o.interval=+t.value;try{await setCustomVar('gps_interval',o.interval);toast('GPS-Abfrage gespeichert','ok')}catch(err){toast(err.message,'err')}}
+  else if(t.id==='posExact'){o.exact=t.checked;if(GPS.mode==='phone'){stopWatch();startWatch(true)}}
+  else if(t.id==='posMove')o.minMove=+t.value;else if(t.id==='posInt')o.minInt=+t.value;else if(t.id==='posAdv')o.advert=t.value;
+  store.set('mcw.posOpt',o);renderPos()});
+$('#posOpts').addEventListener('click',e=>{const b=e.target.closest('button[data-pos]');if(!b)return;if(b.dataset.pos==='now')posNow();else reloadSelf().then(renderPos)});
 
 // ================= Events =================
 PT.forEach(t=>{if(!/^T1/.test(t)){const o=document.createElement('option');o.textContent=t;$('#fType').appendChild(o)}});
