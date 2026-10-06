@@ -675,7 +675,10 @@ class BleTransport{
     for(let i=0;i<3;i++){
       try{
         if(i)toast('Bluetooth: neuer Verbindungsversuch '+(i+1)+'/3 …');
-        const srv=this.dev.gatt.connected?this.dev.gatt:await this.dev.gatt.connect();
+        let srv=this.dev.gatt;if(!srv.connected){srv=await this.dev.gatt.connect();
+            // Android: erst die gespeicherte Kopplung die Verbindung verschlüsseln lassen. Wer sofort auf die
+            // geschützten Kanäle zugreift, löst sonst eine neue PIN-Kopplung aus (bekannter Android-Wettlauf).
+            if(/Android/i.test(navigator.userAgent)){await new Promise(r=>setTimeout(r,1500));if(!srv.connected)srv=await this.dev.gatt.connect()}}
         const svc=await srv.getPrimaryService(NUS);
         this.rx=await svc.getCharacteristic(NUS_RX);this.tx=await svc.getCharacteristic(NUS_TX);
         if(!this.onChar){this.onChar=e=>{const v=e.target.value;try{this.onFrame(new Uint8Array(v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)))}catch(err){console.error(err)}}}
