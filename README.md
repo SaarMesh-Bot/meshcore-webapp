@@ -6,6 +6,16 @@ Browser-App für **MeshCore-Companions** per **USB** (Web Serial), **Bluetooth L
 
 [![Unterstützen auf Ko-fi](https://img.shields.io/badge/Ko--fi-SaarMesh_unterst%C3%BCtzen-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/saarmesh)
 
+**Dein Companion im Browser:** Seite öffnen, per USB, Bluetooth oder WLAN verbinden, loslegen. Kein Konto, kein Server dazwischen. Auf Wunsch als App aufs Handy oder den Desktop installieren, sie startet dann auch offline.
+
+Chatten mit Zustellbestätigung, @Erwähnungen und Benachrichtigungen pro Chat. Jedes empfangene Paket live mit Route, Hops und SNR. Eine Karte mit allen Knoten und Nachbar-Linien nach Signalqualität. Repeater-Verwaltung mit Terminal, Telemetrie mit Verlauf, Trace-Route und öffentliche Kanäle, die die Webapp selbst im Funkverkehr entdeckt.
+
+### Was ist anders als bei der offiziellen MeshCore-App?
+
+Die offizielle MeshCore-App ist ein Messenger. Die SaarMesh-Webapp ist zusätzlich ein **Werkzeugkasten fürs Netz**: Sie zeigt, was im Mesh tatsächlich passiert – rohe Pakete, Pfade, Signalwerte, entdeckte Kanäle und Regionen – und Repeater-Betreiber verwalten ihre Knoten an einem Ort. Sie ist **komplett quelloffen (MIT)**, auf Deutsch, eine einzige HTML-Datei und wird von der SaarMesh-Community laufend weiterentwickelt.
+
+Sie ersetzt die offizielle App nicht, sondern ergänzt sie: Kanäle und Kontakte lassen sich per QR-Code im Format der offiziellen App austauschen.
+
 ## Funktionen
 
 - **Live-Traffic** – alle empfangenen Pakete mit Typ, Route, Hop-Pfad (inkl. Pfad-Hash-Größe 1/2/3 Byte), SNR/RSSI, Region; Filter, Detailansicht mit Rohdaten, CSV/JSON-Export, Pakete/Minute; gleiche Pakete nach Hash gruppieren (wie oft und über welche Wege empfangen)
