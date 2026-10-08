@@ -97,6 +97,12 @@ canvas#spark{height:34px;width:240px}
 .msg .txt a{color:var(--accent2);text-decoration:underline;text-underline-offset:2px;word-break:break-all}.msg .txt a.chlink{text-decoration:none;font-weight:600;word-break:normal}.msg .txt a.chlink:hover{text-decoration:underline}
 .msg .st{font-size:11px;color:var(--muted);margin-top:3px;text-align:right}
 .rbtn{padding:0 6px;font-size:11px;line-height:16px;margin-left:4px;opacity:.6}.msg:hover .rbtn{opacity:1}
+.hoplink{color:inherit;text-decoration:underline dotted;text-underline-offset:2px}.hoplink:hover{color:var(--accent2)}
+.mpath{margin-top:6px;padding:6px 8px;border-top:1px dashed var(--border);font-size:12px}
+.mpath .chain{display:flex;flex-wrap:wrap;gap:3px 4px;align-items:center;margin:2px 0}.mpath .arr{color:var(--muted)}
+.mpath .hop{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:0 5px;white-space:nowrap}.mpath .hop.known{border-color:var(--accent)}.mpath .hop.amb{border-style:dashed}
+.mpath .hop.src{border-color:var(--accent2);font-weight:600}.mpath .hop.me{font-weight:600}.mpath .hop .mono{font-size:10px;color:var(--muted)}.mpath .hop a{color:inherit}
+.mpath .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .msg .st.ok{color:var(--accent)}.msg .st.fail{color:var(--warn)}
 .compose{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border);background:var(--panel);align-items:center}
 .compose input{flex:1}
@@ -167,6 +173,8 @@ table.dash td{white-space:nowrap}table.dash tbody tr{cursor:pointer}
 #btnInstall[hidden]{display:none}
 .citem .mute{opacity:.6}
 a{color:var(--accent2)}
+button.echo{background:none;border:none;padding:0 2px;font-size:11px;color:var(--accent);cursor:pointer;font-weight:600}button.echo:hover{text-decoration:underline}
+.echolist{text-align:left;font-size:12px;margin-top:4px;padding-top:4px;border-top:1px solid var(--border);line-height:1.5}
 .hops{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:8px 0;font-size:13px}.hops .arr{color:var(--muted)}
 .hop{display:inline-flex;gap:4px;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:2px 4px 2px 9px}.hop.me{padding:2px 9px;color:var(--muted)}.hop button{padding:0 5px;line-height:16px;border-radius:10px}
 .pathbar{position:absolute;top:10px;left:56px;right:10px;z-index:700;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;background:var(--panel);border:2px solid #bf3989;border-radius:8px;padding:7px 10px;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,.3)}.pathbar[hidden]{display:none}
@@ -371,11 +379,17 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
           <div class="card"><h3>Funk & Statistik <button class="sm" id="btnStats" disabled style="float:right">↻</button></h3><div class="kv" id="kvStats"></div></div>
           <div class="card"><h3>Einstellungen</h3>
             <div class="frm"><input id="setName" placeholder="Name"><button id="btnSetName" disabled>Name setzen</button></div>
-            <div class="frm"><input id="setLat" placeholder="Breite (49.23)"><input id="setLon" placeholder="Länge (6.99)"><button id="btnSetPos" disabled>Position</button></div>
             <div class="frm"><input id="setTx" type="number" placeholder="TX dBm" style="max-width:110px"><button id="btnSetTx" disabled>TX-Leistung</button></div>
-            <label class="frm"><input type="checkbox" id="setLocAdv" disabled> Standort in Adverts mitsenden</label>
             <label class="frm"><input type="checkbox" id="setAutoAdd" disabled> Neue Knoten automatisch als Kontakt speichern</label>
             <div id="aaBox"></div>
+          </div>
+          <div class="card"><h3>📍 Standort</h3>
+            <div class="kv" id="kvPos"></div>
+            <div class="frm"><label class="muted" for="posMode">Quelle</label><select id="posMode" disabled></select></div>
+            <div class="frm" id="posManual"><input id="setLat" placeholder="Breite (49.23)"><input id="setLon" placeholder="Länge (6.99)"><button id="btnSetPos" disabled>Setzen</button></div>
+            <div id="posOpts"></div>
+            <label class="frm"><input type="checkbox" id="setLocAdv" disabled> Standort in Adverts mitsenden</label>
+            <p class="muted" style="font-size:12px;margin-bottom:0">Fest: Koordinaten eintragen oder auf der Karte „📍 Eigene Position“ anklicken. GPS im Companion: das Gerät aktualisiert sich selbst. Vom Handy/Browser: die Webapp überträgt deinen aktuellen Standort, solange sie offen ist.</p>
           </div>
           <div class="card"><h3>App & Benachrichtigungen</h3>
             <div class="frm"><label class="muted" for="setNotify">Benachrichtigen bei</label><select id="setNotify"><option value="off">aus</option><option value="mention">Direktnachrichten &amp; @Erwähnungen</option><option value="all">allen Nachrichten</option></select></div>
@@ -667,7 +681,10 @@ class BleTransport{
     for(let i=0;i<3;i++){
       try{
         if(i)toast('Bluetooth: neuer Verbindungsversuch '+(i+1)+'/3 …');
-        const srv=this.dev.gatt.connected?this.dev.gatt:await this.dev.gatt.connect();
+        let srv=this.dev.gatt;if(!srv.connected){srv=await this.dev.gatt.connect();
+            // Android: erst die gespeicherte Kopplung die Verbindung verschlüsseln lassen. Wer sofort auf die
+            // geschützten Kanäle zugreift, löst sonst eine neue PIN-Kopplung aus (bekannter Android-Wettlauf).
+            if(/Android/i.test(navigator.userAgent)){await new Promise(r=>setTimeout(r,1500));if(!srv.connected)srv=await this.dev.gatt.connect()}}
         const svc=await srv.getPrimaryService(NUS);
         this.rx=await svc.getCharacteristic(NUS_RX);this.tx=await svc.getCharacteristic(NUS_TX);
         if(!this.onChar){this.onChar=e=>{const v=e.target.value;try{this.onFrame(new Uint8Array(v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)))}catch(err){console.error(err)}}}
@@ -792,6 +809,7 @@ async function connect(kind){
   await loadScope();
   await syncMessages();
   await loadAutoAdd();
+  await initPosition();
   refreshStats();fwCheck();maybeWizard();
   clearInterval(S.statTimer);S.statTimer=setInterval(refreshStats,30000);
   renderAll();
@@ -801,7 +819,7 @@ function onDisconnected(msg){
   if(S.tr){const tr=S.tr;S.tr=null;tr.close&&tr.close()}
   if(waiter)failWaiter(new Error('getrennt'));while(queue.length)queue.shift().rej(new Error('getrennt'));
   for(const s of ADM.sess.values())s.logged=false;
-  AA.cfg=null;
+  AA.cfg=null;stopWatch();clearInterval(GPS.timer);GPS.timer=null;
   const was=S.connected;S.connected=false;clearInterval(S.statTimer);setEnabled(false);updateHeader();
   if(was&&msg)toast(msg,'err');
 }
@@ -883,7 +901,7 @@ function findRxPacket(types,pl,snr,check){
 }
 function linkPacket(m,p,pl){
   if(pl!==0xFF){m.hashBytes=(pl>>6)+1}
-  if(!p)return;m.matched=true;
+  if(!p)return;m.matched=true;m.path=p.path.slice();m.phash=p.phash;m.pathHs=p.hs;
   if(!p.tc){m.region='-';return}
   m.regionCode=p.tc[0].toString(16).padStart(4,'0');
   if(p.region){m.region=p.region;m.regionGuess=p.regionGuess}else p.onRegion=()=>{m.region=p.region;m.regionGuess=p.regionGuess;scheduleSave();renderSoon()};
@@ -935,7 +953,7 @@ async function sendDirect(conv,m){
   const prefix=unhex(conv.slice(2));m.status='sending';renderSoon();
   try{await applyScope('')}catch{}
   try{const f=await request(bytes(CMD.SEND_TXT,0,m.attempt||0,u32(Math.floor(m.ts/1000)),prefix,m.text));
-    const r=new R(f);r.u8();m.flood=!!r.u8();m.ack=r.u32();const est=r.u32();m.status='sent';
+    const r=new R(f);r.u8();m.flood=!!r.u8();m.ack=r.u32();const est=r.u32();m.status='sent';m.sentT=Date.now();
     S.acks.set(m.ack,m);
     setTimeout(()=>{if(m.status==='sent'){m.status='noack';renderSoon();scheduleSave()}},Math.max(est*1.5,8000));
   }catch(e){m.status='fail';m.err=e.message}
@@ -1140,7 +1158,7 @@ function noteDiscovered(c,p){
   const k=hex(c.secret);const d=S.disc[k]||(S.disc[k]={name:c.name,secret:k,count:0,first:Date.now()});
   d.count++;d.last=Date.now();
   addMsg('dc:'+k,{dir:'in',from:p.dec.from||'?',text:p.dec.text||'',ts:p.dec.ts*1000,rx:Date.now(),snr:p.snr,hops:p.route===1||p.route===0?p.hopCount:'direkt',
-    hashBytes:p.hs,region:p.region||(p.tc?null:'-'),regionGuess:p.regionGuess,regionCode:p.tc?p.tc[0].toString(16).padStart(4,'0'):null});
+    hashBytes:p.hs,path:p.path.slice(),phash:p.phash,region:p.region||(p.tc?null:'-'),regionGuess:p.regionGuess,regionCode:p.tc?p.tc[0].toString(16).padStart(4,'0'):null});
   store.set('mcw.disc',S.disc);
 }
 async function addChannelToDevice(name,secret){
@@ -1323,6 +1341,7 @@ function onRawPacket(raw,snr,rssi){
   }
   if(p.tc)matchRegion(p);
   if(p.ptype===5||p.ptype===6)decryptGroup(p);
+  try{noteEcho(p)}catch(e){console.warn('Echo',e)}
   S.packets.push(p);if(S.packets.length>MAX_PKTS)S.packets.splice(0,S.packets.length-MAX_PKTS);
   if(!S.paused&&passFilter(p))prependRow(p);
   renderStatsSoon();
@@ -1461,13 +1480,38 @@ function renderConv(){
   const arr=S.msgs[conv]||[];
   const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<60;
   box.innerHTML=arr.length?arr.map(m=>{
-    const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(m.hops==='direkt'?'direkt':m.hops+' Hops'):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
-    let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?'✓ gesendet'+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
-      if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`}
-    return `<div class="msg ${m.dir}${m.dir==='in'&&(m.mention??isMention(m))?' mention':''}" data-mid="${esc(m.id||'')}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
+    const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(Array.isArray(m.path)?`<a href="#" class="hoplink" data-path="${esc(m.id)}" title="Empfangsweg anzeigen">${m.hops==='direkt'?'direkt':m.hops+' Hops'} ${m._showPath?'▴':'▾'}</a>`:(m.hops==='direkt'?'direkt':m.hops+' Hops')):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
+    let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?(m.echo&&m.echo.length?'':'✓ gesendet')+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
+      if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`;
+      if(m.status!=='fail')st+=echoHtml(m)}
+    return `<div class="msg ${m.dir}${m.dir==='in'&&(m.mention??isMention(m))?' mention':''}" data-mid="${esc(m.id||'')}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${m._showPath?msgPathHtml(conv,m):''}${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
   if(S.jump){const el=[...box.querySelectorAll('.msg')].find(x=>x.dataset.mid===S.jump);S.jump=null;if(el){el.scrollIntoView({block:'center'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),2100)}}
   else if(atBottom||arr.length<30)box.scrollTop=box.scrollHeight;
   updateCompose();
+}
+// Empfangsweg einer eingehenden Nachricht: Absender → Repeater … → ich
+function msgSender(conv,m){
+  if(conv.startsWith('c:')){const c=findContactByPrefix(conv.slice(2));const n=c&&S.nodes.get(c.key);return n||c||null}
+  const l=[...S.nodes.values()].filter(n=>n.name===m.from);return l.length===1?l[0]:l.find(hasPos)||null;
+}
+function hopChip(h){const l=nodesByHash(h),n=l.length===1?l[0]:null;
+  return `<span class="hop${l.length?' known':''}${l.length>1?' amb':''}" title="${esc(l.length?l.map(x=>x.name+' ('+x.key.slice(0,8)+')').join('\n'):'unbekannter Repeater')}">${n?`<a href="#" class="nlink" data-node="${n.key}">${esc(n.name)}</a>`:l.length>1?esc(l.length+' Kandidaten'):'?'} <span class="mono">${h}</span></span>`}
+function pathChain(from,hops){const arr='<span class="arr">→</span>';
+  return `<span class="hop src">${esc(from||'?')}</span>${arr}${hops.length?hops.map(hopChip).join(arr)+arr:''}<span class="hop me">ich</span>`}
+function msgPkts(m){return m.phash?S.packets.filter(p=>p.phash===m.phash):[]}
+function msgPathHtml(conv,m){
+  const hops=m.path||[],key=hops.join('>');
+  const alt=[];const seen=new Set([key]);for(const p of msgPkts(m)){const k=p.path.join('>');if(!seen.has(k)){seen.add(k);alt.push(p)}}
+  let h=`<div class="mpath"><div class="chain">${pathChain(m.from,hops)}</div>`;
+  if(!hops.length)h+=`<div class="muted">Ohne Repeater – direkt vom Absender gehört.</div>`;
+  if(alt.length)h+=`<div class="muted" style="margin-top:4px">Auch gehört über:</div>`+alt.map(p=>`<div class="chain">${pathChain(m.from,p.path)} <span class="mono ${snrCls(p.snr)}">${p.snr.toFixed(1)} dB</span> <button class="sm rbtn" data-pmap="${m.id}" data-alt="${p.id}" title="Diesen Weg auf der Karte">🗺</button></div>`).join('');
+  const pk=msgPkts(m)[0];
+  h+=`<div class="acts">${hops.length?`<button class="sm" data-pmap="${m.id}">🗺 Auf Karte</button>`:''}${pk?`<button class="sm" data-ppkt="${pk.id}">📦 Paket im Live-Traffic</button>`:''}${m.phash&&csPkt(m.phash)?`<a class="btnlink" href="${esc(csPkt(m.phash))}" target="_blank" rel="noopener">🔎 In CoreScope</a>`:''}</div></div>`;
+  return h;
+}
+function showMsgPathOnMap(m,hops){
+  const s=msgSender(S.active,m);
+  showHopsOnMap(hops,s&&hasPos(s)?{lat:s.lat,lon:s.lon,label:'Absender: '+(s.name||m.from)}:null);
 }
 function replyBtns(conv,m){
   if(m.dir!=='in')return '';
@@ -1546,11 +1590,15 @@ function renderMap(){
 }
 function fitAll(){if(!map)return;const pts=[...markers.values()].map(m=>m.getLatLng());if(selfMarker)pts.push(selfMarker.getLatLng());if(pts.length)map.fitBounds(L.latLngBounds(pts).pad(.15),{maxZoom:13})}
 function showPathOnMap(id){
-  const p=S.packets.find(x=>x.id===id);if(!p)return;switchTab('map');
+  const p=S.packets.find(x=>x.id===id);if(!p)return;
+  showHopsOnMap(p.path,p.ptype===4&&hasPos(p.dec)?{lat:p.dec.lat,lon:p.dec.lon,label:'Start: '+(p.dec.name||'?')}:null);
+}
+function showHopsOnMap(path,start){
+  switchTab('map');
   setTimeout(()=>{
     pathLayer.clearLayers();const pts=[],labels=[];let unres=0;
-    if(p.ptype===4&&hasPos(p.dec)){pts.push([p.dec.lat,p.dec.lon]);labels.push('Start: '+(p.dec.name||'?'))}
-    p.path.forEach((h,i)=>{const l=nodesByHash(h).filter(hasPos);let n=null;
+    if(start){pts.push([start.lat,start.lon]);labels.push(start.label)}
+    path.forEach((h,i)=>{const l=nodesByHash(h).filter(hasPos);let n=null;
       if(l.length===1)n=l[0];else if(l.length>1&&pts.length){const last=pts[pts.length-1];n=l.sort((a,b)=>hav(last[0],last[1],a.lat,a.lon)-hav(last[0],last[1],b.lat,b.lon))[0]}
       if(n){pts.push([n.lat,n.lon]);labels.push(`Hop ${i+1}: ${n.name} (${h})${l.length>1?' – mehrdeutig':''}`)}else unres++});
     if(hasPos(S.self)){pts.push([S.self.lat,S.self.lon]);labels.push('Empfänger (ich)')}
@@ -1602,7 +1650,7 @@ function renderDevice(){
   const s=S.self,d=S.dev,r=S.radio;const kv=a=>a.filter(x=>x[1]!=null&&x[1]!=='').map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('');
   $('#kvInfo').innerHTML=s?kv([['Name',esc(s.name)],['Verbindung',esc(S.tr?.label||'')],['Firmware',esc(d?.version||'v'+d?.fw)+(d?.build?' ('+esc(d.build)+')':'')+fwBadge(d?.version,'companion')],['Hardware',esc(d?.model)],['Public Key','<span class="mono" style="word-break:break-all">'+s.key+'</span>'],['Position',hasPos(s)?s.lat.toFixed(5)+', '+s.lon.toFixed(5):'nicht gesetzt'],['Kontakte',S.contacts.size+(d?.maxContacts?' / '+d.maxContacts:'')],['Kanäle',S.channels.length+(d?.maxChannels?' / '+d.maxChannels:'')]]):'<div class="muted">nicht verbunden</div><div></div>';
   $('#kvStats').innerHTML=s?kv([['Frequenz',s.freq.toFixed(3)+' MHz'],['Bandbreite',s.bw+' kHz'],['SF / CR','SF'+s.sf+' / 4:'+s.cr],['TX-Leistung',s.tx+' dBm (max '+s.maxTx+')'],['Batterie',r.batt?(r.batt/1000).toFixed(2)+' V':null],['Speicher',r.total?r.used+' / '+r.total+' kB':null],['Laufzeit',r.uptime!=null?dur(r.uptime):null],['Rauschpegel',r.noise!=null?r.noise+' dBm':null],['Letzt. RSSI/SNR',r.lastRssi!=null?r.lastRssi+' dBm / '+r.lastSnr.toFixed(1)+' dB':null],['Airtime TX / RX',r.txAir!=null?dur(r.txAir)+' / '+dur(r.rxAir):null],['Pakete RX / TX',r.recv!=null?r.recv+' / '+r.sent:null],['RX Flood / Direkt',r.rFlood!=null?r.rFlood+' / '+r.rDirect:null],['TX Flood / Direkt',r.sFlood!=null?r.sFlood+' / '+r.sDirect:null],['RX-Fehler',r.rErr]]):'';
-  renderAutoAdd();fwCheck();
+  renderAutoAdd();renderPos();fwCheck();
   const hm=d?.pathHashMode;
   $('#kvRegion').innerHTML=s?kv([['Region',S.scope==null?'<span class="muted">nicht unterstützt</span>':S.scope.name?'<b>#'+esc(S.scope.name)+'</b>':'keine (ungefiltert)'],['Pfad-Hash',hm!=null?(hm+1)+' Byte':'<span class="muted">unbekannt</span>'],['Erkannte Regionen',S.regions.length?S.regions.map(r=>'#'+esc(r.name)).join(', '):'–']]):'';
   if(s&&document.activeElement!==$('#setHashMode')&&hm!=null)$('#setHashMode').value=hm;
@@ -1618,6 +1666,8 @@ function updateHeader(){
 async function reloadSelf(){try{S.self=parseSelf(await request(bytes(CMD.APP_START,1,0,0,0,0,0,0,'SaarMesh Webapp')));updateHeader();renderDevice();renderMapSoon()}catch{}}
 async function setPosition(lat,lon){
   if(!(Math.abs(lat)<=90&&Math.abs(lon)<=180))return toast('Ungültige Koordinaten','err');
+  if(GPS.mode!=='manual'&&!confirm('Standort-Quelle ist „'+POS_MODES[GPS.mode]+'“ – eine feste Position würde gleich wieder überschrieben.\n\nQuelle auf „Fest eingestellt“ umstellen und Position setzen?'))return;
+  if(GPS.mode!=='manual'){await setPosMode('manual');if(GPS.mode!=='manual')return}
   try{await request(bytes(CMD.SET_LATLON,i32(Math.round(lat*1e6)),i32(Math.round(lon*1e6))));await reloadSelf();$('#setLat').value=lat.toFixed(5);$('#setLon').value=lon.toFixed(5);
     toast('Position gesetzt'+(S.self.locPolicy?' – mit dem nächsten Advert sichtbar':' – Hinweis: „Standort in Adverts mitsenden“ ist aus'),'ok')}catch(e){toast(e.message,'err')}
 }
@@ -2786,6 +2836,129 @@ $('#pathBar').addEventListener('click',e=>{const b=e.target.closest('button[data
   if(PE.back&&PE.back!=='map')switchTab(PE.back);
   if(a==='done'){$('#pathModal').hidden=false;renderPathEditor()}});
 
+// ================= Standort: fest, GPS im Companion oder vom Handy/Browser =================
+Object.assign(CMD,{GET_CUSTOM_VARS:40,SET_CUSTOM_VAR:41});EXPECT[40]=[21];
+const POS_MODES={manual:'Fest eingestellt',gps:'GPS im Companion',phone:'Vom Handy / Browser'};
+const GPS={vars:null,mode:'manual',watch:null,last:null,lastSent:null,lastSentT:0,lastAdvT:0,err:null,timer:null,
+  opt:Object.assign({exact:true,minMove:100,minInt:60,advert:'off',interval:60},store.get('mcw.posOpt',{})||{})};
+const posKey=()=>S.self?'mcw.posMode.'+S.self.key.slice(0,12):null;
+const hasGps=()=>!!(GPS.vars&&'gps' in GPS.vars);
+const gpsOn=()=>hasGps()&&GPS.vars.gps!=='0';
+async function loadCustomVars(){
+  try{const f=await request(bytes(CMD.GET_CUSTOM_VARS));const o={};
+    dec.decode(f.slice(1)).split(',').filter(Boolean).forEach(p=>{const i=p.indexOf(':');if(i>0)o[p.slice(0,i).trim()]=p.slice(i+1).trim()});GPS.vars=o}
+  catch{GPS.vars=null}
+}
+async function setCustomVar(name,val){await request(bytes(CMD.SET_CUSTOM_VAR,name+':'+val));if(GPS.vars&&name in GPS.vars)GPS.vars[name]=String(val)}
+// Nach dem Verbinden: gespeicherte Quelle wieder aufnehmen
+async function initPosition(){
+  await loadCustomVars();
+  let m=store.get(posKey(),null);
+  if(!m)m=gpsOn()?'gps':'manual';
+  if(m==='gps'&&!hasGps())m='manual';
+  GPS.mode=m;applyPosMode(false);renderPos();
+}
+async function setPosMode(m){
+  const prev=GPS.mode;
+  try{
+    if(m==='gps'){if(!hasGps())throw new Error('Dieser Companion hat kein GPS-Modul');if(!gpsOn())await setCustomVar('gps',1);await setCustomVar('gps_interval',GPS.opt.interval)}
+    else if(gpsOn()&&confirm('Das GPS im Companion ausschalten?\n\nSonst überschreibt es die Position '+(m==='phone'?'vom Handy':'die du einstellst')+' (und spart Strom).'))await setCustomVar('gps',0);
+    if(m==='phone'&&!('geolocation' in navigator))throw new Error('Dieser Browser kann keinen Standort liefern');
+    GPS.mode=m;store.set(posKey(),m);applyPosMode(true);
+    toast('Standort-Quelle: '+POS_MODES[m],'ok');
+  }catch(e){toast(e.message,'err');GPS.mode=prev}
+  renderPos();
+}
+function applyPosMode(fresh){
+  stopWatch();clearInterval(GPS.timer);GPS.timer=null;
+  if(!S.connected)return;
+  if(GPS.mode==='phone')startWatch(fresh);
+  else if(GPS.mode==='gps')GPS.timer=setInterval(()=>{if(S.connected)reloadSelf().then(renderPos)},60000);
+}
+function startWatch(fresh){
+  if(!('geolocation' in navigator))return;GPS.err=null;if(fresh){GPS.lastSent=null;GPS.lastSentT=0}
+  GPS.watch=navigator.geolocation.watchPosition(onGeo,e=>{GPS.err=e.code===1?'Standortfreigabe im Browser verweigert':e.message;renderPos()},{enableHighAccuracy:!!GPS.opt.exact,maximumAge:30000,timeout:60000});
+}
+function stopWatch(){if(GPS.watch!=null){navigator.geolocation.clearWatch(GPS.watch);GPS.watch=null}}
+const roundPos=v=>GPS.opt.exact?Math.round(v*1e5)/1e5:Math.round(v*100)/100;
+async function onGeo(p,force){
+  const c=p.coords;GPS.last={lat:c.latitude,lon:c.longitude,acc:c.accuracy,t:Date.now()};GPS.err=null;
+  if(!S.connected||(GPS.mode!=='phone'&&!force)){renderPos();return}
+  if(GPS.opt.exact&&c.accuracy>1500&&!force){renderPos();return} // zu ungenau (z. B. nur WLAN-Ortung)
+  const lat=roundPos(c.latitude),lon=roundPos(c.longitude),ls=GPS.lastSent;
+  const moved=ls?hav(ls.lat,ls.lon,lat,lon)*1000:Infinity,since=Date.now()-GPS.lastSentT;
+  if(!force&&(moved<(GPS.opt.exact?GPS.opt.minMove:Math.max(GPS.opt.minMove,500))||since<GPS.opt.minInt*1000)){renderPos();return}
+  try{
+    await request(bytes(CMD.SET_LATLON,i32(Math.round(lat*1e6)),i32(Math.round(lon*1e6))));
+    GPS.lastSent={lat,lon};GPS.lastSentT=Date.now();await reloadSelf();renderMapSoon();
+    const adv=GPS.opt.advert;
+    if(adv!=='off'&&ls&&Date.now()-GPS.lastAdvT>=(adv==='flood'?30:10)*60000){GPS.lastAdvT=Date.now();try{await request(bytes(CMD.SELF_ADVERT,adv==='flood'?1:0))}catch{}}
+    if(force)toast('Position übernommen ('+lat.toFixed(4)+', '+lon.toFixed(4)+')','ok');
+  }catch(e){GPS.err='Position setzen: '+e.message}
+  renderPos();
+}
+function posNow(){
+  if(!('geolocation' in navigator))return toast('Dieser Browser kann keinen Standort liefern','err');
+  navigator.geolocation.getCurrentPosition(p=>onGeo(p,true),e=>toast('Standort: '+(e.code===1?'Freigabe verweigert':e.message),'err'),{enableHighAccuracy:true,timeout:20000,maximumAge:10000});
+}
+function renderPos(){
+  const el=$('#posOpts');if(!el)return;const s=S.self,on=S.connected&&!!s;
+  const sel=$('#posMode');
+  sel.innerHTML=Object.entries(POS_MODES).map(([k,l])=>`<option value="${k}"${k==='gps'&&!hasGps()?' disabled':''}>${l}${k==='gps'&&!hasGps()&&on?' (kein GPS-Modul)':''}</option>`).join('');
+  sel.value=GPS.mode;sel.disabled=!on;
+  $('#posManual').style.display=GPS.mode==='manual'?'':'none';
+  $('#kvPos').innerHTML=on?kvRows([['Position',hasPos(s)?`${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}`:'<span class="muted">nicht gesetzt</span>'],
+    ['Quelle',esc(POS_MODES[GPS.mode])],['GPS-Modul',GPS.vars==null?'<span class="muted">unbekannt</span>':hasGps()?(gpsOn()?'<span class="snr-g">an</span>':'aus'):'nicht vorhanden'],
+    ['In Adverts',s.locPolicy?'<span class="snr-g">wird mitgesendet</span>':'<span class="snr-y">nicht mitgesendet</span>']]):'<div class="muted">nicht verbunden</div><div></div>';
+  let h='';const o=GPS.opt;
+  if(GPS.mode==='gps'&&on){
+    h=`<div class="frm"><label class="muted" for="gpsInt">GPS-Abfrage</label><select id="gpsInt">${[[10,'alle 10 s'],[30,'alle 30 s'],[60,'jede Minute'],[300,'alle 5 min'],[900,'alle 15 min']].map(([v,l])=>`<option value="${v}"${v==o.interval?' selected':''}>${l}</option>`).join('')}</select><button class="sm" data-pos="reload">↻ Position lesen</button></div>
+      <p class="muted" style="font-size:12px">Der Companion übernimmt seine Position selbst vom GPS-Modul – auch ohne Webapp. Seltener abfragen spart Strom.</p>`;
+  }else if(GPS.mode==='phone'&&on){
+    const l=GPS.last;
+    h=`<div class="frm"><label style="display:flex;gap:5px;align-items:center;font-size:13px"><input type="checkbox" id="posExact"${o.exact?' checked':''}> genau</label><span class="muted" style="font-size:12px">${o.exact?'GPS-genau':'auf ca. 1 km gerundet'}</span></div>
+      <div class="frm"><label class="muted" for="posMove">Übernehmen ab</label><select id="posMove">${[[25,'25 m'],[100,'100 m'],[500,'500 m'],[2000,'2 km']].map(([v,t])=>`<option value="${v}"${v==o.minMove?' selected':''}>${t}</option>`).join('')}</select>
+        <label class="muted" for="posInt">höchstens</label><select id="posInt">${[[30,'alle 30 s'],[60,'jede Minute'],[300,'alle 5 min'],[900,'alle 15 min']].map(([v,t])=>`<option value="${v}"${v==o.minInt?' selected':''}>${t}</option>`).join('')}</select></div>
+      <div class="frm"><label class="muted" for="posAdv">Danach Advert</label><select id="posAdv">${[['off','nein'],['zero','Zero-Hop (max. alle 10 min)'],['flood','Flood (max. alle 30 min)']].map(([v,t])=>`<option value="${v}"${v===o.advert?' selected':''}>${t}</option>`).join('')}</select><button class="sm" data-pos="now">📍 Jetzt übernehmen</button></div>
+      <div class="muted" style="font-size:12px">${GPS.err?`<span class="snr-r">${esc(GPS.err)}</span>`:l?`Browser-Standort ±${Math.round(l.acc)} m, ${ago(l.t)} alt`+(GPS.lastSentT?` · zuletzt übernommen vor ${ago(GPS.lastSentT)}`:''):'Warte auf Standort vom Browser …'}</div>
+      <p class="muted" style="font-size:12px">Läuft, solange die Webapp offen ist (auf dem Handy im Vordergrund). Die Position wird nur ins Gerät geschrieben – sichtbar für andere erst mit dem nächsten Advert.</p>`;
+  }
+  el.innerHTML=h;
+}
+$('#posMode').onchange=e=>setPosMode(e.target.value);
+$('#posOpts').addEventListener('change',async e=>{const t=e.target,o=GPS.opt;
+  if(t.id==='gpsInt'){o.interval=+t.value;try{await setCustomVar('gps_interval',o.interval);toast('GPS-Abfrage gespeichert','ok')}catch(err){toast(err.message,'err')}}
+  else if(t.id==='posExact'){o.exact=t.checked;if(GPS.mode==='phone'){stopWatch();startWatch(true)}}
+  else if(t.id==='posMove')o.minMove=+t.value;else if(t.id==='posInt')o.minInt=+t.value;else if(t.id==='posAdv')o.advert=t.value;
+  store.set('mcw.posOpt',o);renderPos()});
+$('#posOpts').addEventListener('click',e=>{const b=e.target.closest('button[data-pos]');if(!b)return;if(b.dataset.pos==='now')posNow();else reloadSelf().then(renderPos)});
+
+// ================= Echo: welche Repeater haben meine Nachricht weitergesendet =================
+// Der Companion hört seine eigenen Flood-Pakete, wenn Repeater sie weitersenden. Jeder Repeater, von dem wir
+// das Echo hören (letzter Eintrag im Pfad), zählt als „hat empfangen und weitergeleitet“.
+function noteEcho(p){
+  if(!S.self||(p.route!==1&&p.route!==0)||!p.hopCount||p.bad)return;
+  const t=Date.now();let conv=null,m=null;
+  if(p.ptype===5&&p.dec.text!=null&&p.dec.from===S.self.name){
+    const ch=S.channels.find(c=>c.secret===p.dec.chSecret);if(!ch)return;conv='ch:'+ch.idx;
+    m=(S.msgs[conv]||[]).slice(-40).reverse().find(x=>x.dir==='out'&&x.text===p.dec.text&&Math.abs(Math.floor(x.ts/1000)-p.dec.ts)<=2&&t-x.rx<300000);
+  }else if(p.ptype===2&&p.dec.src&&S.self.key.startsWith(p.dec.src)){
+    for(const [k,arr] of Object.entries(S.msgs)){if(!k.startsWith('c:')||!p.dec.dst||!k.slice(2).startsWith(p.dec.dst))continue;
+      const x=(arr||[]).slice(-10).reverse().find(x=>x.dir==='out'&&t-(x.sentT||x.rx)<60000);if(x){m=x;conv=k;break}}
+  }
+  if(!m)return;
+  const h=p.path[p.path.length-1],e=(m.echo=m.echo||[]).find(x=>x.h===h);
+  if(e){e.n++;if(p.snr>e.snr)e.snr=p.snr;if(p.hopCount<e.hops)e.hops=p.hopCount}else m.echo.push({h,snr:p.snr,n:1,hops:p.hopCount,first:p.path[0]});
+  scheduleSave();if(S.active===conv)renderSoon();
+}
+function echoHtml(m){
+  const e=m.echo;if(!e||!e.length)return '';
+  const list=e.slice().sort((a,b)=>b.snr-a.snr);
+  const tip=list.map(x=>`${nodeName(x.h)||x.h} · SNR ${x.snr.toFixed(1)} dB${x.n>1?' · '+x.n+'×':''}`).join('\n');
+  return ` <button class="echo" data-echo="${esc(m.id)}" title="${esc('Weitergesendet von:\n'+tip)}">✓✓ ${e.length} Repeater</button>`+
+    (m._showEcho?`<div class="echolist">${list.map(x=>`<div><b>${esc(nodeName(x.h)||'?')}</b> <span class="mono muted">${x.h}</span> · <span class="${snrCls(x.snr)}">SNR ${x.snr.toFixed(1)}</span>${x.hops>1?' · '+x.hops+' Hops':''}${x.n>1?' · '+x.n+'×':''}</div>`).join('')}</div>`:'');
+}
+
 // ================= Events =================
 PT.forEach(t=>{if(!/^T1/.test(t)){const o=document.createElement('option');o.textContent=t;$('#fType').appendChild(o)}});
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)switchTab(b.dataset.tab)});
@@ -2805,9 +2978,15 @@ $('#chatlist').addEventListener('click',e=>{const sr=e.target.closest('.sres');i
 $('#chatSearch').oninput=renderChat;
 $('#chatlist').addEventListener('click',e=>{if(e.target.closest('#btnAddCh')){e.stopPropagation();addChannelDialog()}else if(e.target.closest('#btnScanCh')){e.stopPropagation();openScanner()}},true);
 $('#ctable').addEventListener('click',e=>{const a=e.target.closest('a.nlink');if(!a)return;e.preventDefault();openNode(a.dataset.node)});
-$('#msgs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+$('#msgs').addEventListener('click',e=>{
+  const hl=e.target.closest('a.hoplink');if(hl){e.preventDefault();const m=(S.msgs[S.active]||[]).find(x=>x.id===hl.dataset.path);if(m){m._showPath=!m._showPath;renderConv()}return}
+  const nl=e.target.closest('.mpath a.nlink');if(nl){e.preventDefault();openNode(nl.dataset.node);return}
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.pmap){const m=(S.msgs[S.active]||[]).find(x=>x.id===b.dataset.pmap);if(!m)return;const a=b.dataset.alt&&S.packets.find(p=>p.id===+b.dataset.alt);showMsgPathOnMap(m,a?a.path:m.path||[]);return}
+  if(b.dataset.ppkt){switchTab('live');setTimeout(()=>showDetail(+b.dataset.ppkt),30);return}
   if(b.dataset.reply!=null){const inp=$('#msgIn');const tag=S.active.startsWith('ch:')?'@['+b.dataset.reply+'] ':'';if(tag&&!inp.value.startsWith(tag))inp.value=tag+inp.value.replace(/^@\[[^\]]*\]\s*/,'');inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);updateLen()}
-  else if(b.dataset.dm){openChat(b.dataset.dm);setTimeout(()=>$('#msgIn').focus(),50)}});
+  else if(b.dataset.dm){openChat(b.dataset.dm);setTimeout(()=>$('#msgIn').focus(),50)}
+  else if(b.dataset.echo){const m=(S.msgs[S.active]||[]).find(x=>x.id===b.dataset.echo);if(m){m._showEcho=!m._showEcho;renderConv()}}});
 $('#msgIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});$('#msgIn').oninput=updateLen;$('#btnSend').onclick=sendMsg;
 $$('.mf').forEach(x=>x.onchange=renderMap);['#mLabels','#mNeigh','#mAge','#mRx'].forEach(s=>$(s).onchange=renderMap);$('#mRx').checked=store.get('mcw.mapRx',false);$('#mRx').addEventListener('change',e=>store.set('mcw.mapRx',e.target.checked));
 $('#btnFit').onclick=fitAll;$('#btnMapPanel').onclick=()=>$('#sec-map').classList.toggle('mpanel');$('#btnClrPath').onclick=()=>pathLayer&&pathLayer.clearLayers();
