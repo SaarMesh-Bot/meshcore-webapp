@@ -97,6 +97,12 @@ canvas#spark{height:34px;width:240px}
 .msg .txt a{color:var(--accent2);text-decoration:underline;text-underline-offset:2px;word-break:break-all}.msg .txt a.chlink{text-decoration:none;font-weight:600;word-break:normal}.msg .txt a.chlink:hover{text-decoration:underline}
 .msg .st{font-size:11px;color:var(--muted);margin-top:3px;text-align:right}
 .rbtn{padding:0 6px;font-size:11px;line-height:16px;margin-left:4px;opacity:.6}.msg:hover .rbtn{opacity:1}
+.hoplink{color:inherit;text-decoration:underline dotted;text-underline-offset:2px}.hoplink:hover{color:var(--accent2)}
+.mpath{margin-top:6px;padding:6px 8px;border-top:1px dashed var(--border);font-size:12px}
+.mpath .chain{display:flex;flex-wrap:wrap;gap:3px 4px;align-items:center;margin:2px 0}.mpath .arr{color:var(--muted)}
+.mpath .hop{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:0 5px;white-space:nowrap}.mpath .hop.known{border-color:var(--accent)}.mpath .hop.amb{border-style:dashed}
+.mpath .hop.src{border-color:var(--accent2);font-weight:600}.mpath .hop.me{font-weight:600}.mpath .hop .mono{font-size:10px;color:var(--muted)}.mpath .hop a{color:inherit}
+.mpath .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .msg .st.ok{color:var(--accent)}.msg .st.fail{color:var(--warn)}
 .compose{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border);background:var(--panel);align-items:center}
 .compose input{flex:1}
@@ -895,7 +901,7 @@ function findRxPacket(types,pl,snr,check){
 }
 function linkPacket(m,p,pl){
   if(pl!==0xFF){m.hashBytes=(pl>>6)+1}
-  if(!p)return;m.matched=true;
+  if(!p)return;m.matched=true;m.path=p.path.slice();m.phash=p.phash;m.pathHs=p.hs;
   if(!p.tc){m.region='-';return}
   m.regionCode=p.tc[0].toString(16).padStart(4,'0');
   if(p.region){m.region=p.region;m.regionGuess=p.regionGuess}else p.onRegion=()=>{m.region=p.region;m.regionGuess=p.regionGuess;scheduleSave();renderSoon()};
@@ -1152,7 +1158,7 @@ function noteDiscovered(c,p){
   const k=hex(c.secret);const d=S.disc[k]||(S.disc[k]={name:c.name,secret:k,count:0,first:Date.now()});
   d.count++;d.last=Date.now();
   addMsg('dc:'+k,{dir:'in',from:p.dec.from||'?',text:p.dec.text||'',ts:p.dec.ts*1000,rx:Date.now(),snr:p.snr,hops:p.route===1||p.route===0?p.hopCount:'direkt',
-    hashBytes:p.hs,region:p.region||(p.tc?null:'-'),regionGuess:p.regionGuess,regionCode:p.tc?p.tc[0].toString(16).padStart(4,'0'):null});
+    hashBytes:p.hs,path:p.path.slice(),phash:p.phash,region:p.region||(p.tc?null:'-'),regionGuess:p.regionGuess,regionCode:p.tc?p.tc[0].toString(16).padStart(4,'0'):null});
   store.set('mcw.disc',S.disc);
 }
 async function addChannelToDevice(name,secret){
@@ -1474,14 +1480,38 @@ function renderConv(){
   const arr=S.msgs[conv]||[];
   const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<60;
   box.innerHTML=arr.length?arr.map(m=>{
-    const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(m.hops==='direkt'?'direkt':m.hops+' Hops'):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
+    const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(Array.isArray(m.path)?`<a href="#" class="hoplink" data-path="${esc(m.id)}" title="Empfangsweg anzeigen">${m.hops==='direkt'?'direkt':m.hops+' Hops'} ${m._showPath?'▴':'▾'}</a>`:(m.hops==='direkt'?'direkt':m.hops+' Hops')):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
     let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?(m.echo&&m.echo.length?'':'✓ gesendet')+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
       if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`;
       if(m.status!=='fail')st+=echoHtml(m)}
-    return `<div class="msg ${m.dir}${m.dir==='in'&&(m.mention??isMention(m))?' mention':''}" data-mid="${esc(m.id||'')}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
+    return `<div class="msg ${m.dir}${m.dir==='in'&&(m.mention??isMention(m))?' mention':''}" data-mid="${esc(m.id||'')}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${m._showPath?msgPathHtml(conv,m):''}${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
   if(S.jump){const el=[...box.querySelectorAll('.msg')].find(x=>x.dataset.mid===S.jump);S.jump=null;if(el){el.scrollIntoView({block:'center'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),2100)}}
   else if(atBottom||arr.length<30)box.scrollTop=box.scrollHeight;
   updateCompose();
+}
+// Empfangsweg einer eingehenden Nachricht: Absender → Repeater … → ich
+function msgSender(conv,m){
+  if(conv.startsWith('c:')){const c=findContactByPrefix(conv.slice(2));const n=c&&S.nodes.get(c.key);return n||c||null}
+  const l=[...S.nodes.values()].filter(n=>n.name===m.from);return l.length===1?l[0]:l.find(hasPos)||null;
+}
+function hopChip(h){const l=nodesByHash(h),n=l.length===1?l[0]:null;
+  return `<span class="hop${l.length?' known':''}${l.length>1?' amb':''}" title="${esc(l.length?l.map(x=>x.name+' ('+x.key.slice(0,8)+')').join('\n'):'unbekannter Repeater')}">${n?`<a href="#" class="nlink" data-node="${n.key}">${esc(n.name)}</a>`:l.length>1?esc(l.length+' Kandidaten'):'?'} <span class="mono">${h}</span></span>`}
+function pathChain(from,hops){const arr='<span class="arr">→</span>';
+  return `<span class="hop src">${esc(from||'?')}</span>${arr}${hops.length?hops.map(hopChip).join(arr)+arr:''}<span class="hop me">ich</span>`}
+function msgPkts(m){return m.phash?S.packets.filter(p=>p.phash===m.phash):[]}
+function msgPathHtml(conv,m){
+  const hops=m.path||[],key=hops.join('>');
+  const alt=[];const seen=new Set([key]);for(const p of msgPkts(m)){const k=p.path.join('>');if(!seen.has(k)){seen.add(k);alt.push(p)}}
+  let h=`<div class="mpath"><div class="chain">${pathChain(m.from,hops)}</div>`;
+  if(!hops.length)h+=`<div class="muted">Ohne Repeater – direkt vom Absender gehört.</div>`;
+  if(alt.length)h+=`<div class="muted" style="margin-top:4px">Auch gehört über:</div>`+alt.map(p=>`<div class="chain">${pathChain(m.from,p.path)} <span class="mono ${snrCls(p.snr)}">${p.snr.toFixed(1)} dB</span> <button class="sm rbtn" data-pmap="${m.id}" data-alt="${p.id}" title="Diesen Weg auf der Karte">🗺</button></div>`).join('');
+  const pk=msgPkts(m)[0];
+  h+=`<div class="acts">${hops.length?`<button class="sm" data-pmap="${m.id}">🗺 Auf Karte</button>`:''}${pk?`<button class="sm" data-ppkt="${pk.id}">📦 Paket im Live-Traffic</button>`:''}${m.phash&&csPkt(m.phash)?`<a class="btnlink" href="${esc(csPkt(m.phash))}" target="_blank" rel="noopener">🔎 In CoreScope</a>`:''}</div></div>`;
+  return h;
+}
+function showMsgPathOnMap(m,hops){
+  const s=msgSender(S.active,m);
+  showHopsOnMap(hops,s&&hasPos(s)?{lat:s.lat,lon:s.lon,label:'Absender: '+(s.name||m.from)}:null);
 }
 function replyBtns(conv,m){
   if(m.dir!=='in')return '';
@@ -1560,11 +1590,15 @@ function renderMap(){
 }
 function fitAll(){if(!map)return;const pts=[...markers.values()].map(m=>m.getLatLng());if(selfMarker)pts.push(selfMarker.getLatLng());if(pts.length)map.fitBounds(L.latLngBounds(pts).pad(.15),{maxZoom:13})}
 function showPathOnMap(id){
-  const p=S.packets.find(x=>x.id===id);if(!p)return;switchTab('map');
+  const p=S.packets.find(x=>x.id===id);if(!p)return;
+  showHopsOnMap(p.path,p.ptype===4&&hasPos(p.dec)?{lat:p.dec.lat,lon:p.dec.lon,label:'Start: '+(p.dec.name||'?')}:null);
+}
+function showHopsOnMap(path,start){
+  switchTab('map');
   setTimeout(()=>{
     pathLayer.clearLayers();const pts=[],labels=[];let unres=0;
-    if(p.ptype===4&&hasPos(p.dec)){pts.push([p.dec.lat,p.dec.lon]);labels.push('Start: '+(p.dec.name||'?'))}
-    p.path.forEach((h,i)=>{const l=nodesByHash(h).filter(hasPos);let n=null;
+    if(start){pts.push([start.lat,start.lon]);labels.push(start.label)}
+    path.forEach((h,i)=>{const l=nodesByHash(h).filter(hasPos);let n=null;
       if(l.length===1)n=l[0];else if(l.length>1&&pts.length){const last=pts[pts.length-1];n=l.sort((a,b)=>hav(last[0],last[1],a.lat,a.lon)-hav(last[0],last[1],b.lat,b.lon))[0]}
       if(n){pts.push([n.lat,n.lon]);labels.push(`Hop ${i+1}: ${n.name} (${h})${l.length>1?' – mehrdeutig':''}`)}else unres++});
     if(hasPos(S.self)){pts.push([S.self.lat,S.self.lon]);labels.push('Empfänger (ich)')}
@@ -2944,7 +2978,12 @@ $('#chatlist').addEventListener('click',e=>{const sr=e.target.closest('.sres');i
 $('#chatSearch').oninput=renderChat;
 $('#chatlist').addEventListener('click',e=>{if(e.target.closest('#btnAddCh')){e.stopPropagation();addChannelDialog()}else if(e.target.closest('#btnScanCh')){e.stopPropagation();openScanner()}},true);
 $('#ctable').addEventListener('click',e=>{const a=e.target.closest('a.nlink');if(!a)return;e.preventDefault();openNode(a.dataset.node)});
-$('#msgs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+$('#msgs').addEventListener('click',e=>{
+  const hl=e.target.closest('a.hoplink');if(hl){e.preventDefault();const m=(S.msgs[S.active]||[]).find(x=>x.id===hl.dataset.path);if(m){m._showPath=!m._showPath;renderConv()}return}
+  const nl=e.target.closest('.mpath a.nlink');if(nl){e.preventDefault();openNode(nl.dataset.node);return}
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.pmap){const m=(S.msgs[S.active]||[]).find(x=>x.id===b.dataset.pmap);if(!m)return;const a=b.dataset.alt&&S.packets.find(p=>p.id===+b.dataset.alt);showMsgPathOnMap(m,a?a.path:m.path||[]);return}
+  if(b.dataset.ppkt){switchTab('live');setTimeout(()=>showDetail(+b.dataset.ppkt),30);return}
   if(b.dataset.reply!=null){const inp=$('#msgIn');const tag=S.active.startsWith('ch:')?'@['+b.dataset.reply+'] ':'';if(tag&&!inp.value.startsWith(tag))inp.value=tag+inp.value.replace(/^@\[[^\]]*\]\s*/,'');inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);updateLen()}
   else if(b.dataset.dm){openChat(b.dataset.dm);setTimeout(()=>$('#msgIn').focus(),50)}
   else if(b.dataset.echo){const m=(S.msgs[S.active]||[]).find(x=>x.id===b.dataset.echo);if(m){m._showEcho=!m._showEcho;renderConv()}}});
