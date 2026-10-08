@@ -106,6 +106,14 @@ canvas#spark{height:34px;width:240px}
 .msg .st.ok{color:var(--accent)}.msg .st.fail{color:var(--warn)}
 .compose{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border);background:var(--panel);align-items:center}
 .compose input{flex:1}
+.compose{position:relative}
+.mlist{position:absolute;left:10px;right:10px;bottom:100%;margin-bottom:4px;max-height:260px;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:20;padding:4px 0}
+.mlist .mi{display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:13px}
+.mlist .mi.on,.mlist .mi:hover{background:var(--panel2)}
+.mlist .mi.on{box-shadow:inset 3px 0 0 var(--accent2)}
+.mlist .mi .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mlist .mi .muted{font-size:11px}
+.mlist .mh{padding:2px 12px 4px;font-size:11px;color:var(--muted)}
 .empty{margin:auto;color:var(--muted);text-align:center;padding:30px}
 /* map */
 #map{flex:1}
@@ -308,7 +316,8 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
         <div class="chathead" id="chathead"><span class="muted">Kanal oder Kontakt wählen</span></div>
         <div class="msgs" id="msgs"></div>
         <div class="compose">
-          <input id="msgIn" placeholder="Nachricht…" disabled maxlength="200">
+          <div class="mlist" id="mentionBox" role="listbox" hidden></div>
+          <input id="msgIn" placeholder="Nachricht…" disabled maxlength="200" autocomplete="off">
           <span class="muted mono" id="msgLen"></span>
           <button class="primary" id="btnSend" disabled>Senden</button>
         </div>
@@ -571,6 +580,7 @@ const enc=new TextEncoder(), dec=new TextDecoder();
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const hex=b=>[...b].map(x=>x.toString(16).padStart(2,'0')).join('');
 const unhex=s=>new Uint8Array((s.match(/../g)||[]).map(h=>parseInt(h,16)));
+const MB={items:[],sel:0,start:0,end:0,q:'',conv:undefined}; // @-Erwähnungsliste
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const now=()=>Math.floor(Date.now()/1000);
 const tfmt=ms=>new Date(ms).toLocaleTimeString('de-DE');
@@ -1519,7 +1529,7 @@ function replyBtns(conv,m){
   if(conv.startsWith('ch:')){const c=[...S.contacts.values()].find(c=>c.name===m.from&&(c.type===1||c.type===3));if(c)h+=` <button class="sm rbtn" title="Direktnachricht an ${esc(m.from)}" data-dm="${c.key}">✉</button>`}
   return h;
 }
-function updateCompose(){const ro=!!S.active&&S.active.startsWith('dc:');const on=S.connected&&!!S.active&&!ro;$('#msgIn').disabled=!on;$('#btnSend').disabled=!on;
+function updateCompose(){if(MB.conv!==S.active){MB.conv=S.active;mentionClose()}const ro=!!S.active&&S.active.startsWith('dc:');const on=S.connected&&!!S.active&&!ro;$('#msgIn').disabled=!on;$('#btnSend').disabled=!on;
   $('#msgIn').placeholder=ro?'Nur mitlesen – zum Senden den Kanal zum Gerät hinzufügen':'Nachricht…';updateLen()}
 function updateLen(){const n=enc.encode($('#msgIn').value).length,mx=maxLen();$('#msgLen').textContent=n?n+'/'+mx:'';$('#msgLen').style.color=n>mx?'var(--err)':''}
 function updateBadge(){const n=Object.entries(S.unread).reduce((a,[k,v])=>a+(convMode(k)==='mute'?0:v),0);const b=$('#unreadBadge');b.style.display=n?'':'none';b.textContent=n}
@@ -2987,6 +2997,47 @@ $('#msgs').addEventListener('click',e=>{
   if(b.dataset.reply!=null){const inp=$('#msgIn');const tag=S.active.startsWith('ch:')?'@['+b.dataset.reply+'] ':'';if(tag&&!inp.value.startsWith(tag))inp.value=tag+inp.value.replace(/^@\[[^\]]*\]\s*/,'');inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);updateLen()}
   else if(b.dataset.dm){openChat(b.dataset.dm);setTimeout(()=>$('#msgIn').focus(),50)}
   else if(b.dataset.echo){const m=(S.msgs[S.active]||[]).find(x=>x.id===b.dataset.echo);if(m){m._showEcho=!m._showEcho;renderConv()}}});
+/* @-Erwähnung: gefilterte Kontaktliste beim Tippen von „@…“ */
+function mentionCands(q){
+  const self=S.self&&S.self.name,map=new Map(),cur=S.active;
+  const put=(name,o)=>{if(!name||name===self)return;const x=map.get(name)||{name,t:0,here:0,ct:null};if(o.t>x.t)x.t=o.t;if(o.here)x.here=Math.max(x.here,o.t||1);if(o.ct&&!x.ct)x.ct=o.ct;map.set(name,x)};
+  for(const [conv,arr] of Object.entries(S.msgs))if(conv.startsWith('ch:')||conv.startsWith('dc:'))for(const m of arr)if(m.dir==='in'&&m.from)put(m.from,{t:m.rx||m.ts||0,here:conv===cur});
+  for(const c of S.contacts.values())if(c.name&&(c.type===1||c.type===3))put(c.name,{t:0,ct:c});
+  const lq=q.toLowerCase(),r=[];
+  for(const x of map.values()){const i=x.name.toLowerCase().indexOf(lq);if(i<0)continue;x.at=i;r.push(x)}
+  r.sort((a,b)=>(a.at===0?0:1)-(b.at===0?0:1)||(b.here>0)-(a.here>0)||b.here-a.here||(!!b.ct)-(!!a.ct)||b.t-a.t||a.name.localeCompare(b.name));
+  return r.slice(0,8)}
+function mentionClose(){MB.items=[];const b=$('#mentionBox');if(b&&!b.hidden){b.hidden=true;b.innerHTML=''}}
+function mentionCheck(){
+  const inp=$('#msgIn');if(inp.disabled||!S.active||S.active.startsWith('dc:')||document.activeElement!==inp)return mentionClose();
+  const pos=inp.selectionStart,end=inp.selectionEnd;if(pos!==end)return mentionClose();
+  const m=inp.value.slice(0,pos).match(/(?:^|\s)@(\[?)([^\]\[@\n]{0,32})$/);if(!m)return mentionClose();
+  const q=m[2];if(/^\s/.test(q))return mentionClose();
+  const items=mentionCands(q);if(!items.length)return mentionClose();
+  const prev=MB.items[MB.sel]&&MB.items[MB.sel].name;
+  MB.items=items;MB.sel=Math.max(0,items.findIndex(x=>x.name===prev));MB.start=pos-q.length-m[1].length-1;MB.end=pos;MB.q=q;renderMention()}
+function renderMention(){
+  const b=$('#mentionBox'),q=MB.q.toLowerCase();
+  const hl=n=>{if(!q)return esc(n);const i=n.toLowerCase().indexOf(q);return i<0?esc(n):esc(n.slice(0,i))+'<b>'+esc(n.slice(i,i+q.length))+'</b>'+esc(n.slice(i+q.length))};
+  const icon=x=>x.ct?(x.ct.type===3?'🏠':'👤'):'💬';
+  const hint=x=>x.here?'hier aktiv':x.ct?(x.ct.type===3?'Raum':'Kontakt'):'gehört';
+  b.innerHTML='<div class="mh">Erwähnen · ↑↓ wählen · Enter/Tab übernehmen · Esc</div>'+MB.items.map((x,i)=>`<div class="mi${i===MB.sel?' on':''}" role="option" data-mi="${i}"><span>${icon(x)}</span><span class="nm">${hl(x.name)}</span><span class="muted">${hint(x)}</span></div>`).join('');
+  b.hidden=false;const on=b.querySelector('.mi.on');if(on)on.scrollIntoView({block:'nearest'})}
+function mentionPick(i){
+  const x=MB.items[i];if(!x)return;const inp=$('#msgIn'),v=inp.value;
+  let rest=v.slice(MB.end).replace(/^[^\s\]]*\]?/,'');if(!/^\s/.test(rest))rest=' '+rest.replace(/^\s+/,'');
+  const before=v.slice(0,MB.start)+'@['+x.name+']';inp.value=before+rest;
+  const c=before.length+1;inp.focus();inp.setSelectionRange(c,c);mentionClose();updateLen()}
+$('#msgIn').addEventListener('keydown',e=>{
+  if(!MB.items.length||$('#mentionBox').hidden)return;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const n=MB.items.length;MB.sel=(MB.sel+(e.key==='ArrowDown'?1:n-1))%n;renderMention()}
+  else if((e.key==='Enter'&&!e.shiftKey)||e.key==='Tab'){e.preventDefault();e.stopImmediatePropagation();mentionPick(MB.sel)}
+  else if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();mentionClose()}});
+$('#msgIn').addEventListener('input',mentionCheck);
+$('#msgIn').addEventListener('click',mentionCheck);
+$('#msgIn').addEventListener('keyup',e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key))mentionCheck()});
+$('#msgIn').addEventListener('blur',()=>setTimeout(()=>{if(document.activeElement!==$('#msgIn'))mentionClose()},150));
+$('#mentionBox').addEventListener('mousedown',e=>{e.preventDefault();const it=e.target.closest('.mi');if(it)mentionPick(+it.dataset.mi)});
 $('#msgIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});$('#msgIn').oninput=updateLen;$('#btnSend').onclick=sendMsg;
 $$('.mf').forEach(x=>x.onchange=renderMap);['#mLabels','#mNeigh','#mAge','#mRx'].forEach(s=>$(s).onchange=renderMap);$('#mRx').checked=store.get('mcw.mapRx',false);$('#mRx').addEventListener('change',e=>store.set('mcw.mapRx',e.target.checked));
 $('#btnFit').onclick=fitAll;$('#btnMapPanel').onclick=()=>$('#sec-map').classList.toggle('mpanel');$('#btnClrPath').onclick=()=>pathLayer&&pathLayer.clearLayers();

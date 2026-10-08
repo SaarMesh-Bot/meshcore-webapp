@@ -1,0 +1,46 @@
+import sys
+from playwright.sync_api import sync_playwright
+from h import setup,connect,PAGE
+F=[]
+def ok(c,m):print('OK  ' if c else 'FAIL',m);c or F.append(m)
+errs,dl=[],[]
+with sync_playwright() as p:
+    b=p.chromium.launch();pg=b.new_page(viewport={'width':1100,'height':800});setup(pg,errs,dl);connect(pg,'file://'+PAGE)
+    if pg.evaluate("typeof mentionCheck==='undefined'"):print('SKIP: Seite hat noch keine @-Vorschläge');b.close();sys.exit(0)
+    pg.evaluate("S.active='ch:0';switchTab('chat')");pg.wait_for_timeout(200)
+    # Absender im Kanal gehört (nicht in Kontakten)
+    pg.evaluate("addMsg('ch:0',{dir:'in',from:'JARVIS',text:'Pong',ts:Date.now(),rx:Date.now()});addMsg('ch:1',{dir:'in',from:'Marcus',text:'Ping',ts:Date.now(),rx:Date.now()-5000})")
+    pg.wait_for_timeout(300)
+    inp=pg.locator('#msgIn')
+    inp.click();inp.type('Hallo @');pg.wait_for_timeout(150)
+    ok(pg.is_visible('#mentionBox'),'Liste erscheint nach @')
+    names=pg.evaluate("MB.items.map(x=>x.name)")
+    ok(names and names[0]=='JARVIS','Im Kanal Aktive zuerst: '+str(names))
+    ok('Anna Handy' in names and 'Marcus' in names,'Kontakte und andernorts Gehörte dabei')
+    ok(not any(n.startswith('Repeater') for n in names),'Keine Repeater')
+    inp.type('ann');pg.wait_for_timeout(150)
+    ok(pg.evaluate("MB.items.map(x=>x.name)")==['Anna Handy'],'Filter „ann“')
+    pg.keyboard.press('Enter');pg.wait_for_timeout(150)
+    ok(inp.input_value()=='Hallo @[Anna Handy] ','Enter übernimmt statt zu senden: '+repr(inp.input_value()))
+    ok(not pg.is_visible('#mentionBox'),'Liste danach zu')
+    ok(not pg.evaluate("(S.msgs['ch:0']||[]).some(m=>m.dir==='out')"),'Nichts gesendet')
+    # Pfeiltasten + Tab, Mausklick, Esc
+    inp.fill('');inp.type('@');pg.wait_for_timeout(100)
+    pg.keyboard.press('ArrowDown');pg.keyboard.press('Tab');pg.wait_for_timeout(100)
+    second=pg.evaluate("mentionCands('')[1].name")
+    ok(inp.input_value()=='@['+second+'] ','Pfeil runter + Tab: '+repr(inp.input_value()))
+    inp.fill('x @mar');inp.press('End');pg.evaluate("mentionCheck()");pg.wait_for_timeout(100)
+    pg.click('#mentionBox .mi');pg.wait_for_timeout(100)
+    ok(inp.input_value()=='x @[Marcus] ','Mausklick: '+repr(inp.input_value()))
+    inp.type('@');pg.wait_for_timeout(100);pg.keyboard.press('Escape');pg.wait_for_timeout(100)
+    ok(not pg.is_visible('#mentionBox'),'Esc schließt')
+    inp.fill('mail a@b');inp.press('End');pg.evaluate("mentionCheck()");pg.wait_for_timeout(100)
+    ok(not pg.is_visible('#mentionBox'),'Kein Popup mitten im Wort (a@b)')
+    inp.fill('@zzzz');inp.press('End');pg.evaluate("mentionCheck()");pg.wait_for_timeout(100)
+    ok(not pg.is_visible('#mentionBox'),'Kein Popup ohne Treffer')
+    # Senden funktioniert weiterhin normal
+    inp.fill('@[JARVIS] Ping');inp.press('Enter');pg.wait_for_timeout(500)
+    ok(pg.evaluate("__sim.chanSent&&__sim.chanSent.includes('@[JARVIS] Ping')"),'Senden mit Enter unverändert')
+    inp.type('@');pg.wait_for_timeout(100);pg.screenshot(path='mention.png')
+    print('ERR',errs);b.close()
+sys.exit(1 if F or errs else 0)
