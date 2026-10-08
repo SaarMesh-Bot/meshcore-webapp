@@ -117,16 +117,34 @@ canvas#spark{height:34px;width:240px}
 .empty{margin:auto;color:var(--muted);text-align:center;padding:30px}
 /* map */
 #map{flex:1}
-.mappanel{position:absolute;top:10px;right:10px;z-index:500;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px;width:230px;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,.25)}
-.mappanel label{display:flex;gap:6px;align-items:center;margin:3px 0}
-.mappanel h4{margin:8px 0 4px;font-size:11px;text-transform:uppercase;color:var(--muted)}
-.mappanel .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.mk{width:22px;height:22px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.mappanel{position:absolute;top:10px;right:10px;z-index:500;background:color-mix(in srgb,var(--panel) 92%,transparent);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:10px;padding:8px 10px;width:284px;font-size:12px;box-shadow:0 4px 18px rgba(0,0,0,.3)}
+.mappanel .mph{display:flex;align-items:center;gap:6px}
+.mappanel .mph b{font-size:13px}
+.mappanel .mph .muted{flex:1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mappanel .mpx{padding:0 7px;line-height:20px;border:none;background:none}
+.mappanel.coll .mpb{display:none}
+.mappanel .mpb{margin-top:6px}
+.mappanel .chips{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px}
+.mappanel .chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px 1px 5px;border:1px solid var(--border);border-radius:999px;cursor:pointer;user-select:none;background:var(--panel2);line-height:18px;font-size:11px}
+.mappanel .chip{position:relative}
+.mappanel .chip input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
+.mappanel .chip:has(input:focus-visible){outline:2px solid var(--accent2);outline-offset:1px}
+.mappanel .chip i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.mappanel .chip:has(input:not(:checked)){opacity:.4;background:none}
+.mappanel .chip:has(input:checked){border-color:color-mix(in srgb,var(--accent2) 55%,var(--border))}
+.mappanel .row{display:flex;gap:3px;align-items:center}
+.mappanel .row select{padding:2px 3px;font-size:11px}
+.mappanel .row button{padding:2px 6px;font-size:11px}
+.mkw{display:flex;align-items:center;justify-content:center}
+.mk{width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.55);transition:width .15s,height .15s}
+#map.zhi .mk{width:20px;height:20px;font-size:10px;border-width:2px}
+.mkw:hover .mk{transform:scale(1.25)}
 .mk-1{background:#0969da}.mk-2{background:#2da44e;border-radius:4px}.mk-3{background:#8250df}.mk-4{background:#9a6700}.mk-0{background:#6e7781}
-.mk-self{background:#cf222e;width:26px;height:26px}
-.mk.old{opacity:.5}
+.mk-self{background:#cf222e;width:24px!important;height:24px!important;font-size:9px!important;border-width:2px}
+.mk.old{opacity:.45}
 .tiles-dark{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9) saturate(.6)}
-.leaflet-tooltip.lbl{background:rgba(0,0,0,.65);color:#fff;border:none;box-shadow:none;font-size:11px;padding:1px 5px}
+.leaflet-tooltip.lbl{background:rgba(13,17,23,.72);color:#e6edf3;border:none;border-radius:4px;box-shadow:none;font-size:11px;font-weight:500;line-height:15px;padding:0 5px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.leaflet-tooltip.lbl.hid{visibility:hidden}
 .leaflet-tooltip.lbl:before{display:none}
 .picking #map{cursor:crosshair}
 .legend span{display:inline-flex;align-items:center;gap:4px;margin-right:6px;font-size:12px}
@@ -161,7 +179,7 @@ label.frm{flex-wrap:nowrap;align-items:flex-start}label.frm input[type=checkbox]
 .fl{display:flex;flex-direction:column;gap:4px;font-size:13px;margin:10px 0}
 .mrow{display:flex;gap:8px;align-items:center;margin-top:14px}
 .warnbar{background:var(--warn);color:#000;padding:6px 14px;font-size:13px;display:none}
-@media (max-width:800px){.chatside{width:180px}.detail{position:absolute;right:0;top:0;bottom:0;width:100%;z-index:5}.mappanel{width:190px}}
+@media (max-width:800px){.chatside{width:180px}.detail{position:absolute;right:0;top:0;bottom:0;width:100%;z-index:5}}
 .sres{padding:7px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px}.sres:hover{background:var(--panel2)}.sres .sh{display:flex;justify-content:space-between;gap:8px;font-size:12px}.sres .sb{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 mark{background:color-mix(in srgb,var(--warn) 45%,transparent);color:inherit;border-radius:2px;padding:0 1px}
 .msg.flash{animation:flash 2s ease-out}@keyframes flash{0%,30%{box-shadow:0 0 0 3px var(--warn)}100%{box-shadow:0 0 0 0 transparent}}
@@ -328,23 +346,27 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
       <div id="map"></div>
       <button class="mapfab" id="btnMapPanel">⚙ Filter</button>
       <div class="pathbar" id="pathBar" hidden></div>
-      <div class="mappanel">
-        <div class="legend"><span><i style="background:#0969da"></i>Companion</span><span><i style="background:#2da44e;border-radius:2px"></i>Repeater</span><span><i style="background:#8250df"></i>Room</span><span><i style="background:#9a6700"></i>Sensor</span></div>
-        <h4>Anzeigen</h4>
-        <label><input type="checkbox" class="mf" data-t="1" checked>Companions</label>
-        <label><input type="checkbox" class="mf" data-t="2" checked>Repeater</label>
-        <label><input type="checkbox" class="mf" data-t="3" checked>Room-Server</label>
-        <label><input type="checkbox" class="mf" data-t="4" checked>Sensoren</label>
-        <label><input type="checkbox" id="mLabels" checked>Namen</label>
-        <label><input type="checkbox" id="mNeigh" checked>Nachbar-Linien (SNR)</label>
-        <label title="Wen dein Companion direkt hört und wie gut – aus allen gespeicherten Adverts"><input type="checkbox" id="mRx">Eigener Empfang (SNR)</label>
-        <label>Alter <select id="mAge"><option value="3600">1 h</option><option value="86400">24 h</option><option value="604800" selected>7 Tage</option><option value="0">alle</option></select></label>
-        <div class="row">
-          <button class="sm" id="btnFit">Alle zeigen</button>
-          <button class="sm" id="btnPick" disabled>📍 Eigene Position</button>
-          <button class="sm" id="btnClrPath">Pfad ausblenden</button>
+      <div class="mappanel" id="mapPanel">
+        <div class="mph"><b>Karte</b><span class="muted" id="mapInfo"></span><button class="sm mpx" id="btnMpColl" title="Einklappen">▴</button></div>
+        <div class="mpb">
+          <div class="chips">
+            <label class="chip" title="Companions ein/aus"><input type="checkbox" class="mf" data-t="1" checked><i style="background:#0969da"></i>Companion</label>
+            <label class="chip" title="Repeater ein/aus"><input type="checkbox" class="mf" data-t="2" checked><i style="background:#2da44e;border-radius:2px"></i>Repeater</label>
+            <label class="chip" title="Room-Server ein/aus"><input type="checkbox" class="mf" data-t="3" checked><i style="background:#8250df"></i>Room</label>
+            <label class="chip" title="Sensoren ein/aus"><input type="checkbox" class="mf" data-t="4" checked><i style="background:#9a6700"></i>Sensor</label>
+          </div>
+          <div class="chips">
+            <label class="chip" title="Namen anzeigen (überlappende werden ausgeblendet – reinzoomen zeigt mehr)"><input type="checkbox" id="mLabels" checked>🏷 Namen</label>
+            <label class="chip" title="Nachbar-Linien mit SNR"><input type="checkbox" id="mNeigh" checked>〰 Nachbarn</label>
+            <label class="chip" title="Wen dein Companion direkt hört und wie gut – aus allen gespeicherten Adverts"><input type="checkbox" id="mRx">📶 Empfang</label>
+          </div>
+          <div class="row">
+            <select id="mAge" title="Nur Knoten zeigen, die in diesem Zeitraum gehört wurden"><option value="3600">1 h</option><option value="86400">24 h</option><option value="604800" selected>7 Tage</option><option value="0">alle</option></select>
+            <button class="sm" id="btnFit" title="Alle Knoten zeigen">⤢ Alle</button>
+            <button class="sm" id="btnPick" disabled title="Eigene Position auf der Karte setzen">📍 Ich</button>
+            <button class="sm" id="btnClrPath" title="Eingeblendeten Pfad ausblenden">✕ Pfad</button>
+          </div>
         </div>
-        <div class="muted" id="mapInfo" style="margin-top:6px;font-size:12px"></div>
       </div>
     </section>
     <!-- CONTACTS -->
@@ -1553,12 +1575,27 @@ function initMap(){
   const saved=store.get('mcw.basemap',null);
   (base[saved]||(matchMedia('(prefers-color-scheme: dark)').matches?base['Dunkel (Esri)']:base['Straße (Esri)'])).addTo(map);
   map.on('baselayerchange',e=>store.set('mcw.basemap',e.name));
+  const zc=()=>map.getContainer().classList.toggle('zhi',map.getZoom()>=11);zc();map.on('zoomend',()=>{zc();declutter()});map.on('moveend resize',declutter);
   L.control.layers(base,null,{position:'topleft'}).addTo(map);
   L.control.scale({imperial:false}).addTo(map);
   neighLayer=L.layerGroup().addTo(map);pathLayer=L.layerGroup().addTo(map);
   map.on('click',e=>{if(!picking)return;picking=false;document.body.classList.remove('picking');setPosition(e.latlng.lat,e.latlng.lng)});
 }
-function icon(n,old){return L.divIcon({className:'',html:`<div class="mk mk-${n.type??0}${old?' old':''}">${NLETTER[n.type??0]}</div>`,iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-10]})}
+function icon(n,old){return L.divIcon({className:'mkw',html:`<div class="mk mk-${n.type??0}${old?' old':''}">${NLETTER[n.type??0]}</div>`,iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-8],tooltipAnchor:[0,0]})}
+/* Namensschilder entzerren: bei Überlappung gewinnt der wichtigere Knoten, der Rest erscheint beim Reinzoomen */
+let lblRaf=0;function declutter(){cancelAnimationFrame(lblRaf);lblRaf=requestAnimationFrame(()=>{
+  if(!map)return;const now=Date.now(),list=[],nh=S.neighbors?[...S.neighbors.keys()]:[];
+  for(const [k,m] of markers){const t=m.getTooltip&&m.getTooltip(),el=t&&t.getElement&&t.getElement();if(!el)continue;
+    const n=S.nodes.get(k)||{},c=S.contacts.get(k),ls=lastSeen(n)||0;
+    const pr=(c&&c.saved?4:0)+(nh.some(h=>k.startsWith(h))?3:0)+(ls&&now-ls<3600e3?2:ls&&now-ls<86400e3?1:0)+ls/1e14;
+    list.push({el,pr})}
+  list.sort((a,b)=>b.pr-a.pr);
+  const rs=list.map(x=>x.el.getBoundingClientRect()),placed=[],P=2;
+  list.forEach((x,i)=>{const r=rs[i];if(!r.width){x.el.classList.remove('hid');return}
+    const hit=placed.some(q=>r.left<q.right+P&&r.right>q.left-P&&r.top<q.bottom+P&&r.bottom>q.top-P);
+    x.el.classList.toggle('hid',hit);if(!hit)placed.push(r)});
+  const sh=placed.length,tot=list.length;$('#mapInfo').dataset.lbl=tot&&sh<tot?` · ${sh} Namen`:'';mapInfoText()})}
+function mapInfoText(){const e=$('#mapInfo');e.textContent=(e.dataset.base||'')+(e.dataset.lbl||'');e.title=e.textContent+((e.dataset.lbl)?' – reinzoomen zeigt weitere Namen':'')}
 function popupHtml(n){
   const ct=S.contacts.get(n.key),dist=hasPos(S.self)?hav(S.self.lat,S.self.lon,n.lat,n.lon):null;
   const nb=[...S.neighbors.entries()].find(([h])=>n.key.startsWith(h));
@@ -1582,7 +1619,7 @@ function renderMap(){
     let m=markers.get(n.key);
     if(!m){m=L.marker([n.lat,n.lon],{icon:icon(n,old)}).addTo(map);m.bindPopup('');m.on('popupopen',()=>{if(PE.picking){m.closePopup();return}m.setPopupContent(popupHtml(n))});m.on('click',()=>{const nn=S.nodes.get(m._mk);if(nn&&pathPickNode(nn))m.closePopup()});m._mk=n.key;markers.set(n.key,m)}
     else{m.setLatLng([n.lat,n.lon]);m.setIcon(icon(n,old))}
-    m.unbindTooltip();if(labels)m.bindTooltip(esc(n.name||n.key.slice(0,6)),{permanent:true,direction:'right',offset:[10,0],className:'lbl'});
+    m.unbindTooltip();if(labels)m.bindTooltip(esc(n.name||n.key.slice(0,6)),{permanent:true,direction:'right',offset:[8,0],className:'lbl'});
   }
   for(const [k,m] of markers)if(!seen.has(k)){m.remove();markers.delete(k)}
   // eigene Position
@@ -1595,7 +1632,7 @@ function renderMap(){
       L.polyline([[S.self.lat,S.self.lon],[n.lat,n.lon]],{color:avg>=5?'#2da44e':avg>=-5?'#d29922':'#cf222e',weight:3,opacity:.75}).bindTooltip(`${esc(n.name)}: Ø SNR ${avg.toFixed(1)} dB (${e.n}×)`).addTo(neighLayer);nl++}
   }
   const rx=renderRxLayer();
-  $('#mapInfo').textContent=`${cnt} Knoten mit Position · ${nl} Nachbar-Linien`+(rx?` · ${rx} direkt gehört`:'')+(hasPos(S.self)?'':' · eigene Position unbekannt');
+  $('#mapInfo').dataset.base=`${cnt} Knoten`+(nl?` · ${nl} Nachbarn`:'')+(rx?` · ${rx} gehört`:'')+(hasPos(S.self)?'':' · Position fehlt');mapInfoText();declutter();
   if(!fitted&&cnt){fitAll();fitted=true}
 }
 function fitAll(){if(!map)return;const pts=[...markers.values()].map(m=>m.getLatLng());if(selfMarker)pts.push(selfMarker.getLatLng());if(pts.length)map.fitBounds(L.latLngBounds(pts).pad(.15),{maxZoom:13})}
@@ -3040,7 +3077,8 @@ $('#msgIn').addEventListener('blur',()=>setTimeout(()=>{if(document.activeElemen
 $('#mentionBox').addEventListener('mousedown',e=>{e.preventDefault();const it=e.target.closest('.mi');if(it)mentionPick(+it.dataset.mi)});
 $('#msgIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});$('#msgIn').oninput=updateLen;$('#btnSend').onclick=sendMsg;
 $$('.mf').forEach(x=>x.onchange=renderMap);['#mLabels','#mNeigh','#mAge','#mRx'].forEach(s=>$(s).onchange=renderMap);$('#mRx').checked=store.get('mcw.mapRx',false);$('#mRx').addEventListener('change',e=>store.set('mcw.mapRx',e.target.checked));
-$('#btnFit').onclick=fitAll;$('#btnMapPanel').onclick=()=>$('#sec-map').classList.toggle('mpanel');$('#btnClrPath').onclick=()=>pathLayer&&pathLayer.clearLayers();
+$('#btnFit').onclick=fitAll;
+{const mp=$('#mapPanel'),b=$('#btnMpColl'),set=c=>{mp.classList.toggle('coll',c);b.textContent=c?'▾':'▴';b.title=c?'Ausklappen':'Einklappen'};set(store.get('mcw.mapPanelColl',false));b.onclick=()=>{const c=!mp.classList.contains('coll');set(c);store.set('mcw.mapPanelColl',c)}}$('#btnMapPanel').onclick=()=>$('#sec-map').classList.toggle('mpanel');$('#btnClrPath').onclick=()=>pathLayer&&pathLayer.clearLayers();
 $('#btnPick').onclick=()=>{picking=true;document.body.classList.add('picking');toast('Klicke auf die Karte, um die eigene Position zu setzen')};
 ['#cSearch'].forEach(s=>$(s).oninput=renderContacts);['#cType','#cHeard'].forEach(s=>$(s).onchange=renderContacts);
 $('#btnReloadC').onclick=async()=>{await loadContacts();toast(S.contacts.size+' Kontakte geladen','ok')};
