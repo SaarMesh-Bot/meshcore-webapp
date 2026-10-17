@@ -162,6 +162,13 @@ canvas#spark{height:34px;width:240px}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
 .card h3{margin:0 0 10px;font-size:15px}
+.wk{display:flex;flex-direction:column;gap:6px}
+.wk a{display:block;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);color:var(--text);text-decoration:none}
+.wk a:hover{border-color:var(--accent2)}
+.wk .wt{font-weight:600;font-size:13px}
+.wk .wd{font-size:12px;color:var(--muted)}
+.wk .ws{font-size:12px;margin-top:3px;display:flex;align-items:center;gap:6px}
+.wk .ws i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;flex:none}
 .frm{display:flex;gap:6px;margin:6px 0;align-items:center;flex-wrap:wrap}
 .frm input{flex:1;min-width:80px}
 .frm input[type=checkbox]{flex:0 0 auto;min-width:0}
@@ -413,6 +420,9 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
           <div class="frm"><select id="trAdd"><option value="">+ Repeater einfügen …</option></select><label class="muted" style="white-space:nowrap"><input type="checkbox" id="trBack" checked> Rückweg automatisch</label><button class="primary" id="btnTrace" disabled>Trace starten</button></div>
           <p class="muted" style="font-size:12px;margin:4px 0 8px">Das Paket läuft über die angegebenen Repeater und wieder zurück. Jeder Repeater misst, wie gut er seinen Vorgänger hört – so siehst du die Signalqualität jeder einzelnen Strecke. Für einen Kontakt geht es schneller mit 📍 in der Kontaktliste.</p>
           <div id="ntTrace"></div></div>
+        <div class="card" id="wkCard"><h3>🌐 SaarMesh-Werkzeuge <a href="https://live.saarmesh.de/werkzeuge/" target="_blank" rel="noopener" style="float:right;font-size:12px;font-weight:400">Übersicht ↗</a></h3>
+          <p class="muted" style="font-size:12px;margin:0 0 8px">Live-Auswertungen für das MeshCore-Netz in SaarLorLux auf live.saarmesh.de – funktioniert auch ohne verbundenes Gerät.</p>
+          <div id="wkList" class="wk"></div><div id="wkUpd" class="muted" style="font-size:11px;margin-top:6px"></div></div>
       </div></div>
     </section>
     <!-- DEVICE -->
@@ -1735,10 +1745,40 @@ async function setOther(manualAdd,locPolicy,telem){const s=S.self;try{await requ
 const rawlog=[];
 function logFrame(dir,f){if(!$('#logOn').checked)return;rawlog.push(`${tfmt(Date.now())} ${dir} ${hex(f)}`);if(rawlog.length>300)rawlog.shift();if(curTab==='device'){const el=$('#rawlog');el.textContent=rawlog.slice().reverse().join('\n')}}
 
+// ================= SaarMesh-Werkzeuge (live.saarmesh.de/werkzeuge) =================
+const WK={base:'https://live.saarmesh.de',t:0,d:null,err:false,list:[
+  ['netz','🗺️','Live-Karte','/','Nodes, Pakete, Pfade und Kanäle in Echtzeit (CoreScope).'],
+  ['spam','🛡️','Spam-Monitor','/spam/','Erkennt Flut-Absender, auffälligen Traffic und Funkstörungen.'],
+  ['relevanz','📡','Repeater-Relevanz','/relevanz/','Welche Repeater tragen das Netz? Mit Ausfall-Simulation.'],
+  ['positionen','📍','Positions-Check','/positionen/','Nodes, deren eingetragene Position nicht zu ihren Funkpartnern passt.'],
+  ['statistik','📊','Statistik','/statistik/','Nachrichten, Adverts, aktive Nodes, Netzwachstum, Kanäle und Serverzustand.'],
+  ['tropo','🌫️','Tropo-Vorhersage','/tropo/','Überreichweiten durch Inversionen, kalibriert an SaarMesh-Empfängen.']]};
+function wkStatus(k,d){
+  const nf=n=>Number(n||0).toLocaleString('de-DE'),tm=s=>new Date(s).toLocaleString('de-DE',{weekday:'short',hour:'2-digit',minute:'2-digit'});
+  switch(k){
+    case 'netz':return['--accent',`${nf(d.repeater)} Repeater aktiv (24 h) · ${d.observer} Observer online`];
+    case 'spam':{const n=(d.active_incidents||0)+(d.active_traffic||0)+(d.active_radio||0),l=d.typical_15m?` · ${d.packets_15m} Pakete/15 min (typ. ${Math.round(d.typical_15m)})`:'';
+      if(n)return['--warn',`${n} aktive Auffälligkeit${n>1?'en':''}${l}`];if(d.health&&d.health!=='healthy')return['--warn','Status: '+d.health+l];return['--accent','Alles ruhig'+l]}
+    case 'relevanz':return[d.kritisch?'--warn':'--accent',`${d.kritisch} kritisch · ${d.wichtig} wichtig · ${nf(d.region)} Repeater in der Region`];
+    case 'positionen':return[d.count?'--warn':'--accent',d.count?`${d.count} auffällige Position${d.count>1?'en':''}`:'Keine Auffälligkeiten'];
+    case 'statistik':return['--accent',`${nf(d.nachrichten)} Nachrichten · ${nf(d.adverts)} Adverts in 24 h`];
+    case 'tropo':{const c={normal:'--accent2',leicht:'--warn',erhoeht:'--warn',stark:'--err'}[d.class]||'--accent2';let t='Jetzt: '+d.name;
+      if(d.class!=='normal'&&d.until)t+=' bis '+tm(d.until);else if(d.class==='normal'&&d.peak_class&&d.peak_class!=='normal')t+=` · ${d.peak_name} ab ${tm(d.peak_at)}`;return[c,t]}
+  }return['--muted','']}
+function renderWk(){const el=$('#wkList');if(!el)return;const d=WK.d;
+  el.innerHTML=WK.list.map(([k,ic,n,p,ds])=>{let st=['--muted',WK.err?'Status gerade nicht verfügbar':'Lade …'];
+    if(d&&d[k]){try{st=d[k].error?['--muted','Status gerade nicht verfügbar']:wkStatus(k,d[k])}catch{}}
+    return `<a href="${WK.base}${p}" target="_blank" rel="noopener" data-wk="${k}"><div class="wt">${ic} ${esc(n)}</div><div class="wd">${esc(ds)}</div><div class="ws"><i style="background:var(${st[0]})"></i><span>${esc(st[1])}</span></div></a>`}).join('');
+  $('#wkUpd').textContent=d&&d.generated?'Status von '+new Date(d.generated).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr · wird alle 10 Minuten aktualisiert':''}
+async function loadWk(force){if(!force&&Date.now()-WK.t<5*60e3)return;WK.t=Date.now();
+  try{const r=await fetch(WK.base+'/werkzeuge/status.json?'+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;WK.d=await r.json();WK.err=false}catch{WK.err=!WK.d}renderWk()}
+setInterval(()=>{if(curTab==='tools'&&!document.hidden)loadWk()},60e3);
+
 // ================= Tabs & Rendering =================
 let curTab='live',rT=null;
 function switchTab(t){curTab=t;$$('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));$$('main section').forEach(s=>s.classList.toggle('active',s.id==='sec-'+t));
   if(t==='admin'){ADM.shown=S.connected;renderAdmin()}
+  if(t==='tools'){renderWk();loadWk()}
   if(t==='map'){initMap();setTimeout(()=>{map&&map.invalidateSize();renderMap()},30)}renderAll()}
 function renderSoon(){if(!rT)rT=setTimeout(()=>{rT=null;renderAll()},150)}
 function renderAll(){if(curTab==='chat')renderChat();else updateBadge();if(curTab==='contacts')renderContacts();if(curTab==='device'){renderDevice();$('#rawlog').textContent=rawlog.slice().reverse().join('\n')}if(curTab==='map')renderMapSoon();if(curTab==='tools')renderNetTools();if(curTab==='admin'){if(ADM.shown!==S.connected){ADM.shown=S.connected;renderAdmin()}else renderAdminList()}}
