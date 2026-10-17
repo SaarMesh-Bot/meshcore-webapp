@@ -1964,7 +1964,10 @@ function renderAdminList(){
 function kvRows(rows){return rows.filter(r=>r[1]!=null&&r[1]!=='').map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('')}
 const fmtN=v=>v==null?null:v.toLocaleString('de-DE');
 function clockTxt(d){if(d==null)return null;const a=Math.abs(d);const t=a<60?a+' s':a<3600?Math.round(a/60)+' min':a<86400?Math.round(a/3600)+' h':Math.round(a/86400)+' Tage';
-  return a<=120?'<span class="snr-g">stimmt</span>':`<span class="snr-r">${d>0?'geht '+t+' vor':'geht '+t+' nach'}</span>`}
+  return a<=120?'<span class="snr-g">stimmt</span>':`<span class="snr-r">${d>0?'+':'−'}${t} <span class="muted">(geht ${d>0?'vor':'nach'})</span></span>`}
+// Uhr des Boards: Abweichung plus Datum/Uhrzeit, wie sie das Board gerade meldet (aus der Abweichung hochgerechnet, UTC)
+function clockRows(d){if(d==null)return [];const b=new Date((now()+d)*1000),p=n=>String(n).padStart(2,'0');
+  return [['Uhr',clockTxt(d)],['Datum',`${p(b.getUTCDate())}.${p(b.getUTCMonth()+1)}.${b.getUTCFullYear()}`],['Uhrzeit',`${p(b.getUTCHours())}:${p(b.getUTCMinutes())} UTC`]]}
 function renderAdmin(){
   renderAdminList();const s=admCur(),el=$('#admMain');
   if(!s){el.innerHTML=(isMobile()?`<div class="admhead" style="margin-bottom:0"><button class="sm mback" onclick="mBack('admin')" title="Zurück">‹</button></div>`:'')+dashHtml()+(S.connected?'':'<p class="muted" style="font-size:12px">Nicht verbunden – zum Abfragen zuerst eine Companion verbinden.</p>');admBusy(ADM.busy,ADM.busyTxt);return}
@@ -1982,7 +1985,7 @@ function renderAdmin(){
   }else{
     h+=`<div class="cards">`;
     h+=`<div class="card"><h3>Status <button class="sm" data-a="status" style="float:right">↻</button></h3>`+
-      (st?`<div class="kv">${kvRows([['Akku',st.batt!=null?(st.batt/1000).toFixed(2)+' V':null],['Laufzeit',dur(st.up)],['Uhr',clockTxt(s.clockDiff)],
+      (st?`<div class="kv">${kvRows([['Akku',st.batt!=null?(st.batt/1000).toFixed(2)+' V':null],['Laufzeit',dur(st.up)],...clockRows(s.clockDiff),
         ['Rauschen',st.noise!=null?st.noise+' dBm':null],['Letztes Paket',st.rssi!=null?`RSSI ${st.rssi} dBm · SNR ${st.snr!=null?st.snr.toFixed(1):'–'} dB`:null],
         ['Airtime TX',st.air!=null?dur(st.air)+(st.up?' ('+(st.air/st.up*100).toFixed(1)+' %)':''):null],['Airtime RX',st.rxAir!=null?dur(st.rxAir)+(st.up?' ('+(st.rxAir/st.up*100).toFixed(1)+' %)':''):null],
         ['Empfangen',st.recv!=null?`${fmtN(st.recv)} (Flood ${fmtN(st.rFlood)}, direkt ${fmtN(st.rDirect)})`:null],['Gesendet',st.sent!=null?`${fmtN(st.sent)} (Flood ${fmtN(st.sFlood)}, direkt ${fmtN(st.sDirect)})`:null],
@@ -2054,7 +2057,7 @@ $('#admMain').addEventListener('click',e=>{const fv=e.target.closest('[data-fav]
   const a=b.dataset.a,nm=admCur()?admName(admCur().key):'';
   ({path:()=>openPathEditor(admCur().key),login:()=>admLogin(),logout:admLogout,status:()=>admStatus(),dashrun:()=>dashRun(),anon:admAnon,regload:admRegions,regsave:()=>admRegionCmd('region save'),
     regadd:()=>{const n=($('#regNew').value||'').trim().replace(/^#/,'').toLowerCase(),p=$('#regParent').value;if(!/^[\p{L}\p{N}_-]{1,30}$/u.test(n))return toast('Regionsname: Buchstaben, Ziffern, - und _','err');admRegionCmd('region put '+n+(p&&p!=='*'?' '+p:''))},neigh:admNeighbours,neighmap:admNeighMap,acl:admAcl,info:()=>admOwner(),loadset:admLoadSettings,saveset:admSaveSettings,send:admSendCmd,
-    clock:()=>admCmd('clock sync'),adv0:()=>admCmd('advert.zerohop'),advf:()=>admCmd('advert'),clrstats:()=>admCmd('clear stats',{confirmMsg:'Statistik von „'+nm+'“ zurücksetzen?'}),
+    clock:async()=>{const s=admCur(),r=await admCmd('clock sync');if(s&&r&&/^ok/i.test(r)){s.clockDiff=0;renderAdmin()}},adv0:()=>admCmd('advert.zerohop'),advf:()=>admCmd('advert'),clrstats:()=>admCmd('clear stats',{confirmMsg:'Statistik von „'+nm+'“ zurücksetzen?'}),
     reboot:()=>admRebootCmd(nm),favonly:()=>setFavOnly(!favOnly),fwcheck:fwProbe,fwlist:()=>fwAssets(admCur()&&S.contacts.get(admCur().key)?.type===3?'room-server':'repeater',true),ota:fwOta}[a]||(()=>{}))()});
 $('#admMain').addEventListener('keydown',e=>{
   if(e.target.id==='admPw'&&e.key==='Enter'){e.preventDefault();admLogin()}
@@ -2712,7 +2715,7 @@ function anonHtml(s){
   const a=s.anon;
   let h=`<div class="card" style="max-width:440px;margin-top:12px"><h3>Ohne Anmeldung <button class="sm" data-a="anon" style="float:right">${a?'↻':'ℹ Abfragen'}</button></h3>`;
   if(!a)return h+`<p class="muted" style="font-size:12px;margin:0">Fragt Name, Owner-Info, Uhrzeit und die freigegebenen Regionen ab – ganz ohne Passwort. Klappt mit neuerer Repeater-Firmware, wenn der Repeater direkt oder über einen bekannten Pfad erreichbar ist.</p></div>`;
-  return h+`<div class="kv">${kvRows([['Name',esc(a.name)],['Owner',a.info?esc(a.info).replace(/\|/g,'<br>'):'<span class="muted">–</span>'],['Uhr',clockTxt(a.clockDiff)],
+  return h+`<div class="kv">${kvRows([['Name',esc(a.name)],['Owner',a.info?esc(a.info).replace(/\|/g,'<br>'):'<span class="muted">–</span>'],...clockRows(a.clockDiff),
     ['Weiterleiten',a.flags==null?null:a.flags&0x80?'<span class="snr-r">aus</span>':'<span class="snr-g">an</span>'],['Bridge',a.flags&3?(a.flags&3)===3?'ESP-NOW':'RS232':null],
     ['Regionen (Flood)',a.regions?a.regions.length?a.regions.map(x=>'<span class="hash">'+(x==='*'?'* (ohne Region)':'#'+esc(x))+'</span>').join(' '):'keine':null]])}</div><div class="muted" style="font-size:12px">Stand ${tfmt(a.t)}</div></div>`;
 }

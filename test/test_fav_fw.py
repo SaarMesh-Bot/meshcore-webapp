@@ -51,6 +51,12 @@ with sync_playwright() as p:
     pg.fill('#admPw', 'geheim'); pg.click('button[data-a=login]')
     pg.wait_for_selector('text=angemeldet als Admin', timeout=8000)
     pg.wait_for_selector('#fwPick', timeout=8000)
+    # Uhr: Abweichung plus Datum/Uhrzeit des Boards (Simulator geht 400 s vor)
+    pg.wait_for_function("document.querySelector('#admMain').textContent.includes('Uhrzeit')", timeout=8000)
+    t = pg.text_content('#admMain')
+    assert '+7 min' in t and 'geht vor' in t and 'UTC' in t and 'Datum' in t, t[:600]
+    pg.click('button[data-a=clock]')
+    pg.wait_for_function("document.querySelector('#admMain').textContent.includes('stimmt')", timeout=8000)
     pg.click('button[data-a=fwcheck]')
     pg.wait_for_function("document.querySelector('#admMain').textContent.includes('Heltec V3')", timeout=15000)
     pg.wait_for_function("document.querySelector('#fwPick').value==='Heltec_v3'", timeout=5000)
