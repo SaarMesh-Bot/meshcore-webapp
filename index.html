@@ -205,6 +205,12 @@ table.dash td{white-space:nowrap}table.dash tbody tr{cursor:pointer}
 .wzch{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;margin:6px 0;font-size:13px}.wzch label{display:flex;gap:5px;align-items:center}
 #btnInstall[hidden]{display:none}
 .citem .mute{opacity:.6}
+.favb{cursor:pointer;color:var(--muted);opacity:.5;font-size:15px;line-height:1;padding:0 2px;user-select:none}.favb:hover{opacity:1}.favb.on{color:#e3b341;opacity:1}
+.favsep{padding:6px 12px 2px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+#admFavOnly.on,button[data-a=favonly].on{border-color:#e3b341;color:#e3b341}
+a.btn{display:inline-block;background:var(--accent2);color:#fff;border-radius:6px;padding:6px 11px;text-decoration:none;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.fwsteps{margin:8px 0 4px;padding-left:22px;font-size:13px}.fwsteps li{margin:3px 0}
+.fwok{border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0;background:var(--panel2);font-size:13px;border-radius:4px}.fwok.err{border-left-color:var(--err)}
 a{color:var(--accent2)}
 button.echo{background:none;border:none;padding:0 2px;font-size:11px;color:var(--accent);cursor:pointer;font-weight:600}button.echo:hover{text-decoration:underline}
 .echolist{text-align:left;font-size:12px;margin-top:4px;padding-top:4px;border-top:1px solid var(--border);line-height:1.5}
@@ -395,7 +401,7 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
     </section>
     <!-- ADMIN -->
     <section id="sec-admin">
-      <div class="chatside"><input id="admSearch" placeholder="Repeater suchen…"><div class="chatlist" id="admList"></div></div>
+      <div class="chatside"><div style="display:flex;align-items:center"><input id="admSearch" placeholder="Repeater suchen…" style="flex:1;min-width:0"><button id="admFavOnly" class="sm" style="margin-right:8px" title="Nur Favoriten zeigen">☆</button></div><div class="chatlist" id="admList"></div></div>
       <div class="chatmain"><div class="scroll" id="admMain"></div></div>
     </section>
     <!-- TOOLS -->
@@ -1931,16 +1937,29 @@ function admNeighMap(){
     if(miss)toast(miss+' Nachbar(n) ohne bekannte Position nicht eingezeichnet')},80);
 }
 
+// ---- Favoriten ----
+// Markierte Repeater stehen oben in Liste und Übersicht; „Nur Favoriten“ blendet den Rest aus. Alles nur in diesem Browser.
+const FAV=new Set(store.get('mcw.repfav',[])||[]);
+let favOnly=!!store.get('mcw.favonly',false);
+function toggleFav(k){if(FAV.has(k))FAV.delete(k);else FAV.add(k);store.set('mcw.repfav',[...FAV]);if(favOnly&&!FAV.size)favOnly=false,store.set('mcw.favonly',false);renderAdmin()}
+function setFavOnly(on){if(on&&!FAV.size)return toast('Noch keine Favoriten – mit ☆ neben einem Repeater markieren');favOnly=on;store.set('mcw.favonly',on);renderAdmin()}
+const favStar=k=>`<span class="favb${FAV.has(k)?' on':''}" data-fav="${k}" role="button" title="${FAV.has(k)?'Aus Favoriten entfernen':'Als Favorit markieren'}">${FAV.has(k)?'★':'☆'}</span>`;
+const favCmp=(a,b)=>(FAV.has(b.key)?1:0)-(FAV.has(a.key)?1:0);
+
 // ---- UI ----
-function admBusy(on,txt){ADM.busy=on;ADM.busyTxt=on?txt:'';const b=$('#admBusy');if(b){b.textContent=on?txt||'…':'';b.style.display=on?'':'none'}$$('#admMain button[data-a]').forEach(x=>x.disabled=on||!S.connected)}
+function admBusy(on,txt){ADM.busy=on;ADM.busyTxt=on?txt:'';const b=$('#admBusy');if(b){b.textContent=on?txt||'…':'';b.style.display=on?'':'none'}$$('#admMain button[data-a]:not([data-a=favonly])').forEach(x=>x.disabled=on||!S.connected)}
 function openAdmin(key){ADM.key=key;$('#sec-admin').classList.add('mdet');switchTab('admin')}
 function renderAdminList(){
-  const q=($('#admSearch').value||'').trim().toLowerCase();
-  const list=[...S.contacts.values()].filter(c=>ADM_TYPES.includes(c.type)&&(!q||(c.name||'').toLowerCase().includes(q)||c.key.startsWith(q)))
-    .sort((a,b)=>(ADM.sess.get(b.key)?.logged?1:0)-(ADM.sess.get(a.key)?.logged?1:0)||(a.name||'').localeCompare(b.name||''));
-  $('#admList').innerHTML=`<div class="citem${!ADM.key?' active':''}" data-key="__dash"><span>📋</span><span class="nm">Übersicht aller Repeater</span></div>`+list.map(c=>{const s=ADM.sess.get(c.key);
-    return `<div class="citem${ADM.key===c.key?' active':''}" data-key="${c.key}"><div class="mk mk-${c.type}" style="width:18px;height:18px;font-size:10px">${NLETTER[c.type]}</div><span class="nm">${esc(c.name||c.key.slice(0,8))}</span>${s&&s.logged?'<span title="angemeldet">🔓</span>':''}</div>`}).join('')
-    ||'<div class="empty" style="font-size:13px">Keine Repeater oder Rooms in den Kontakten.<br>Unter „Kontakte“ mit „auch nur gehörte Knoten“ einen Repeater hinzufügen.</div>';
+  const q=($('#admSearch').value||'').trim().toLowerCase(),fb=$('#admFavOnly');
+  if(fb){fb.classList.toggle('on',favOnly);fb.textContent=(favOnly?'★ ':'☆ ')+FAV.size;fb.title=favOnly?'Alle Repeater zeigen':'Nur Favoriten zeigen'}
+  const list=[...S.contacts.values()].filter(c=>ADM_TYPES.includes(c.type)&&(!favOnly||FAV.has(c.key))&&(!q||(c.name||'').toLowerCase().includes(q)||c.key.startsWith(q)))
+    .sort((a,b)=>favCmp(a,b)||(ADM.sess.get(b.key)?.logged?1:0)-(ADM.sess.get(a.key)?.logged?1:0)||(a.name||'').localeCompare(b.name||''));
+  const nf=list.filter(c=>FAV.has(c.key)).length;
+  $('#admList').innerHTML=`<div class="citem${!ADM.key?' active':''}" data-key="__dash"><span>📋</span><span class="nm">Übersicht aller Repeater</span></div>`+list.map((c,i)=>{const s=ADM.sess.get(c.key);
+    const sep=nf&&!favOnly&&i===0?'<div class="favsep">★ Favoriten</div>':nf&&!favOnly&&i===nf?'<div class="favsep">Alle</div>':'';
+    return sep+`<div class="citem${ADM.key===c.key?' active':''}" data-key="${c.key}"><div class="mk mk-${c.type}" style="width:18px;height:18px;font-size:10px">${NLETTER[c.type]}</div><span class="nm">${esc(c.name||c.key.slice(0,8))}</span>${s&&s.logged?'<span title="angemeldet">🔓</span>':''}${favStar(c.key)}</div>`}).join('')
+    ||(favOnly?'<div class="empty" style="font-size:13px">Keine Favoriten'+(q?' passend zur Suche':'')+'.<br>Mit ☆ neben einem Repeater markieren.</div>'
+      :'<div class="empty" style="font-size:13px">Keine Repeater oder Rooms in den Kontakten.<br>Unter „Kontakte“ mit „auch nur gehörte Knoten“ einen Repeater hinzufügen.</div>');
 }
 function kvRows(rows){return rows.filter(r=>r[1]!=null&&r[1]!=='').map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join('')}
 const fmtN=v=>v==null?null:v.toLocaleString('de-DE');
@@ -1952,7 +1971,7 @@ function renderAdmin(){
   if(!S.connected){el.innerHTML='<div class="empty">Nicht verbunden. Zuerst eine Companion per USB, Bluetooth oder TCP verbinden.</div>';return}
   const c=S.contacts.get(s.key)||{},n=S.nodes.get(s.key)||{},st=s.status;
   const pw=store.get('mcw.admpw.'+s.key.slice(0,12),null);
-  let h=`<div class="admhead"><button class="sm mback" onclick="mBack('admin')" title="Zurück">‹</button><div><h2>${esc(admName(s.key))}</h2><div class="muted mono">${NTYPE[c.type]||''} · ${s.key.slice(0,16)}… ${s.logged?'· <b class="snr-g">angemeldet als '+esc(s.role)+'</b>':''}</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>`;
+  let h=`<div class="admhead"><button class="sm mback" onclick="mBack('admin')" title="Zurück">‹</button><div><h2>${favStar(s.key)} ${esc(admName(s.key))}</h2><div class="muted mono">${NTYPE[c.type]||''} · ${s.key.slice(0,16)}… ${s.logged?'· <b class="snr-g">angemeldet als '+esc(s.role)+'</b>':''}</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>`;
   if(s.logged)h+=`<button data-a="logout">Abmelden</button>`;
   h+=`</div><div class="admpath"><span class="muted">Pfad:</span> <span>${pathText(c.key?c:null)}</span><button class="sm" data-a="path">✎ Pfad festlegen</button></div>`;
   if(!s.logged){
@@ -1983,6 +2002,7 @@ function renderAdmin(){
         `</tbody></table></div><div class="muted" style="font-size:12px">${s.neigh.list.length} von ${s.neigh.total} · Stand ${tfmt(s.neigh.t)}</div>`:'<div class="muted">Noch nicht abgerufen.</div>')+`</div>`;
     h+=`<div class="card"><h3>Telemetrie</h3><div class="telbox" data-key="${s.key}">${telHtml(s.key)}</div></div>`;
     if(s.isAdmin){
+      h+=fwHtml(s,c);
       // Einstellungen
       h+=`<div class="card"><h3>Einstellungen <button class="sm" data-a="loadset" style="float:right">${s.settings?'↻':'Laden'}</button></h3>`;
       if(s.settings){h+=ADM_FIELDS.map(f=>{const id='adm_'+f.k.replace(/\./g,'_'),v=s.settings[f.k];
@@ -2006,7 +2026,7 @@ function renderAdmin(){
     h+=`</div>`;
   }
   // Eingaben beim Neuzeichnen behalten
-  const keep=ADM.lastKey===s.key?Object.fromEntries($$('#admMain input,#admMain select').filter(x=>x.id&&x.type!=='checkbox').map(x=>[x.id,x.value])):{};
+  const keep=ADM.lastKey===s.key?Object.fromEntries($$('#admMain input,#admMain select').filter(x=>x.id&&x.type!=='checkbox'&&x.id!=='fwPick').map(x=>[x.id,x.value])):{};
   el.innerHTML=h;ADM.lastKey=s.key;
   for(const [id,v] of Object.entries(keep)){const x=document.getElementById(id);if(x&&!x.disabled)x.value=v}
   renderAdminLog();admBusy(ADM.busy,ADM.busyTxt);
@@ -2021,9 +2041,11 @@ const CLI_SUGGEST=['ver','board','clock','clock sync','clkreboot','reboot','adve
     .flatMap(k=>['get '+k,'set '+k+' '])];
 $('#dlCli')||document.body.insertAdjacentHTML('beforeend','<datalist id="dlCli">'+CLI_SUGGEST.map(x=>`<option value="${esc(x)}">`).join('')+'</datalist>');
 const admHist=[];let admHi=-1;
-$('#admList').addEventListener('click',e=>{const it=e.target.closest('.citem');if(!it)return;ADM.key=it.dataset.key==='__dash'?null:it.dataset.key;$('#sec-admin').classList.add('mdet');renderAdmin()});
+$('#admList').addEventListener('click',e=>{const fv=e.target.closest('[data-fav]');if(fv){e.stopPropagation();toggleFav(fv.dataset.fav);return}const it=e.target.closest('.citem');if(!it)return;ADM.key=it.dataset.key==='__dash'?null:it.dataset.key;$('#sec-admin').classList.add('mdet');renderAdmin()});
 $('#admSearch').oninput=renderAdminList;
-$('#admMain').addEventListener('click',e=>{const b=e.target.closest('button');
+$('#admFavOnly').onclick=()=>setFavOnly(!favOnly);
+$('#admMain').addEventListener('change',e=>{if(e.target.id==='fwPick'){const s=admCur();if(!s)return;(s.fwu||(s.fwu={})).pick=e.target.value;rdSet(s.key,{fwPick:e.target.value||null});renderAdmin()}});
+$('#admMain').addEventListener('click',e=>{const fv=e.target.closest('[data-fav]');if(fv){e.stopPropagation();toggleFav(fv.dataset.fav);return}const b=e.target.closest('button');
   if(!b){const tr=e.target.closest('tr[data-open]');if(tr){ADM.key=tr.dataset.open;$('#sec-admin').classList.add('mdet');renderAdmin()}return}
   if(b.disabled)return;
   if(b.dataset.cli){$('#admCmd').value=b.dataset.cli;admSendCmd();return}
@@ -2033,7 +2055,7 @@ $('#admMain').addEventListener('click',e=>{const b=e.target.closest('button');
   ({path:()=>openPathEditor(admCur().key),login:()=>admLogin(),logout:admLogout,status:()=>admStatus(),dashrun:()=>dashRun(),anon:admAnon,regload:admRegions,regsave:()=>admRegionCmd('region save'),
     regadd:()=>{const n=($('#regNew').value||'').trim().replace(/^#/,'').toLowerCase(),p=$('#regParent').value;if(!/^[\p{L}\p{N}_-]{1,30}$/u.test(n))return toast('Regionsname: Buchstaben, Ziffern, - und _','err');admRegionCmd('region put '+n+(p&&p!=='*'?' '+p:''))},neigh:admNeighbours,neighmap:admNeighMap,acl:admAcl,info:()=>admOwner(),loadset:admLoadSettings,saveset:admSaveSettings,send:admSendCmd,
     clock:()=>admCmd('clock sync'),adv0:()=>admCmd('advert.zerohop'),advf:()=>admCmd('advert'),clrstats:()=>admCmd('clear stats',{confirmMsg:'Statistik von „'+nm+'“ zurücksetzen?'}),
-    reboot:()=>admRebootCmd(nm)}[a]||(()=>{}))()});
+    reboot:()=>admRebootCmd(nm),favonly:()=>setFavOnly(!favOnly),fwcheck:fwProbe,fwlist:()=>fwAssets(admCur()&&S.contacts.get(admCur().key)?.type===3?'room-server':'repeater',true),ota:fwOta}[a]||(()=>{}))()});
 $('#admMain').addEventListener('keydown',e=>{
   if(e.target.id==='admPw'&&e.key==='Enter'){e.preventDefault();admLogin()}
   if(e.target.id==='regNew'&&e.key==='Enter'){e.preventDefault();$('#admMain button[data-a=regadd]').click()}
@@ -2048,7 +2070,7 @@ async function admSendCmd(){const inp=$('#admCmd');const v=inp.value.trim();if(!
 async function admRebootCmd(nm){
   const s=admCur();if(!s||!confirm('Repeater „'+nm+'“ neu starten?'))return;
   // Auf reboot kommt keine Antwort – nur senden
-  try{admLog(s,'out','reboot');await request(bytes(CMD.SEND_TXT,1,0,u32(now()),unhex(s.key.slice(0,12)),'reboot'));toast('Neustart an '+nm+' gesendet','ok');s.logged=false;admLog(s,'sys','Neustart gesendet – danach neu anmelden');renderAdmin()}
+  try{admLog(s,'out','reboot');await request(bytes(CMD.SEND_TXT,1,0,u32(now()),unhex(s.key.slice(0,12)),'reboot'));toast('Neustart an '+nm+' gesendet','ok');s.logged=false;if(s.fwu)s.fwu.ota=null;admLog(s,'sys','Neustart gesendet – danach neu anmelden');renderAdmin()}
   catch(e){toast(e.message,'err')}
 }
 
@@ -2542,8 +2564,9 @@ async function fwCheck(force){
 }
 const verOf=s=>{const m=/(\d+)\.(\d+)(?:\.(\d+))?/.exec(s||'');return m?[+m[1],+m[2],+(m[3]||0)]:null};
 function fwNewer(cur,role){const l=FW.rel&&FW.rel[role],a=verOf(cur),b=verOf(l);if(!a||!b)return null;for(let i=0;i<3;i++){if(b[i]>a[i])return l;if(b[i]<a[i])return null}return null}
-function fwBadge(cur,role){const n=fwNewer(cur,role);return n?` <a class="upd" href="https://flasher.meshcore.co.uk/" target="_blank" rel="noopener" title="Neuere Firmware verfügbar – zum Web-Flasher">⬆ v${esc(n)}</a>`:''}
-const dashReps=()=>[...S.contacts.values()].filter(c=>ADM_TYPES.includes(c.type)).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+const FLASHER='https://flasher.meshcore.io/';
+function fwBadge(cur,role){const n=fwNewer(cur,role);return n?` <a class="upd" href="${FLASHER}" target="_blank" rel="noopener" title="Neuere Firmware verfügbar – zum Web-Flasher">⬆ v${esc(n)}</a>`:''}
+const dashReps=()=>[...S.contacts.values()].filter(c=>ADM_TYPES.includes(c.type)&&(!favOnly||FAV.has(c.key))).sort((a,b)=>favCmp(a,b)||(a.name||'').localeCompare(b.name||''));
 const DASH={busy:false,cur:null};
 const hasPw=k=>store.get('mcw.admpw.'+k.slice(0,12),null)!=null;
 async function dashRun(only){
@@ -2565,19 +2588,102 @@ async function dashRun(only){
 function battCls(v){return v==null?'':v<3500?'snr-r':v<3700?'snr-y':'snr-g'}
 function dashHtml(){
   const reps=dashReps();fwCheck();
-  let h=`<div class="admhead"><div><h2>📋 Repeater-Übersicht</h2><div class="muted">${reps.length} Repeater/Rooms in deinen Kontakten</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>
-    <button class="primary" data-a="dashrun"${DASH.busy||!S.connected?' disabled':''}>${DASH.busy?'Frage ab …':'↻ Alle abfragen'}</button></div>`;
+  let h=`<div class="admhead"><div><h2>📋 Repeater-Übersicht</h2><div class="muted">${favOnly?reps.length+' Favoriten':reps.length+' Repeater/Rooms in deinen Kontakten'+(FAV.size?' · '+FAV.size+' ★':'')}</div></div><div class="spacer"></div><span id="admBusy" class="muted" style="display:none"></span>
+    <button data-a="favonly" class="${favOnly?'on':''}" title="${favOnly?'Alle Repeater zeigen':'Nur Favoriten zeigen'}">${favOnly?'★':'☆'} Nur Favoriten</button>
+    <button class="primary" data-a="dashrun"${DASH.busy||!S.connected?' disabled':''}>${DASH.busy?'Frage ab …':favOnly?'↻ Favoriten abfragen':'↻ Alle abfragen'}</button></div>`;
+  if(!reps.length&&favOnly)return h+'<div class="empty" style="font-size:13px">Keine Favoriten unter deinen Kontakten.</div>';
   if(!reps.length)return h+'<div class="empty" style="font-size:13px">Keine Repeater oder Rooms in den Kontakten.<br>Unter „Kontakte“ oder „Netz-Tools → Repeater in der Nähe“ hinzufügen.</div>';
   h+=`<div class="card"><div class="tablewrap"><table class="dash"><thead><tr><th>Name</th><th>Stand</th><th>Akku</th><th>Laufzeit</th><th>Rauschen</th><th title="Sende-Airtime seit Start">Airtime</th><th>Firmware</th><th>Gehört</th><th></th></tr></thead><tbody>`;
   for(const c of reps){const r=RD[c.key]||{},s=ADM.sess.get(c.key),n=S.nodes.get(c.key)||{},cur=DASH.cur===c.key;
     const ok=r.t&&(!r.fail||r.t>r.fail);
-    h+=`<tr data-open="${c.key}"${cur?' class="sel"':''}><td><span class="mk mk-${c.type}" style="width:16px;height:16px;font-size:9px;display:inline-flex;vertical-align:middle">${NLETTER[c.type]}</span> ${esc(c.name||c.key.slice(0,8))}${s&&s.logged?' 🔓':hasPw(c.key)?' <span class="muted" title="Passwort gespeichert">🔑</span>':''}</td>
+    h+=`<tr data-open="${c.key}"${cur?' class="sel"':''}><td>${favStar(c.key)} <span class="mk mk-${c.type}" style="width:16px;height:16px;font-size:9px;display:inline-flex;vertical-align:middle">${NLETTER[c.type]}</span> ${esc(c.name||c.key.slice(0,8))}${s&&s.logged?' 🔓':hasPw(c.key)?' <span class="muted" title="Passwort gespeichert">🔑</span>':''}</td>
       <td>${cur?'<span class="muted">läuft …</span>':ok?ago(r.t):r.fail?`<span class="snr-r" title="${esc(r.msg||'')}">✗ ${ago(r.fail)}</span>`:'<span class="muted">–</span>'}</td>
       <td class="mono ${battCls(r.batt)}">${r.batt?(r.batt/1000).toFixed(2)+' V':'–'}</td><td>${r.up!=null?dur(r.up):'–'}</td><td class="mono">${r.noise!=null?r.noise+' dBm':'–'}</td>
       <td class="mono${r.air>10?' snr-y':''}">${r.air!=null?r.air.toFixed(1)+' %':'–'}</td><td>${r.ver?esc((verOf(r.ver)||[]).join('.')||r.ver)+fwBadge(r.ver,c.type===3?'room-server':'repeater'):'–'}</td>
       <td>${ago(lastSeen(n))}</td><td style="white-space:nowrap"><button class="sm" data-dash="${c.key}" title="Nur diesen abfragen"${DASH.busy||!S.connected?' disabled':''}>↻</button></td></tr>`}
-  h+=`</tbody></table></div></div><p class="muted" style="font-size:12px">Abgefragt werden nur Repeater, bei denen du angemeldet bist oder dir das Passwort gemerkt hast (🔑). Die Werte bleiben in diesem Browser gespeichert.${FW.rel&&FW.rel.repeater?` Neueste Repeater-Firmware laut GitHub: <b>v${esc(FW.rel.repeater)}</b>.`:''} Klick auf eine Zeile öffnet den Repeater.</p>`;
+  h+=`</tbody></table></div></div><p class="muted" style="font-size:12px">Abgefragt werden nur Repeater, bei denen du angemeldet bist oder dir das Passwort gemerkt hast (🔑). Die Werte bleiben in diesem Browser gespeichert.${FW.rel&&FW.rel.repeater?` Neueste Repeater-Firmware laut GitHub: <b>v${esc(FW.rel.repeater)}</b>.`:''} Klick auf eine Zeile öffnet den Repeater, ☆ markiert ihn als Favorit.</p>`;
   return h;
+}
+
+// ---- Firmware-Update (OTA) ----
+// Die Firmware geht NICHT über LoRa: „start ota“ schaltet den Repeater in den Update-Modus,
+// die Datei kommt danach per WLAN (ESP32) bzw. Bluetooth-DFU (nRF52) von einem Gerät in seiner Nähe.
+FW.assets={};
+const fwRole=c=>c&&c.type===3?'room-server':'repeater';
+function fwGroup(assets){
+  const by=new Map();
+  for(const a of assets){const m=/^(.+?)[_-](?:repeater|room[_-]?server)-v\d[\w.]*?-[0-9a-f]{6,}(-merged)?\.(bin|zip|uf2|hex)$/i.exec(a.name||'');if(!m)continue;
+    const g=by.get(m[1])||{base:m[1],f:{}};by.set(m[1],g);g.f[(m[2]?'merged.':'')+m[3].toLowerCase()]={name:a.name,url:a.browser_download_url,size:a.size}}
+  return [...by.values()].map(g=>{const f=g.f,label=g.base.replace(/_/g,' ');
+    if(f.zip)return {base:g.base,label,method:'ble',file:f.zip};
+    if(f.bin&&f['merged.bin'])return {base:g.base,label,method:'wifi',file:f.bin};
+    const any=f.uf2||f.bin||f.hex||f['merged.bin'];return any?{base:g.base,label,method:'usb',file:any}:null})
+    .filter(Boolean).sort((a,b)=>a.label.localeCompare(b.label,'de',{sensitivity:'base'}))}
+async function fwAssets(role,force){
+  const cur=FW.assets[role];if(cur&&(cur.busy||(!force&&cur.list)))return cur;
+  const o=FW.assets[role]={busy:true,list:null,err:null};
+  try{
+    if(!FW.rel||!FW.rel[role])await fwCheck(true);
+    const v=FW.rel&&FW.rel[role];if(!v)throw new Error('keine Release-Info von GitHub');
+    const r=await fetch('https://api.github.com/repos/meshcore-dev/MeshCore/releases/tags/'+role+'-v'+v);if(!r.ok)throw new Error('GitHub HTTP '+r.status);
+    const j=await r.json();o.ver=v;o.list=fwGroup(j.assets||[]);if(!o.list.length)throw new Error('keine Firmware-Dateien im Release');
+  }catch(e){o.err=e.message;o.list=null}finally{o.busy=false;if(curTab==='admin')renderAdmin()}
+  return o}
+// Board-Name aus „board“ (z. B. „Heltec V3“, „RAK 4631“) einer Release-Datei zuordnen
+const fwTok=t=>(t||'').toLowerCase().split(/[^a-z0-9]+/).filter(x=>x&&!['seeed','elecrow','studio','diy','board','dev'].includes(x));
+function fwGuess(board,list){
+  const bt=fwTok(board),bj=bt.join('');if(!bt.length||!list)return null;let best=null,bs=0;
+  for(const x of list){const at=fwTok(x.base),aj=at.join('');let sc=aj===bj?3:0;
+    for(const t of bt)sc+=at.includes(t)?2:t.length>1&&aj.includes(t)?1:0;
+    for(const t of at)if(!bt.includes(t)&&!(t.length>2&&bj.includes(t)))sc-=.6;
+    if(sc>bs){bs=sc;best=x}}
+  return bs>=2?best:null}
+function fwPickOf(s,list){const u=s.fwu||{},rd=RD[s.key]||{},p=u.pick!=null?u.pick:rd.fwPick;
+  if(p)return {x:list.find(x=>x.base===p)||null,auto:false};return {x:fwGuess(u.board||rd.board,list),auto:true}}
+const fwMethod=(u,pick)=>{const r=u.ota&&u.ota.reply||'';return /^Started/i.test(r)||/192\.168\./.test(r)?'wifi':/mac/i.test(r)?'ble':pick?pick.method:null};
+function fwHtml(s,c){
+  const role=fwRole(c),u=s.fwu||(s.fwu={}),rd=RD[s.key]||{},A=FW.assets[role];
+  if(!A)setTimeout(()=>fwAssets(role),0);
+  const cur=s.owner&&s.owner.ver||rd.ver,lat=FW.rel&&FW.rel[role],board=u.board||rd.board;
+  let h=`<div class="card"><h3>Firmware-Update <button class="sm" data-a="fwcheck" style="float:right" title="Installierte Version und Hardware per Funk abfragen">↻ Prüfen</button></h3><div class="kv">`+kvRows([
+    ['Installiert',cur?esc(cur):'<span class="muted">unbekannt – „↻ Prüfen“</span>'],
+    ['Neueste',lat?'v'+esc(lat)+(cur&&verOf(cur)?(fwNewer(cur,role)?' <span class="upd">Update verfügbar</span>':' <span class="snr-g">✓ aktuell</span>'):''):'<span class="muted">wird geladen …</span>'],
+    ['Hardware',board?esc(board):'<span class="muted">unbekannt – „↻ Prüfen“</span>']])+`</div>`;
+  if(!A||A.busy)return h+'<div class="muted" style="font-size:13px">Lade Firmware-Liste von GitHub …</div></div>';
+  if(A.err)return h+`<div class="muted" style="font-size:13px">Firmware-Liste nicht geladen (${esc(A.err)}). <button class="sm" data-a="fwlist">Nochmal</button> · <a href="${FLASHER}" target="_blank" rel="noopener">Web-Flasher</a></div></div>`;
+  const {x:pick,auto}=fwPickOf(s,A.list);u.cur=pick;
+  h+=`<label class="admf"><span>Firmware-Datei<small class="muted">${pick&&auto?'automatisch zur Hardware gewählt – bitte prüfen':'Board des Repeaters wählen'}</small></span><select id="fwPick"><option value="">– Board wählen –</option>${A.list.map(x=>`<option value="${esc(x.base)}"${pick&&pick.base===x.base?' selected':''}>${esc(x.label)}</option>`).join('')}</select></label>`;
+  if(pick)h+=`<div class="frm"><a class="btn" href="${esc(pick.file.url)}" download title="${esc(pick.file.name)}">⬇ ${esc(pick.file.name)}</a><span class="muted" style="font-size:12px">${pick.file.size?(pick.file.size/1024).toFixed(0)+' kB · ':''}v${esc(A.ver)}</span></div>`;
+  const m=fwMethod(u,pick);
+  if(u.ota){const ok=u.ota.ok;h+=`<div class="fwok${ok?'':' err'}">${ok?'✓ OTA-Modus aktiv seit '+tfmt(u.ota.t):'✗ Repeater meldet: '+esc(u.ota.reply)}`+
+    (ok&&m==='wifi'?`<br>WLAN <b>MeshCore-OTA</b> verbinden, dann <a href="http://192.168.4.1/update" target="_blank" rel="noopener"><b>192.168.4.1/update</b></a> öffnen.`:'')+
+    (ok&&m==='ble'?`<br>Im DFU-App das Gerät <b>…_OTA</b>${/mac:\s*([0-9A-F:]{17})/i.test(u.ota.reply)?' mit MAC <span class="mono">'+esc(/mac:\s*([0-9A-F:]{17})/i.exec(u.ota.reply)[1])+'</span>':''} wählen.`:'')+
+    (!ok?'<br>Diese Firmware/Hardware kann kein Funk-Update – bitte per USB über den Web-Flasher.':'')+`</div>`}
+  if(m==='wifi')h+=`<ol class="fwsteps"><li>Datei oben herunterladen (die <b>ohne</b> „merged“ im Namen).</li><li>In WLAN-Reichweite des Repeaters gehen.</li><li><b>OTA-Modus starten</b> – der Repeater öffnet das WLAN <b>MeshCore-OTA</b> (ohne Passwort).</li><li>Handy oder Laptop mit diesem WLAN verbinden.</li><li>Im Browser <span class="mono">http://192.168.4.1/update</span> öffnen und die .bin hochladen.</li><li>Der Repeater startet neu – hier neu anmelden und „↻ Prüfen“.</li></ol>`;
+  else if(m==='ble')h+=`<ol class="fwsteps"><li>Die .zip-Datei oben aufs Handy herunterladen.</li><li>App <b>nRF Device Firmware Update</b> (Nordic, Android/iOS) installieren.</li><li>In Bluetooth-Reichweite des Repeaters gehen.</li><li><b>OTA-Modus starten</b> – der Repeater meldet sich per Bluetooth als <b>…_OTA</b>.</li><li>In der DFU-App unter Einstellungen „Packet receipt notifications“ einschalten, Anzahl 8 (RAK auch 10).</li><li>ZIP wählen, Gerät wählen, <b>Upload</b> – dauert einige Minuten.</li><li>Der Repeater startet neu – hier neu anmelden und „↻ Prüfen“.</li></ol>
+    <p class="muted" style="font-size:12px;margin:0">Tipp: Der <a href="https://github.com/oltaco/Adafruit_nRF52_Bootloader_OTAFIX" target="_blank" rel="noopener">OTAFIX-Bootloader</a> macht nRF-Updates ausfallsicher.</p>`;
+  else if(m==='usb')h+=`<p style="font-size:13px">Für dieses Board gibt es kein Funk-Update. Firmware per USB mit dem <a href="${FLASHER}" target="_blank" rel="noopener">Web-Flasher</a> aufspielen.</p>`;
+  if(m==='wifi'||m==='ble'||!pick)h+=`<div class="frm"><button class="primary" data-a="ota"${pick?'':' disabled title="Erst das Board wählen"'}>🚀 OTA-Modus starten</button>${u.ota&&u.ota.ok?'<button class="danger" data-a="reboot" title="OTA-Modus ohne Update beenden">Abbrechen (Neustart)</button>':''}</div>`;
+  return h+`<p class="muted" style="font-size:12px;margin-bottom:0">Die Firmware wird nicht per LoRa übertragen: Die Webapp schaltet den Repeater nur in den Update-Modus, die Datei kommt per WLAN oder Bluetooth von einem Gerät in seiner Nähe. Ohne Update bleibt der Modus bis zum nächsten Neustart an. Alternativ per USB: <a href="${FLASHER}" target="_blank" rel="noopener">Web-Flasher</a>.</p></div>`;
+}
+async function fwProbe(){
+  const s=admCur();if(!s)return;const u=s.fwu||(s.fwu={}),role=fwRole(S.contacts.get(s.key));
+  await admOwner(s.key,true);
+  admBusy(true,'Hardware abfragen …');
+  try{const r=cliVal(await cli(s.key,'board')).trim();if(r&&!/^(unknown|err)/i.test(r)){u.board=r;rdSet(s.key,{board:r})}}
+  catch(e){admLog(s,'err','board: '+e.message)}
+  finally{admBusy(false)}
+  await fwCheck(true);const A=FW.assets[role];if(!A||A.err||(A.ver&&FW.rel&&A.ver!==FW.rel[role]))fwAssets(role,true);
+  renderAdmin()}
+async function fwOta(){
+  const s=admCur();if(!s)return;const u=s.fwu||(s.fwu={}),m=u.cur&&u.cur.method,nm=admName(s.key);
+  if(!confirm(`OTA-Update-Modus an „${nm}“ starten?\n\n`+(m==='wifi'?'Der Repeater öffnet das WLAN „MeshCore-OTA“. ':m==='ble'?'Der Repeater wartet per Bluetooth auf das Update. ':'')+
+    'Zum Hochladen der Datei musst du in WLAN- bzw. Bluetooth-Reichweite des Repeaters sein. Ohne Update bleibt der Modus bis zum nächsten Neustart aktiv.'))return;
+  admBusy(true,'OTA-Modus starten …');
+  try{const r=cliVal(await cli(s.key,'start ota')).trim();u.ota={t:Date.now(),reply:r,ok:!/^(err|unknown)/i.test(r)};
+    toast(u.ota.ok?nm+': OTA-Modus aktiv':nm+': '+r,u.ota.ok?'ok':'err')}
+  catch(e){toast('start ota: '+e.message,'err')}
+  finally{admBusy(false);renderAdmin()}
 }
 
 // ---- Anonyme Abfrage (ohne Login) ----

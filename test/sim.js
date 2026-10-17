@@ -105,6 +105,7 @@ class FakeWS{
         if(m=text.match(/^get (\S+)$/))r=s[m[1]]!=null?'> '+s[m[1]]:'??: '+m[1];
         else if(m=text.match(/^set (\S+) (.*)$/)){if(m[1] in s){s[m[1]]=m[2];r=m[1]==='repeat'?'OK - repeat is now '+m[2].toUpperCase():'OK'}else r='unknown config: '+m[1]}
         else if(text==='ver')r='v1.13.0 (Build: 01-Jan-2026)';
+        else if(text==='board')r='Heltec V3';else if(text==='start ota')r='Started: http://192.168.4.1/update';
         else if(text==='clock sync')r='OK - clock set: 12:00 - 4/10/2026 UTC';
         else if(text==='advert')r='OK - Advert sent';else if(text==='advert.zerohop')r='OK - zerohop advert sent';
         else if(text==='clear stats')r='(OK - stats reset)';
