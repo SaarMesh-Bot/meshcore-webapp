@@ -1184,7 +1184,7 @@ function renderDirInfo(){
   const el=$('#dirInfo');if(!el)return;
   const d=CAT.data;
   el.innerHTML=!useDir()?'<span class="muted">ausgeschaltet</span>':
-    `Status: <b>${esc(CAT.state)}</b>`+(d?`<br>${CAT.byName.size} Kanäle · ${CAT.regions.length} Regionen<br>Stand: ${d.updated?new Date(d.updated).toLocaleString('de-DE'):'?'}<br>Quelle: <a href="${esc(d.source||'#')}" target="_blank" rel="noopener">${esc((d.source||'').replace(/^https?:\/\//,''))}</a>`:'');
+    `Status: <b>${esc(CAT.state)}</b>`+(d?`<br>${CAT.byName.size} Kanäle · ${CAT.regions.length} Regionen<br>Stand: ${d.updated?new Date(d.updated).toLocaleString('de-DE'):'?'}${d.stale?`<br><span style="color:var(--warn)">⚠ Quelle seit ${esc(new Date(d.stale.since).toLocaleDateString('de-DE'))} nicht erreichbar${d.stale.reason?' ('+esc(d.stale.reason)+')':''} – neue Kanäle und Regionen kommen gerade nicht dazu.</span>`:''}<br>Quelle: <a href="${esc(d.source||'#')}" target="_blank" rel="noopener">${esc((d.source||'').replace(/^https?:\/\//,''))}</a>`:'');
 }
 
 // ---- Kanalnachrichten entschlüsseln (eigene Kanäle + öffentliches Verzeichnis) ----

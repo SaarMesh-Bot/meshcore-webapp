@@ -9,8 +9,10 @@ Format:
   channels: [{n: Name, s: Schlüssel-Hex (nur wenn nicht aus "#name" ableitbar),
               r: [im Verzeichnis gesehene Regionen], m: gesehene Nachrichten}]
   regions:  [alle bekannten Regionsnamen]
+  stale:    {since, reason} – nur solange die Quelle nicht erreichbar ist; die
+            Kanäle bleiben dann auf dem letzten Stand und die Webapp weist darauf hin.
 """
-import datetime, hashlib, json, sys, urllib.request
+import datetime, hashlib, json, sys, urllib.error, urllib.request
 
 SRC = "https://meshcore-analyzer.eu/api/channels"
 
@@ -21,8 +23,40 @@ def fetch(url):
         return json.load(r)
 
 
+def now():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def load(out):
+    try:
+        with open(out, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def mark_stale(out, reason):
+    """Quelle nicht erreichbar: alte Datei behalten, einmalig einen Vermerk setzen."""
+    print(f"::warning::Verzeichnis-Quelle nicht erreichbar ({reason}) – alte catalog.json bleibt erhalten")
+    old = load(out)
+    if not old or not isinstance(old.get("channels"), list):
+        sys.exit("Keine brauchbare alte catalog.json vorhanden")
+    if old.get("stale"):
+        print(f"Vermerk besteht schon seit {old['stale'].get('since')} – keine Änderung")
+        return
+    old["stale"] = {"since": now(), "reason": reason}
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump(old, f, ensure_ascii=False, separators=(",", ":"))
+    print("Vermerk 'stale' gesetzt")
+
+
 def main(out):
-    data = fetch(SRC)
+    try:
+        data = fetch(SRC)
+    except urllib.error.HTTPError as e:
+        return mark_stale(out, f"HTTP {e.code}")
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        return mark_stale(out, type(e).__name__)
     chans, regions = {}, set()
     for c in data.get("channels", []):
         name = (c.get("name") or "").strip()
@@ -46,20 +80,17 @@ def main(out):
         sys.exit(f"Verzeichnis liefert nur {len(lst)} Kanäle – Abbruch, alte Datei bleibt erhalten")
     cat = {
         "v": 1,
-        "updated": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "updated": now(),
         "source": "https://meshcore-analyzer.eu",
         "channels": lst,
         "regions": sorted(regions),
     }
-    try:
-        with open(out, encoding="utf-8") as f:
-            old = json.load(f)
+    old = load(out)
+    if old is not None:
         old.pop("updated", None)
         if old == {k: v for k, v in cat.items() if k != "updated"}:
             print("Keine inhaltliche Änderung – Datei bleibt unverändert")
             return
-    except (OSError, ValueError):
-        pass
     with open(out, "w", encoding="utf-8") as f:
         json.dump(cat, f, ensure_ascii=False, separators=(",", ":"))
     print(f"{len(lst)} Kanäle, {len(regions)} Regionen -> {out}")
