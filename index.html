@@ -1751,6 +1751,7 @@ const WK={base:'https://live.saarmesh.de',t:0,d:null,err:false,list:[
   ['spam','🛡️','Spam-Monitor','/spam/','Erkennt Flut-Absender, auffälligen Traffic und Funkstörungen.'],
   ['relevanz','📡','Repeater-Relevanz','/relevanz/','Welche Repeater tragen das Netz? Mit Ausfall-Simulation.'],
   ['positionen','📍','Positions-Check','/positionen/','Nodes, deren eingetragene Position nicht zu ihren Funkpartnern passt.'],
+  ['ausfall','🚨','Repeater-Ausfälle','/ausfall/','Welcher Repeater wurde wann zuletzt gesehen – über jede Weiterleitung, nicht nur Adverts.'],
   ['statistik','📊','Statistik','/statistik/','Nachrichten, Adverts, aktive Nodes, Netzwachstum, Kanäle und Serverzustand.'],
   ['tropo','🌫️','Tropo-Vorhersage','/tropo/','Überreichweiten durch Inversionen, kalibriert an SaarMesh-Empfängen.']]};
 function wkStatus(k,d){
@@ -1761,6 +1762,7 @@ function wkStatus(k,d){
       if(n)return['--warn',`${n} aktive Auffälligkeit${n>1?'en':''}${l}`];if(d.health&&d.health!=='healthy')return['--warn','Status: '+d.health+l];return['--accent','Alles ruhig'+l]}
     case 'relevanz':return[d.kritisch?'--warn':'--accent',`${d.kritisch} kritisch · ${d.wichtig} wichtig · ${nf(d.region)} Repeater in der Region`];
     case 'positionen':return[d.count?'--warn':'--accent',d.count?`${d.count} auffällige Position${d.count>1?'en':''}`:'Keine Auffälligkeiten'];
+    case 'ausfall':return[d.aus?'--warn':(d.ruhig?'--accent2':'--accent'),`${nf(d.aus)} vermutlich ausgefallen · ${nf(d.ruhig)} ruhig · ${nf(d.aktiv)} aktiv`];
     case 'statistik':return['--accent',`${nf(d.nachrichten)} Nachrichten · ${nf(d.adverts)} Adverts in 24 h`];
     case 'tropo':{const c={normal:'--accent2',leicht:'--warn',erhoeht:'--warn',stark:'--err'}[d.class]||'--accent2';let t='Jetzt: '+d.name;
       if(d.class!=='normal'&&d.until)t+=' bis '+tm(d.until);else if(d.class==='normal'&&d.peak_class&&d.peak_class!=='normal')t+=` · ${d.peak_name} ab ${tm(d.peak_at)}`;return[c,t]}
