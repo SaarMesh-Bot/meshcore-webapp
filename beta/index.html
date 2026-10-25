@@ -420,6 +420,13 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
           <div class="frm"><select id="trAdd"><option value="">+ Repeater einfügen …</option></select><label class="muted" style="white-space:nowrap"><input type="checkbox" id="trBack" checked> Rückweg automatisch</label><button class="primary" id="btnTrace" disabled>Trace starten</button></div>
           <p class="muted" style="font-size:12px;margin:4px 0 8px">Das Paket läuft über die angegebenen Repeater und wieder zurück. Jeder Repeater misst, wie gut er seinen Vorgänger hört – so siehst du die Signalqualität jeder einzelnen Strecke. Für einen Kontakt geht es schneller mit 📍 in der Kontaktliste.</p>
           <div id="ntTrace"></div></div>
+        <div class="card" id="covCard"><h3>🚗 Abdeckung messen</h3>
+          <p class="muted" style="font-size:12px;margin:0 0 8px">Wo hast du unterwegs Empfang? Dafür gibt es eigene Mapping-Tools, die alle Messungen auf einer gemeinsamen Karte sammeln. Sie brauchen eine eigene Verbindung zum Companion – vorher hier trennen (oder per TCP über einen Mux beide gleichzeitig nutzen).</p>
+          <div class="wk">
+            <a href="https://mapme.sh" target="_blank" rel="noopener"><div class="wt">🐝 mapme.sh</div><div class="wd">Läuft im Browser, auf Deutsch, aus der HanseMesh-Community. Empfang als Hex-Karte, mit Bestenliste und einstellbarer Verzögerung für die Privatsphäre.</div></a>
+            <a href="https://meshmapper.net" target="_blank" rel="noopener"><div class="wt">🗺️ MeshMapper</div><div class="wd">App für Android und iOS (auch im Hintergrund) mit Community-Karte. Nutzt zusätzlich die Observer im Netz, um zu sehen, welche Repeater dich hören.</div></a>
+          </div>
+          <p class="muted" style="font-size:11px;margin:6px 0 0">Bitte rücksichtsvoll messen: passiven Modus bevorzugen bzw. große Ping-Abstände wählen – jeder Ping belastet das Netz für alle.</p></div>
         <div class="card" id="wkCard"><h3>🌐 SaarMesh-Werkzeuge <a href="https://live.saarmesh.de/werkzeuge/" target="_blank" rel="noopener" style="float:right;font-size:12px;font-weight:400">Übersicht ↗</a></h3>
           <p class="muted" style="font-size:12px;margin:0 0 8px">Live-Auswertungen für das MeshCore-Netz in SaarLorLux auf live.saarmesh.de – funktioniert auch ohne verbundenes Gerät.</p>
           <div id="wkList" class="wk"></div><div id="wkUpd" class="muted" style="font-size:11px;margin-top:6px"></div></div>
