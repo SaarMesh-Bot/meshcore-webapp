@@ -35,6 +35,8 @@ class FakeWS{
   cmd(f){const c=f[0];st.calls.push(c);const ok=W().u8(0).out();
     const tagOf=()=>(Math.random()*0xffffffff)>>>0;
     switch(c){
+      case 5:return this.emit(W().u8(9).u32(st.now()+(st.clockOff||0)).out());
+      case 6:{const t=f[1]|(f[2]<<8)|(f[3]<<16)|(f[4]<<24);if((t>>>0)<st.now()+(st.clockOff||0))return this.emit(W().u8(1).u8(6).out());st.clockOff=(t>>>0)-st.now();return this.emit(ok)}
       case 22:return this.emit(W().u8(13).u8(8).u8(50).u8(8).u32(0).s('01-Jan-2026',12).s('Heltec V3',40).s('v1.13.0',20).u8(1).u8(0).out());
       case 1:return this.emit(W().u8(5).u8(1).i8(22).u8(22).b(SELF).i32(st.lat).i32(st.lon).u8(0).u8(st.locp).u8(st.telem).u8(0).u32(st.radio[0]).u32(st.radio[1]).u8(st.radio[2]).u8(st.radio[3]).s(st.name).out());
       case 38:st.telem=f[2];if(f.length>3)st.locp=f[3];return this.emit(ok);
@@ -55,7 +57,7 @@ class FakeWS{
           this.emit(W().u8(0x8E).i8(Math.round(sb*4)).i8(rs).u8(0).u8(0x90|2).i8(Math.round(so*4)).b(tag).b(n.k).out(),400+i*700));return}
       case 9:{(st.paths||(st.paths={}))[hex(f.slice(1,33))]=[f[35],f.slice(36,100)];return this.emit(ok)}
       case 13:{if(st.paths)delete st.paths[hex(f.slice(1,33))];return this.emit(ok)}
-      case 6:case 29:case 63:return this.emit(ok);
+      case 29:case 63:return this.emit(ok);
       case 3:st.chanSent=(st.chanSent||[]).concat([dec.decode(f.slice(7))]);return this.emit(W().u8(0).out());
       case 14:{const dv=new DataView(f.buffer,f.byteOffset);st.lat=dv.getInt32(1,true);st.lon=dv.getInt32(5,true);return this.emit(W().u8(0).out())}
       case 40:return st.vars?this.emit(W().u8(21).s(Object.entries(st.vars).map(([k,v])=>k+':'+v).join(',')).out()):this.emit(W().u8(1).u8(1).out());
