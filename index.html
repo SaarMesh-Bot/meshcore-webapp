@@ -220,6 +220,7 @@ a.btn{display:inline-block;background:var(--accent2);color:#fff;border-radius:6p
 .fwok{border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0;background:var(--panel2);font-size:13px;border-radius:4px}.fwok.err{border-left-color:var(--err)}
 a{color:var(--accent2)}
 button.echo{background:none;border:none;padding:0 2px;font-size:11px;color:var(--accent);cursor:pointer;font-weight:600}button.echo:hover{text-decoration:underline}
+a.csobs{font-size:11px;color:var(--muted);font-weight:600;text-decoration:none;white-space:nowrap}a.csobs:hover{text-decoration:underline;color:var(--accent)}
 .echolist{text-align:left;font-size:12px;margin-top:4px;padding-top:4px;border-top:1px solid var(--border);line-height:1.5}
 .hops{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:8px 0;font-size:13px}.hops .arr{color:var(--muted)}
 .hop{display:inline-flex;gap:4px;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:2px 4px 2px 9px}.hop.me{padding:2px 9px;color:var(--muted)}.hop button{padding:0 5px;line-height:16px;border-radius:10px}
@@ -3156,17 +3157,38 @@ function noteEcho(p){
       const x=(arr||[]).slice(-10).reverse().find(x=>x.dir==='out'&&t-(x.sentT||x.rx)<60000);if(x){m=x;conv=k;break}}
   }
   if(!m)return;
+  if(p.phash&&!m.phash)m.phash=p.phash; // gleicher Hash bei jeder Weiterleitung – Schlüssel für die CoreScope-Abfrage
   const h=p.path[p.path.length-1],e=(m.echo=m.echo||[]).find(x=>x.h===h);
   if(e){e.n++;if(p.snr>e.snr)e.snr=p.snr;if(p.hopCount<e.hops)e.hops=p.hopCount}else m.echo.push({h,snr:p.snr,n:1,hops:p.hopCount,first:p.path[0]});
   scheduleSave();if(S.active===conv)renderSoon();
 }
 function echoHtml(m){
   const e=m.echo;if(!e||!e.length)return '';
-  const list=e.slice().sort((a,b)=>b.snr-a.snr);
+  csObs(m);
+  const list=e.slice().sort((a,b)=>b.snr-a.snr),c=m.cs&&!m.cs.err&&m.cs.obs?m.cs:null;
   const tip=list.map(x=>`${nodeName(x.h)||x.h} · SNR ${x.snr.toFixed(1)} dB${x.n>1?' · '+x.n+'×':''}`).join('\n');
+  const cst=c?`${c.obs} Observations von ${c.observers} Observer${c.observers===1?'':'n'} · max. ${c.maxHops} Hop${c.maxHops===1?'':'s'}`:'';
   return ` <button class="echo" data-echo="${esc(m.id)}" title="${esc('Weitergesendet von:\n'+tip)}">✓✓ ${e.length} Repeater</button>`+
-    (m._showEcho?`<div class="echolist">${list.map(x=>`<div><b>${esc(nodeName(x.h)||'?')}</b> <span class="mono muted">${x.h}</span> · <span class="${snrCls(x.snr)}">SNR ${x.snr.toFixed(1)}</span>${x.hops>1?' · '+x.hops+' Hops':''}${x.n>1?' · '+x.n+'×':''}</div>`).join('')}</div>`:'');
+    (c?` <a class="csobs" href="${esc(csPkt(m.phash)||'#')}" target="_blank" rel="noopener" title="${esc('Laut CoreScope ('+CS.base().replace(/^https?:\/\//,'')+'): '+cst+'\nStand '+new Date(c.t).toLocaleTimeString('de-DE'))}">👁 ${c.obs} · max. ${c.maxHops} Hop${c.maxHops===1?'':'s'}</a>`:'')+
+    (m._showEcho?`<div class="echolist">${list.map(x=>`<div><b>${esc(nodeName(x.h)||'?')}</b> <span class="mono muted">${x.h}</span> · <span class="${snrCls(x.snr)}">SNR ${x.snr.toFixed(1)}</span>${x.hops>1?' · '+x.hops+' Hops':''}${x.n>1?' · '+x.n+'×':''}</div>`).join('')}${c?`<div class="muted" style="margin-top:4px">CoreScope: ${esc(cst)}</div>`:''}</div>`:'');
 }
+// ---- Reichweite laut CoreScope: wie oft und wie weit (Hops) haben Observer die eigene Nachricht gehört ----
+// Abfrage per Paket-Hash (GET /api/packets/<hash>). In den ersten 15 Minuten alle 30 s aktualisieren, danach einmal abschließend.
+const CSO={busy:new Set()};
+async function csObs(m){
+  const base=CS.base();if(!m.phash||!base||m.dir!=='out')return;
+  const now=Date.now(),c=m.cs;if(c&&(c.final||now-c.t<30000)||CSO.busy.has(m.phash))return;
+  const final=now-(m.sentT||m.ts||now)>15*60000;CSO.busy.add(m.phash);
+  try{const r=await fetch(base.replace(/\/+$/,'')+'/api/packets/'+m.phash,{cache:'no-store'});
+    if(!r.ok)throw 0;const d=await r.json(),obs=d.observations||[];
+    let maxHops=0;const ids=new Set();
+    for(const o of obs){ids.add(o.observer_id||o.observer_name);try{maxHops=Math.max(maxHops,JSON.parse(o.path_json||'[]').length)}catch{}}
+    m.cs={t:now,obs:obs.length||d.observation_count||0,observers:ids.size,maxHops,final};
+  }catch{m.cs={...(c&&!c.err?c:{err:true}),t:now,final}} // noch nicht in CoreScope oder nicht erreichbar: alten Stand behalten
+  finally{CSO.busy.delete(m.phash)}
+  scheduleSave();renderSoon();
+}
+setInterval(()=>{if(!S.active)return;for(const m of (S.msgs[S.active]||[]).slice(-30))if(m.dir==='out'&&m.phash&&!(m.cs&&m.cs.final))csObs(m)},30000);
 
 // ================= Events =================
 PT.forEach(t=>{if(!/^T1/.test(t)){const o=document.createElement('option');o.textContent=t;$('#fType').appendChild(o)}});
