@@ -8,7 +8,7 @@ Browser-App für **MeshCore-Companions** per **USB** (Web Serial), **Bluetooth L
 
 **Dein Companion im Browser:** Seite öffnen, per USB, Bluetooth oder WLAN verbinden, loslegen. Kein Konto, kein Server dazwischen. Auf Wunsch als App aufs Handy oder den Desktop installieren, sie startet dann auch offline.
 
-Chatten mit Zustellbestätigung, @Erwähnungen und Benachrichtigungen pro Chat. Jedes empfangene Paket live mit Route, Hops und SNR. Eine Karte mit allen Knoten und Nachbar-Linien nach Signalqualität. Repeater-Verwaltung mit Terminal, Telemetrie mit Verlauf, Trace-Route und öffentliche Kanäle, die die Webapp selbst im Funkverkehr entdeckt.
+Chatten mit Zustellbestätigung, @Erwähnungen, Benachrichtigungen pro Chat und Übersetzung – fremdsprachige Nachrichten lesen und eigene vor dem Senden übersetzen, lokal im Browser. Jedes empfangene Paket live mit Route, Hops und SNR. Eine Karte mit allen Knoten und Nachbar-Linien nach Signalqualität. Repeater-Verwaltung mit Terminal, Telemetrie mit Verlauf, Trace-Route und öffentliche Kanäle, die die Webapp selbst im Funkverkehr entdeckt.
 
 ### Was ist anders als bei der offiziellen MeshCore-App?
 
