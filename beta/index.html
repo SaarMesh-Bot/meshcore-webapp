@@ -58,6 +58,7 @@ section.active{display:flex}
 table{border-collapse:collapse;width:100%}
 th,td{padding:5px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
 th{position:sticky;top:0;background:var(--panel);font-weight:600;font-size:12px;color:var(--muted);z-index:1}
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}th.sortable:hover{color:var(--text)}th.sorted{color:var(--accent)}
 tbody tr{cursor:pointer}
 tbody tr:hover{background:var(--panel2)}
 tbody tr.sel{background:color-mix(in srgb,var(--accent2) 18%,transparent)}
@@ -399,6 +400,7 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
         <input id="cSearch" placeholder="Suchen…" style="width:220px">
         <select id="cType"><option value="">Alle Typen</option><option value="1">Companion</option><option value="2">Repeater</option><option value="3">Room</option><option value="4">Sensor</option></select>
         <label class="muted"><input type="checkbox" id="cHeard"> auch nur gehörte Knoten</label>
+        <select id="cSort" title="Sortierung"><option value="seen">Zuletzt gehört</option><option value="name">Name</option><option value="type">Typ</option><option value="path">Pfad (Hops)</option><option value="snr">SNR</option><option value="dist">Entfernung</option></select><button class="sm" id="cSortDir" title="Reihenfolge umkehren">↓</button>
         <div class="spacer"></div>
         <button class="sm" id="btnCScan" title="Kontakt per QR-Code hinzufügen">📷 QR</button>
         <button class="sm" id="btnCExpCsv" title="Aktuelle Liste als CSV">CSV</button>
@@ -407,7 +409,7 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
       </div>
       <div class="newbar" id="cNewBar" hidden></div>
       <div class="tablewrap">
-        <table><thead><tr><th>Name</th><th>Typ</th><th>Schlüssel</th><th>Zuletzt</th><th>Pfad</th><th>SNR</th><th>Entf.</th><th>Aktionen</th></tr></thead><tbody id="ctable"></tbody></table>
+        <table><thead id="cthead"><tr><th class="sortable" data-sort="name">Name</th><th class="sortable" data-sort="type">Typ</th><th>Schlüssel</th><th class="sortable" data-sort="seen">Zuletzt</th><th class="sortable" data-sort="path">Pfad</th><th class="sortable" data-sort="snr">SNR</th><th class="sortable" data-sort="dist">Entf.</th><th>Aktionen</th></tr></thead><tbody id="ctable"></tbody></table>
       </div>
     </section>
     <!-- ADMIN -->
@@ -2827,8 +2829,31 @@ function contactList(){
   let list=[...S.nodes.values()].filter(n=>S.contacts.has(n.key)||heard);
   for(const c of S.contacts.values())if(!S.nodes.has(c.key))list.push({key:c.key,name:c.name,type:c.type});
   if(cNewOnly)list=list.filter(n=>{const c=S.contacts.get(n.key);return c&&!c.saved});
-  return list.filter(n=>(!t||String(n.type)===t)&&(!q||(n.name||'').toLowerCase().includes(q)||n.key.startsWith(q))).sort((a,b)=>lastSeen(b)-lastSeen(a));
+  list=list.filter(n=>(!t||String(n.type)===t)&&(!q||(n.name||'').toLowerCase().includes(q)||n.key.startsWith(q)));
+  const val=CSORT_VAL[cSort.k]||CSORT_VAL.seen,dir=cSort.d;
+  return list.map(n=>[n,val(n)]).sort((A,B)=>{const a=A[1],b=B[1];
+    if(a==null||b==null){if(a==null&&b==null)return lastSeen(B[0])-lastSeen(A[0]);return a==null?1:-1}// Leere Werte immer ans Ende
+    const r=typeof a==='string'?a.localeCompare(b,'de',{sensitivity:'base',numeric:true}):a-b;
+    return r?r*dir:lastSeen(B[0])-lastSeen(A[0])}).map(x=>x[0]);
 }
+// Sortierung der Kontaktliste (Spalte + Richtung, wird im Browser gemerkt)
+const CSORT_DEF={seen:-1,name:1,type:1,path:1,snr:-1,dist:1};
+const CSORT_VAL={
+  seen:n=>lastSeen(n)||null,
+  name:n=>(n.name||'').trim()||null,
+  type:n=>n.type??null,
+  path:n=>{const c=S.contacts.get(n.key);if(!c||c.outPathLen==null)return null;return c.outPathLen===0xFF?99:(c.outPathLen&63)},// Flood ans Ende
+  snr:n=>n.snr??null,
+  dist:n=>hasPos(n)&&hasPos(S.self)?hav(S.self.lat,S.self.lon,n.lat,n.lon):null};
+let cSort=store.get('mcw.cSort',{k:'seen',d:-1});if(!CSORT_VAL[cSort.k])cSort={k:'seen',d:-1};
+function setCSort(k,d){cSort={k,d:d??(cSort.k===k?-cSort.d:CSORT_DEF[k])};store.set('mcw.cSort',cSort);syncCSort();renderContacts()}
+function syncCSort(){$('#cSort').value=cSort.k;$('#cSortDir').textContent=cSort.d<0?'↓':'↑';
+  $$('#cthead th[data-sort]').forEach(th=>{const on=th.dataset.sort===cSort.k;th.classList.toggle('sorted',on);th.dataset.arrow=on?(cSort.d<0?' ↓':' ↑'):'';
+    th.textContent=th.textContent.replace(/ [↑↓]$/,'')+th.dataset.arrow})}
+$('#cthead').addEventListener('click',e=>{const th=e.target.closest('th[data-sort]');if(th)setCSort(th.dataset.sort)});
+$('#cSort').onchange=()=>setCSort($('#cSort').value,CSORT_DEF[$('#cSort').value]);
+$('#cSortDir').onclick=()=>setCSort(cSort.k,-cSort.d);
+syncCSort();
 function renderNewBar(){
   const pend=[...S.contacts.values()].filter(c=>!c.saved),el=$('#cNewBar');
   if(!pend.length){el.innerHTML='';el.hidden=true;if(cNewOnly){cNewOnly=false}return}
