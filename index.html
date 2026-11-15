@@ -96,6 +96,7 @@ canvas#spark{height:34px;width:240px}
 .msg .txt{white-space:pre-wrap;word-wrap:break-word}
 .msg .txt a{color:var(--accent2);text-decoration:underline;text-underline-offset:2px;word-break:break-all}.msg .txt a.chlink{text-decoration:none;font-weight:600;word-break:normal}.msg .txt a.chlink:hover{text-decoration:underline}
 .msg .st{font-size:11px;color:var(--muted);margin-top:3px;text-align:right}
+.trx{margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);white-space:pre-wrap;word-wrap:break-word}.trx .trl{font-size:11px;color:var(--muted);margin-right:4px}.trx.busy{color:var(--muted);font-style:italic}
 .rbtn{padding:0 6px;font-size:11px;line-height:16px;margin-left:4px;opacity:.6}.msg:hover .rbtn{opacity:1}
 .hoplink{color:inherit;text-decoration:underline dotted;text-underline-offset:2px}.hoplink:hover{color:var(--accent2)}
 .mpath{margin-top:6px;padding:6px 8px;border-top:1px dashed var(--border);font-size:12px}
@@ -357,7 +358,9 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
         <div class="compose">
           <div class="mlist" id="mentionBox" role="listbox" hidden></div>
           <input id="msgIn" placeholder="Nachricht…" disabled maxlength="200" autocomplete="off">
+          <div class="mlist" id="trBox" role="listbox" hidden></div>
           <span class="muted mono" id="msgLen"></span>
+          <button id="btnTr" title="Vor dem Senden übersetzen" disabled hidden>🌐</button>
           <button class="primary" id="btnSend" disabled>Senden</button>
         </div>
       </div>
@@ -474,6 +477,11 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
             <div class="frm"><button id="btnDirReload">Jetzt aktualisieren</button></div>
             <div class="frm"><label class="muted" for="setCs" title="Für Links „In CoreScope ansehen“ bei Knoten und Paketen">CoreScope</label><input id="setCs" placeholder="leer = keine Links" autocomplete="off"></div>
             <p class="muted" style="font-size:12px">Erkennt öffentliche Kanäle (Hashtag-Kanäle und bekannte Schlüssel) im Live-Traffic und ordnet Region-Codes Namen zu. Es wird nur eine Liste heruntergeladen – nichts von dir wird hochgeladen. Regionen aus dem Verzeichnis sind mit ≈ markiert, weil 16-Bit-Codes zufällig mehrfach passen können.</p>
+          </div>
+          <div class="card"><h3>🌐 Übersetzung</h3>
+            <div class="admf"><span>Eingehende Nachrichten übersetzen nach</span><select id="trTo"></select></div>
+            <label class="frm"><input type="checkbox" id="trAuto"> Fremdsprachige Nachrichten automatisch übersetzen</label>
+            <p class="muted" style="font-size:12px;margin-bottom:0" id="trInfo"></p>
           </div>
           <div class="card"><h3>Über die Webapp</h3>
             <p style="font-size:13px;margin-top:0"><b>Meshcore Webapp by SaarMesh.de</b> ist kostenlos und quelloffen. Sie entsteht im Umfeld von <a href="https://saarmesh.de" target="_blank" rel="noopener">SaarMesh</a>, dem MeshCore-Netz für die Region SaarLorLux – Repeater, <a href="https://live.saarmesh.de" target="_blank" rel="noopener">Live-Karte</a> und Server werden privat betrieben.</p>
@@ -1536,12 +1544,13 @@ function renderConv(){
   const ns=$('#convNotify');if(ns)ns.onchange=()=>setConvMode(conv,ns.value);
   const arr=S.msgs[conv]||[];
   const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<60;
-  box.innerHTML=arr.length?arr.map(m=>{
+  box.innerHTML=arr.length?arr.map((m,i)=>{
+    if(i>=arr.length-60)trCheck(m);
     const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(Array.isArray(m.path)?`<a href="#" class="hoplink" data-path="${esc(m.id)}" title="Empfangsweg anzeigen">${m.hops==='direkt'?'direkt':m.hops+' Hops'} ${m._showPath?'▴':'▾'}</a>`:(m.hops==='direkt'?'direkt':m.hops+' Hops')):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
     let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?(m.echo&&m.echo.length?'':'✓ gesendet')+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
       if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`;
       if(m.status!=='fail')st+=echoHtml(m)}
-    return `<div class="msg ${m.dir}${m.dir==='in'&&(m.mention??isMention(m))?' mention':''}" data-mid="${esc(m.id||'')}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${m._showPath?msgPathHtml(conv,m):''}${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
+    return `<div class="msg ${m.dir}${m.dir==='in'&&(m.mention??isMention(m))?' mention':''}" data-mid="${esc(m.id||'')}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${trHtml(m)}${m._showPath?msgPathHtml(conv,m):''}${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
   if(S.jump){const el=[...box.querySelectorAll('.msg')].find(x=>x.dataset.mid===S.jump);S.jump=null;if(el){el.scrollIntoView({block:'center'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),2100)}}
   else if(atBottom||arr.length<30)box.scrollTop=box.scrollHeight;
   updateCompose();
@@ -1573,10 +1582,11 @@ function showMsgPathOnMap(m,hops){
 function replyBtns(conv,m){
   if(m.dir!=='in')return '';
   let h=` <button class="sm rbtn" title="Antworten (@${esc(m.from)})" data-reply="${esc(m.from)}">↩</button>`;
+  if(TR.ok()&&trWant(m))h+=` <button class="sm rbtn" title="${esc(m.tr&&!m._hideTr?'Übersetzung ausblenden':'Übersetzen ('+trName(m.lang)+' → '+trName(TR.cfg().to)+')')}" data-tr="${esc(m.id)}">🌐</button>`;
   if(conv.startsWith('ch:')){const c=[...S.contacts.values()].find(c=>c.name===m.from&&(c.type===1||c.type===3));if(c)h+=` <button class="sm rbtn" title="Direktnachricht an ${esc(m.from)}" data-dm="${c.key}">✉</button>`}
   return h;
 }
-function updateCompose(){if(MB.conv!==S.active){MB.conv=S.active;mentionClose()}const ro=!!S.active&&S.active.startsWith('dc:');const on=S.connected&&!!S.active&&!ro;$('#msgIn').disabled=!on;$('#btnSend').disabled=!on;
+function updateCompose(){if(MB.conv!==S.active){MB.conv=S.active;mentionClose()}const ro=!!S.active&&S.active.startsWith('dc:');const on=S.connected&&!!S.active&&!ro;$('#msgIn').disabled=!on;$('#btnSend').disabled=!on;$('#btnTr').disabled=!on;if(!on)trBoxClose();
   $('#msgIn').placeholder=ro?'Nur mitlesen – zum Senden den Kanal zum Gerät hinzufügen':'Nachricht…';updateLen()}
 function updateLen(){const n=enc.encode($('#msgIn').value).length,mx=maxLen();$('#msgLen').textContent=n?n+'/'+mx:'';$('#msgLen').style.color=n>mx?'var(--err)':''}
 function updateBadge(){const n=Object.entries(S.unread).reduce((a,[k,v])=>a+(convMode(k)==='mute'?0:v),0);const b=$('#unreadBadge');b.style.display=n?'':'none';b.textContent=n}
@@ -3190,6 +3200,88 @@ async function csObs(m){
 }
 setInterval(()=>{if(!S.active)return;for(const m of (S.msgs[S.active]||[]).slice(-30))if(m.dir==='out'&&m.phash&&!(m.cs&&m.cs.final))csObs(m)},30000);
 
+// ================= Übersetzung =================
+// Nutzt die in Chrome eingebaute Translator- und LanguageDetector-API: läuft komplett lokal im Browser,
+// ohne API-Schlüssel und ohne dass Nachrichten an einen Server gehen. Sprachpakete lädt Chrome beim ersten Gebrauch.
+const TR_LANGS={de:'Deutsch',en:'Englisch',fr:'Französisch',nl:'Niederländisch',it:'Italienisch',es:'Spanisch',pt:'Portugiesisch',pl:'Polnisch',cs:'Tschechisch',da:'Dänisch',sv:'Schwedisch',uk:'Ukrainisch',ru:'Russisch',tr:'Türkisch'};
+const TR_FLAG={de:'🇩🇪',en:'🇬🇧',fr:'🇫🇷',nl:'🇳🇱',it:'🇮🇹',es:'🇪🇸',pt:'🇵🇹',pl:'🇵🇱',cs:'🇨🇿',da:'🇩🇰',sv:'🇸🇪',uk:'🇺🇦',ru:'🇷🇺',tr:'🇹🇷'};
+const trName=l=>TR_LANGS[l]||String(l||'?').toUpperCase(),trFlag=l=>TR_FLAG[l]||String(l||'?').toUpperCase();
+const TR={det:null,tl:new Map(),busy:new Set(),orig:null,
+  ok:()=>typeof self.Translator!=='undefined'&&typeof self.LanguageDetector!=='undefined',
+  cfg(){const d=(navigator.language||'de').slice(0,2).toLowerCase();return {to:TR_LANGS[d]?d:'de',auto:false,tx:'en',...store.get('mcw.tr',{})}},
+  set(k,v){store.set('mcw.tr',{...store.get('mcw.tr',{}),[k]:v})}};
+// Für Erkennung und Übersetzung bleiben @[Erwähnungen] und Links außen vor
+const TR_KEEP=/(@\[[^\]]*\]:?|https?:\/\/\S+)/;
+const trPlain=s=>String(s||'').split(TR_KEEP).filter((x,i)=>i%2===0).join(' ').replace(/\s+/g,' ').trim();
+async function trDetect(text){
+  const t=trPlain(text);if(t.replace(/[^\p{L}]/gu,'').length<10)return '';  // zu kurz für eine verlässliche Erkennung
+  try{TR.det=TR.det||LanguageDetector.create();const r=(await (await TR.det).detect(t))[0];
+    return r&&r.confidence>=0.6&&r.detectedLanguage&&r.detectedLanguage!=='und'?r.detectedLanguage.split('-')[0].toLowerCase():''}
+  catch{TR.det=null;return ''}}
+// auto=true: nur wenn das Sprachpaket schon da ist (Herunterladen braucht einen Klick)
+async function trTranslator(from,to,auto){
+  const k=from+'>'+to;if(TR.tl.has(k))return TR.tl.get(k);
+  const a=await Translator.availability({sourceLanguage:from,targetLanguage:to});
+  if(a==='unavailable')throw new Error(trName(from)+' → '+trName(to)+' wird von diesem Browser nicht unterstützt');
+  if(auto&&a!=='available')throw new Error('Sprachpaket fehlt');
+  if(a!=='available')toast('Sprachpaket '+trName(from)+' → '+trName(to)+' wird heruntergeladen…');
+  const p=Translator.create({sourceLanguage:from,targetLanguage:to});TR.tl.set(k,p);p.catch(()=>TR.tl.delete(k));return p}
+async function trText(text,from,to,auto){
+  const tr=await trTranslator(from,to,auto),parts=String(text).split(TR_KEEP);
+  for(let i=0;i<parts.length;i+=2){const s=parts[i];if(!/\p{L}/u.test(s))continue;
+    parts[i]=s.match(/^\s*/)[0]+(await tr.translate(s.trim())).trim()+s.match(/\s*$/)[0]}
+  return parts.join('')}
+const trWant=m=>m.dir==='in'&&!!m.lang&&m.lang!==TR.cfg().to;
+function trCheck(m){ // Sprache eingehender Nachrichten einmal erkennen, Ergebnis wird mitgespeichert
+  if(m.dir!=='in'||m.lang!==undefined||!TR.ok()||TR.busy.has(m))return;
+  TR.busy.add(m);trDetect(m.text).then(l=>{m.lang=l;TR.busy.delete(m);scheduleSave();
+    if(trWant(m)&&TR.cfg().auto)trMsg(m,true);else if(l)renderSoon()})}
+async function trMsg(m,auto){
+  const to=TR.cfg().to;
+  if(!auto&&m.tr&&m.tr.to===to&&!m.tr.busy){m._hideTr=!m._hideTr;return renderSoon()}
+  if(m.tr&&m.tr.busy)return;
+  m.tr={to,from:m.lang,busy:1};m._hideTr=false;renderSoon();
+  try{m.tr={to,from:m.lang,text:await trText(m.text,m.lang,to,auto)}}
+  catch(e){delete m.tr;if(!auto)toast('Übersetzung fehlgeschlagen: '+(e.message||e),'err')}
+  scheduleSave();renderSoon()}
+function trHtml(m){const t=m.tr;if(!t||m._hideTr)return '';
+  const l=`<span class="trl" title="Übersetzt von ${esc(trName(t.from))} nach ${esc(trName(t.to))} (lokal im Browser)">${trFlag(t.from)}→${trFlag(t.to)}</span>`;
+  return t.busy?`<div class="trx busy">${l}übersetze…</div>`:`<div class="trx">${l}${linkify(t.text)}</div>`}
+// Ausgehend: Text im Eingabefeld vor dem Senden übersetzen
+function trBoxClose(){const b=$('#trBox');if(b&&!b.hidden){b.hidden=true;b.innerHTML=''}}
+function trBoxOpen(){
+  const b=$('#trBox'),c=TR.cfg(),v=$('#msgIn').value;mentionClose();
+  const undo=TR.orig&&TR.orig.conv===S.active&&TR.orig.out===v;
+  b.innerHTML=(undo?`<div class="mi" data-trundo="1">↶ <span class="nm">Original wiederherstellen</span></div>`:'')+
+    `<div class="mh">Nachricht übersetzen nach…</div>`+Object.keys(TR_LANGS).map(l=>`<div class="mi${l===c.tx?' on':''}" data-trto="${l}">${trFlag(l)} <span class="nm">${trName(l)}</span></div>`).join('');
+  b.hidden=false}
+async function trCompose(to){
+  const inp=$('#msgIn'),text=inp.value.trim();trBoxClose();
+  if(!text)return toast('Erst eine Nachricht eingeben, dann übersetzen','err');
+  TR.set('tx',to);
+  const from=await trDetect(text)||TR.cfg().to;
+  if(from===to)return toast('Der Text ist schon '+trName(to),'err');
+  $('#btnTr').disabled=true;
+  try{const out=await trText(text,from,to);inp.value=out;TR.orig={conv:S.active,text,out};
+    toast(trName(from)+' → '+trName(to)+' übersetzt – ↶ im 🌐-Menü holt das Original zurück','ok')}
+  catch(e){toast('Übersetzung fehlgeschlagen: '+(e.message||e),'err')}
+  finally{updateCompose();inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length)}}
+function trInit(){
+  const c=TR.cfg(),sel=$('#trTo');
+  sel.innerHTML=Object.keys(TR_LANGS).map(l=>`<option value="${l}"${l===c.to?' selected':''}>${trFlag(l)} ${trName(l)}</option>`).join('');
+  $('#trAuto').checked=!!c.auto;
+  sel.onchange=()=>{TR.set('to',sel.value);renderSoon()};
+  $('#trAuto').onchange=e=>{TR.set('auto',e.target.checked);renderSoon()};
+  const ok=TR.ok();$('#btnTr').hidden=!ok;sel.disabled=!ok;$('#trAuto').disabled=!ok;
+  $('#trInfo').textContent=ok?'Fremdsprachige Nachrichten bekommen ein 🌐 zum Übersetzen, und mit 🌐 neben „Senden“ übersetzt du deine eigene Nachricht vor dem Absenden. Alles läuft lokal im Browser – nichts wird an einen Übersetzungsdienst geschickt. Sprachpakete lädt der Browser beim ersten Gebrauch einmal herunter.'
+    :'In diesem Browser nicht verfügbar. Die Übersetzung nutzt die eingebaute Übersetzungsfunktion von Chrome (Desktop, ab Version 138).';
+  $('#btnTr').onclick=()=>{$('#trBox').hidden?trBoxOpen():trBoxClose()};
+  $('#trBox').addEventListener('mousedown',e=>{e.preventDefault();const it=e.target.closest('.mi');if(!it)return;
+    if(it.dataset.trundo){$('#msgIn').value=TR.orig.text;TR.orig=null;trBoxClose();updateLen();$('#msgIn').focus()}else trCompose(it.dataset.trto)});
+  document.addEventListener('mousedown',e=>{if(!e.target.closest('#trBox,#btnTr'))trBoxClose()});
+  $('#msgIn').addEventListener('keydown',e=>{if(e.key==='Escape')trBoxClose()})}
+trInit();
+
 // ================= Events =================
 PT.forEach(t=>{if(!/^T1/.test(t)){const o=document.createElement('option');o.textContent=t;$('#fType').appendChild(o)}});
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)switchTab(b.dataset.tab)});
@@ -3214,6 +3306,7 @@ $('#msgs').addEventListener('click',e=>{
   const nl=e.target.closest('.mpath a.nlink');if(nl){e.preventDefault();openNode(nl.dataset.node);return}
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.pmap){const m=(S.msgs[S.active]||[]).find(x=>x.id===b.dataset.pmap);if(!m)return;const a=b.dataset.alt&&S.packets.find(p=>p.id===+b.dataset.alt);showMsgPathOnMap(m,a?a.path:m.path||[]);return}
+  if(b.dataset.tr){const m=(S.msgs[S.active]||[]).find(x=>x.id===b.dataset.tr);if(m)trMsg(m);return}
   if(b.dataset.ppkt){switchTab('live');setTimeout(()=>showDetail(+b.dataset.ppkt),30);return}
   if(b.dataset.reply!=null){const inp=$('#msgIn');const tag=S.active.startsWith('ch:')?'@['+b.dataset.reply+'] ':'';if(tag&&!inp.value.startsWith(tag))inp.value=tag+inp.value.replace(/^@\[[^\]]*\]\s*/,'');inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);updateLen()}
   else if(b.dataset.dm){openChat(b.dataset.dm);setTimeout(()=>$('#msgIn').focus(),50)}

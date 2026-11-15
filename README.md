@@ -20,6 +20,7 @@ Sie ersetzt die offizielle App nicht, sondern ergänzt sie: Kanäle und Kontakte
 
 - **Live-Traffic** – alle empfangenen Pakete mit Typ, Route, Hop-Pfad (inkl. Pfad-Hash-Größe 1/2/3 Byte), SNR/RSSI, Region; Filter, Detailansicht mit Rohdaten, CSV/JSON-Export, Pakete/Minute; gleiche Pakete nach Hash gruppieren (wie oft und über welche Wege empfangen)
 - **Chat** – Kanäle und Direktnachrichten, Zustellbestätigung mit Laufzeit, erneut senden, Antworten per `@[Name]`, Direktnachricht an Absender, anklickbare Links und `#kanäle`, Suche im gesamten Verlauf, @Erwähnungen hervorgehoben
+- **Übersetzung** – fremdsprachige Nachrichten per 🌐 oder automatisch übersetzen, eigene Nachrichten vor dem Senden übersetzen; läuft lokal mit der eingebauten Übersetzung von Chrome (Desktop, ab Version 138), ohne API-Schlüssel und ohne dass Nachrichten an einen Dienst gehen
 - **Benachrichtigungen** – aus / nur Direktnachrichten & @Erwähnungen / alle, optional mit Ton, pro Chat einstellbar oder stumm
 - **QR-Codes** – Kanäle, Kontakte und das eigene Gerät als QR (Format der offiziellen MeshCore-App), Scannen per Kamera, Bild oder eingefügtem Link
 - **Regionen** – Standard-Region des Geräts, Region **pro Kanal**, Anzeige der Region und Hash-Größe bei empfangenen Nachrichten
