@@ -89,6 +89,12 @@ canvas#spark{height:34px;width:240px}
 .chatmain{flex:1;display:flex;flex-direction:column;min-width:0}
 .chathead{padding:10px 14px;border-bottom:1px solid var(--border);background:var(--panel);display:flex;gap:10px;align-items:center}
 .chathead .t{font-weight:600}
+.roombar{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--panel);font-size:13px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.roombar.need{background:rgba(210,153,34,.12);border-bottom-color:rgba(210,153,34,.5)}
+.roombar.ro{background:rgba(130,80,223,.12)}
+.roombar input[type=password]{width:190px}
+.roombar .rbt{flex:1 1 260px}
+.roombar label{display:flex;gap:4px;align-items:center;white-space:nowrap}
 .msgs{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
 .msg{max-width:72%;padding:7px 11px;border-radius:10px;background:var(--panel2);border:1px solid var(--border);align-self:flex-start}
 .msg.out{align-self:flex-end;background:color-mix(in srgb,var(--accent2) 22%,var(--panel))}
@@ -355,6 +361,7 @@ a.nlink{color:var(--text);text-decoration:none;font-weight:500}a.nlink:hover{col
       </div>
       <div class="chatmain">
         <div class="chathead" id="chathead"><span class="muted">Kanal oder Kontakt wählen</span></div>
+        <div class="roombar" id="roombar" hidden></div>
         <div class="msgs" id="msgs"></div>
         <div class="compose">
           <div class="mlist" id="mentionBox" role="listbox" hidden></div>
@@ -893,6 +900,7 @@ function onDisconnected(msg){
   if(S.tr){const tr=S.tr;S.tr=null;tr.close&&tr.close()}
   if(waiter)failWaiter(new Error('getrennt'));while(queue.length)queue.shift().rej(new Error('getrennt'));
   for(const s of ADM.sess.values())s.logged=false;
+  ROOM.auto.clear();ROOM.busy.clear();ROOM.err.clear();
   AA.cfg=null;stopWatch();clearInterval(GPS.timer);GPS.timer=null;
   const was=S.connected;S.connected=false;clearInterval(S.statTimer);setEnabled(false);updateHeader();
   if(was&&msg)toast(msg,'err');
@@ -986,7 +994,7 @@ function handleMsgFrame(f){
   if(c===RESP.CMSG||c===RESP.CMSG3){
     const prefix=hex(r.bytes(6)),pl=r.u8(),tt=r.u8(),ts=r.u32();let author=null;if(tt===2)author=hex(r.bytes(4));
     const text=dec.decode(r.rest());const ct=findContactByPrefix(prefix);
-    let from=ct?ct.name:prefix;if(author){from=(nodeName(author)||author)+(ct?' @ '+ct.name:'')}
+    let from=ct?ct.name:prefix;if(author){from=nodeName(author)||author;if(ct&&ct.type===3)roomSeen(ct.key)}
     if(tt===1){onCliReply(prefix,text);return}
     const msg={dir:'in',from,text,ts:ts*1000,rx:Date.now(),snr,hops:pl===0xFF?'direkt':(pl&63),cli:tt===1};
     linkPacket(msg,findRxPacket([2],pl,snr,p=>!p.dec.src||prefix.startsWith(p.dec.src)),pl);
@@ -1013,6 +1021,11 @@ function convTitle(conv){if(conv.startsWith('dc:')){const d=S.disc[conv.slice(3)
 async function sendMsg(){
   const text=$('#msgIn').value.trim();if(!text||!S.active||!S.connected)return;
   if(enc.encode(text).length>maxLen())return toast('Nachricht zu lang','err');
+  const rc=S.active.startsWith('c:')?findContactByPrefix(S.active.slice(2)):null;
+  if(rc&&rc.type===3){const st=roomState(rc.key);
+    if(ROOM.busy.has(rc.key))return toast('Anmeldung beim Room läuft noch – gleich nochmal senden','err');
+    if(!st.live&&!st.known){toast('Erst im Room anmelden – ohne Anmeldung verwirft er die Nachricht','err');const p=$('#roomPw');if(p)p.focus();return}
+    if(!roomCanPost(st)){toast('Nur Lesezugang – mit dem Room-Passwort anmelden, um zu schreiben','err');const p=$('#roomPw');if(p)p.focus();return}}
   $('#msgIn').value='';updateLen();
   const ts=now(),conv=S.active;
   if(conv.startsWith('ch:')){
@@ -1521,15 +1534,16 @@ function renderChat(){
     ds.slice(0,30).forEach(d=>{h+=item('dc:'+d.secret,chTitle(d.name),'👂',null,'',d.count)})}
   const cs=[...S.contacts.values()].filter(c=>(c.type===1||c.type===3)&&(!q||c.name.toLowerCase().includes(q))).sort((a,b)=>{const la=lastMsgT('c:'+a.key.slice(0,12)),lb=lastMsgT('c:'+b.key.slice(0,12));return lb-la||a.name.localeCompare(b.name)});
   h+='<h4>Kontakte ('+cs.length+')</h4>';
-  cs.forEach(c=>{h+=item('c:'+c.key.slice(0,12),c.name,c.type===3?'🏠':'',c)});
+  cs.forEach(c=>{h+=item('c:'+c.key.slice(0,12),c.name,c.type===3?'🏠'+(roomState(c.key).live?'🔓':''):'',c)});
   $('#chatlist').innerHTML=h;
   function item(id,name,icon,c,tag,cnt){const u=S.unread[id],nm=convMode(id);return `<div class="citem${S.active===id?' active':''}" data-conv="${id}">${icon?`<span>${icon}</span>`:''}<span class="nm${nm==='mute'?' mute':''}">${esc(name)}</span>${nm==='mute'?'<span title="stummgeschaltet">🔕</span>':nm==='mention'?'<span title="nur bei @Erwähnung">@</span>':''}${tag?`<span class="hash" title="Region">${esc(tag)}</span>`:''}${c&&c.outPathLen!==0xFF&&c.outPathLen!=null?`<span class="muted mono" title="Pfad">${(c.outPathLen&63)}h</span>`:''}${cnt?`<span class="muted mono" title="Nachrichten gesehen">${cnt}</span>`:''}${u?`<span class="badge${nm==='mute'?' mute':''}">${u}</span>`:''}</div>`}
   renderConv();updateBadge();
 }
+const isRoomConv=c=>c.startsWith('c:')&&(findContactByPrefix(c.slice(2))||{}).type===3;
 const lastMsgT=c=>{const a=S.msgs[c];return a&&a.length?a[a.length-1].rx:0};
 function renderConv(){
   const conv=S.active,box=$('#msgs');
-  if(!conv){$('#chathead').innerHTML='<span class="muted">Kanal oder Kontakt wählen</span>';box.innerHTML='<div class="empty">💬</div>';updateCompose();return}
+  if(!conv){$('#chathead').innerHTML='<span class="muted">Kanal oder Kontakt wählen</span>';renderRoomBar(null);box.innerHTML='<div class="empty">💬</div>';updateCompose();return}
   if(curTab==='chat'&&S.unread[conv]){delete S.unread[conv];updateBadge()}
   let head=`<button class="sm mback" onclick="mBack('chat')" title="Zurück">‹</button><span class="t">${esc(convTitle(conv))}</span>`;
   const cm=convMode(conv),bell=conv.startsWith('dc:')?'':`<select class="nsel" id="convNotify" title="Benachrichtigungen für diesen Chat">${[['std','🔔 Standard'],['all','🔔 Alle'],['mention','@ Nur Erwähnungen'],['mute','🔕 Stumm']].map(([v,l])=>`<option value="${v}"${v===cm?' selected':''}>${l}</option>`).join('')}</select>`;
@@ -1549,7 +1563,7 @@ function renderConv(){
         const ce=ch&&CAT.byName.get(ch.name.toLowerCase());
         const near=(ce?ce.regions:[]).slice().sort((a,b)=>regionAffinity(b)-regionAffinity(a));
         v=await pickRegionDialog('Region für '+chTitle(ch.name),near);if(!v){sel.value=cur||'';return}}setChanRegion(ch,v)}},0)}
-  $('#chathead').innerHTML=head;
+  $('#chathead').innerHTML=head;renderRoomBar(conv);
   const ns=$('#convNotify');if(ns)ns.onchange=()=>setConvMode(conv,ns.value);
   const arr=S.msgs[conv]||[];
   const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<60;
@@ -1557,6 +1571,7 @@ function renderConv(){
     if(i>=arr.length-60)trCheck(m);
     const meta=m.dir==='in'?`<span class="from">${esc(m.from)}</span> · ${dtfmt(m.ts||m.rx)}${m.snr!=null?` · <span class="${snrCls(m.snr)}">SNR ${m.snr.toFixed(1)}</span>`:''}${m.hops!=null?' · '+(Array.isArray(m.path)?`<a href="#" class="hoplink" data-path="${esc(m.id)}" title="Empfangsweg anzeigen">${m.hops==='direkt'?'direkt':m.hops+' Hops'} ${m._showPath?'▴':'▾'}</a>`:(m.hops==='direkt'?'direkt':m.hops+' Hops')):''}${m.hashBytes?` · <span class="hash" title="Pfad-Hash-Größe">${m.hashBytes}B</span>`:''}${m.region?(m.region==='-'?' · <span class="hash" title="Region">ohne Region</span>':' · '+regionTag(m.region,m.regionGuess)):m.regionCode?` · <span class="hash" title="Unbekannte Region – Namen unter Gerät › Region & Routing eintragen">Region ?${m.regionCode}</span>`:''}${replyBtns(conv,m)}`:dtfmt(m.rx);
     let st='';if(m.dir==='out'){st={sending:'⏳ sende…',sent:conv.startsWith('ch:')?(m.echo&&m.echo.length?'':'✓ gesendet')+(m.region?(m.region==='-'?' (ohne Region)':' (#'+esc(m.region)+')'):''):'↗ gesendet ('+(m.flood?'Flood':'Direkt')+'), warte auf ACK…',ok:'✓✓ zugestellt'+(m.rtt?' ('+(m.rtt/1000).toFixed(1)+' s)':''),noack:'⚠ keine Bestätigung',fail:'✗ Fehler: '+esc(m.err||'')}[m.status]||'';
+      if(m.status==='noack'&&isRoomConv(conv)&&!roomState(findContactByPrefix(conv.slice(2)).key).live)st+=' – im Room angemeldet?';
       if((m.status==='noack'&&conv.startsWith('c:'))||(m.status==='fail'&&!conv.startsWith('dc:')))st+=` <button class="sm" onclick="retryMsg('${conv}','${m.id}')">↻ erneut</button>`;
       if(m.status!=='fail')st+=echoHtml(m)}
     return `<div class="msg ${m.dir}${m.dir==='in'&&(m.mention??isMention(m))?' mention':''}" data-mid="${esc(m.id||'')}"><div class="meta">${meta}</div><div class="txt${m.cli?' mono':''}">${linkify(m.text)}</div>${trHtml(m)}${m._showPath?msgPathHtml(conv,m):''}${st?`<div class="st ${m.status==='ok'?'ok':m.status==='noack'||m.status==='fail'?'fail':''}">${st}</div>`:''}</div>`}).join(''):'<div class="empty">Noch keine Nachrichten</div>';
@@ -1837,29 +1852,106 @@ async function ensureContact(key){
 }
 
 // ---- Login ----
+// Gemeinsamer Login für Repeater-Admin und Room-Chat. Liefert true (angemeldet) / false (abgelehnt), wirft bei Zeitüberschreitung.
+async function loginCore(s,pw){
+  await ensureContact(s.key);
+  const sent=parseSent(await request(bytes(CMD.SEND_LOGIN,unhex(s.key),pw)));
+  admLog(s,'sys','Login gesendet ('+(sent.flood?'Flood':'direkt')+')');
+  const pre=s.key.slice(0,12);
+  const f=await waitPush(x=>(x[0]===PUSH.LOGIN_OK||x[0]===PUSH.LOGIN_FAIL)&&hex(x.slice(2,8))===pre,replyTimeout(sent.est));
+  if(f[0]===PUSH.LOGIN_FAIL){s.logged=false;return false}
+  const r=new R(f);r.u8();const isAdmin=r.u8();r.bytes(6);
+  s.logged=true;s.isAdmin=isAdmin===1;s.adminByte=isAdmin;s.perms=null;s.fwLevel=null;s.clockDiff=null;
+  if(r.left()>=4){const st=r.u32();s.clockDiff=st-now()}
+  if(r.left()>=1)s.perms=r.u8();if(r.left()>=1)s.fwLevel=r.u8();
+  const c=S.contacts.get(s.key);
+  if(c&&c.type===3){s.role=roomRole(s);roomStore(s.key,{perms:s.perms,adminByte:isAdmin,role:s.role,t:Date.now()})}
+  else s.role=s.perms!=null?ROLE[s.perms&3]:(s.isAdmin?'Admin':'Gast');
+  return true;
+}
 async function admLogin(key,pwArg,quiet){
   const s=typeof key==='string'?admS(key):admCur();if(!s)return;let pw=pwArg;
   if(pw==null){pw=$('#admPw').value;
     if($('#admRemember').checked)store.set('mcw.admpw.'+s.key.slice(0,12),pw);else store.del('mcw.admpw.'+s.key.slice(0,12))}
   admBusy(true,'Anmelden '+(quiet?admName(s.key)+' ':'')+'…');
   try{
-    await ensureContact(s.key);
-    const sent=parseSent(await request(bytes(CMD.SEND_LOGIN,unhex(s.key),pw)));
-    admLog(s,'sys','Login gesendet ('+(sent.flood?'Flood':'direkt')+')');
-    const pre=s.key.slice(0,12);
-    const f=await waitPush(x=>(x[0]===PUSH.LOGIN_OK||x[0]===PUSH.LOGIN_FAIL)&&hex(x.slice(2,8))===pre,replyTimeout(sent.est));
-    if(f[0]===PUSH.LOGIN_FAIL){s.logged=false;admLog(s,'err','Login abgelehnt – Passwort falsch?');toast((quiet?admName(s.key)+': ':'')+'Login abgelehnt – Passwort falsch?','err');return}
-    const r=new R(f);r.u8();const isAdmin=r.u8();r.bytes(6);
-    s.logged=true;s.isAdmin=!!isAdmin;s.perms=null;s.fwLevel=null;s.clockDiff=null;
-    if(r.left()>=4){const st=r.u32();s.clockDiff=st-now()}
-    if(r.left()>=1)s.perms=r.u8();if(r.left()>=1)s.fwLevel=r.u8();
-    s.role=s.perms!=null?ROLE[s.perms&3]:(s.isAdmin?'Admin':'Gast');
+    if(!await loginCore(s,pw)){admLog(s,'err','Login abgelehnt – Passwort falsch?');toast((quiet?admName(s.key)+': ':'')+'Login abgelehnt – Passwort falsch?','err');return}
     admLog(s,'ok','Angemeldet als '+s.role);if(!quiet)toast('Angemeldet bei '+admName(s.key)+' ('+s.role+')','ok');rdSet(s.key,{role:s.role});
-    renderAdmin();
+    renderAdmin();renderSoon();
     await admStatus(true,s.key);
-  }catch(e){admLog(s,'err','Login: '+e.message);toast((quiet?admName(s.key)+': ':'')+'Login fehlgeschlagen: '+e.message,'err');
+  }catch(e){const room=(S.contacts.get(s.key)||{}).type===3;
+    admLog(s,'err','Login: '+e.message+(room?' – bei Rooms heißt das oft: Passwort falsch (ein Room antwortet darauf gar nicht)':''));toast((quiet?admName(s.key)+': ':'')+'Login fehlgeschlagen: '+e.message,'err');
     const cc=S.contacts.get(s.key);if(cc&&cc.outPathLen===0xFF&&!quiet)admLog(s,'sys','Tipp: Mit „✎ Pfad festlegen“ oben den Weg über bekannte Repeater vorgeben – dann geht die Anfrage gezielt statt per Flood.')}
   finally{admBusy(false);renderAdmin()}
+}
+
+// ================= Room-Server =================
+// Ein Room speichert Beiträge und verteilt sie an alle angemeldeten Clients. Ohne Anmeldung kann er eine
+// Nachricht nicht einmal entschlüsseln: sie wird verworfen, es kommt keine Bestätigung (ACK).
+// Anmeldung (wie beim Repeater-Admin, CMD_SEND_LOGIN):
+//  · Room-Passwort (guest.password, Standard „hello“) → Lesen/Schreiben
+//  · Admin-Passwort → Admin (Lesen/Schreiben + Fernverwaltung)
+//  · leeres Passwort → Wiederanmeldung, wenn der Room uns schon in seiner Zugriffsliste hat
+//  · falsches Passwort → keine Antwort, außer „allow.read.only on“: dann nur lesen (Beiträge werden verworfen)
+// Nach dem Login schickt der Room alle Beiträge seit dem letzten Abgleich (sync_since führt die Companion);
+// bleiben drei Zustellungen unbestätigt, pausiert er bis zur nächsten Anmeldung oder Nachricht von uns.
+const ROOM={busy:new Set(),auto:new Set(),err:new Map()};
+const roomSK=k=>'mcw.room.'+k.slice(0,12),roomPwK=k=>'mcw.admpw.'+k.slice(0,12);
+const roomInfo=k=>store.get(roomSK(k),null);
+function roomStore(k,o){store.set(roomSK(k),Object.assign(roomInfo(k)||{},o))}
+function roomSeen(k){if(!roomInfo(k))roomStore(k,{perms:null,role:null,t:Date.now(),seen:true})}
+// Rolle/Schreibrecht aus der Login-Antwort: Rechte-Byte (neuere Firmware) oder Alt-Byte (1=Admin, 2=Gast, 0=normal)
+function roomPerm(o){if(!o)return null;if(o.perms!=null)return o.perms&3;if(o.adminByte!=null)return o.adminByte===1?3:o.adminByte===2?0:2;return null}
+function roomRole(o){const p=roomPerm(o);return p==null?'angemeldet':['Nur lesen (Gast)','Nur lesen','Lesen/Schreiben','Admin'][p]}
+// Zustand eines Rooms: live = in dieser Verbindung angemeldet, known = früher angemeldet (Room kennt uns noch)
+function roomState(k){const s=ADM.sess.get(k);if(s&&s.logged)return {live:true,perm:roomPerm(s),role:s.role||roomRole(s)};
+  const i=roomInfo(k);return i?{known:true,perm:roomPerm(i),role:i.role,t:i.t,seen:i.seen}:{}}
+const roomCanPost=st=>st.perm==null||st.perm>=2;
+async function roomLogin(k,pw,auto,remember){
+  if(!S.connected||ROOM.busy.has(k))return;
+  const s=admS(k),nm=admName(k);ROOM.busy.add(k);ROOM.auto.add(k);ROOM.err.delete(k);renderSoon();
+  try{
+    if(!await loginCore(s,pw)){ROOM.err.set(k,'Anmeldung abgelehnt');if(!auto)toast(nm+': Anmeldung abgelehnt','err');return}
+    if(remember===true)store.set(roomPwK(k),pw);else if(remember===false)store.del(roomPwK(k)); // erst nach Erfolg merken
+    const st=roomState(k);admLog(s,'ok','Angemeldet als '+st.role);
+    if(!roomCanPost(st))toast(nm+': nur Lesezugang – deine Beiträge werden verworfen. Mit dem Room-Passwort anmelden.','err');
+    else if(!auto)toast('Im Room „'+nm+'“ angemeldet ('+st.role+'). Verpasste Beiträge kommen jetzt nach und nach.','ok');
+  }catch(e){
+    const msg=pw?'Keine Antwort – Passwort falsch oder Room nicht erreichbar':'Keine Antwort – der Room kennt dich nicht (mehr) oder ist nicht erreichbar';
+    ROOM.err.set(k,msg);admLog(s,'err','Room-Login: '+e.message);if(!auto)toast(nm+': '+msg,'err');
+  }finally{ROOM.busy.delete(k);renderSoon()}
+}
+function roomJoin(k){
+  const pw=$('#roomPw')?$('#roomPw').value:'',rb=$('#roomRemember');
+  roomLogin(k,pw,false,rb?rb.checked:undefined);
+}
+// erneut anmelden mit gemerktem Passwort (sonst leer = Wiederanmeldung über die Zugriffsliste)
+function roomResync(k){roomLogin(k,store.get(roomPwK(k),'')||'',false)}
+function roomForget(k){if(!confirm('Gespeicherte Anmeldung und Passwort für diesen Room in diesem Browser löschen?'))return;
+  store.del(roomSK(k));store.del(roomPwK(k));const s=ADM.sess.get(k);if(s)s.logged=false;ROOM.err.delete(k);renderSoon()}
+function renderRoomBar(conv){
+  const bar=$('#roombar');const c=conv&&conv.startsWith('c:')?findContactByPrefix(conv.slice(2)):null;
+  if(!c||c.type!==3){bar.hidden=true;bar.innerHTML='';bar.dataset.k=bar.dataset.sig='';return}
+  const k=c.key,st=roomState(k),busy=ROOM.busy.has(k),err=ROOM.err.get(k),pw=store.get(roomPwK(k),null);
+  // automatisch anmelden (einmal je Verbindung), wenn wir den Room schon kennen – holt verpasste Beiträge
+  if(S.connected&&!st.live&&!busy&&!ROOM.auto.has(k)&&(st.known||pw!=null)){ROOM.auto.add(k);setTimeout(()=>roomLogin(k,pw||'',true),50)}
+  // Eingaben beim Neuzeichnen nicht verlieren
+  const old=bar.dataset.k===k&&$('#roomPw')?{v:$('#roomPw').value,f:document.activeElement===$('#roomPw')}:null;
+  const form=`<input id="roomPw" type="password" placeholder="Room-Passwort" autocomplete="off" ${S.connected&&!busy?'':'disabled'}><button class="primary sm" id="btnRoomJoin" ${S.connected&&!busy?'':'disabled'}>Anmelden</button><label class="muted"><input type="checkbox" id="roomRemember"${pw!=null||!st.known?' checked':''}> merken</label>`;
+  let cls='',h='';
+  if(busy)h=`<span class="rbt">⏳ Anmeldung beim Room läuft … (Antwort kann bei Flood einige Sekunden dauern)</span>`;
+  else if(st.live&&roomCanPost(st))h=`<span class="rbt">🔓 Angemeldet · <b>${esc(st.role)}</b> – Beiträge gehen an alle Mitglieder, verpasste Beiträge werden nachgeliefert.</span><button class="sm" id="btnRoomSync" title="Erneut anmelden und verpasste Beiträge abholen">↻ Abgleichen</button>`;
+  else if(st.live){cls='ro';h=`<span class="rbt">👁 <b>Nur lesen</b> – der Room hat das Passwort nicht als Room-Passwort akzeptiert. Deine Beiträge würden verworfen.</span>${form}`}
+  else if(st.known){cls=err?'need':'';h=`<span class="rbt">${err?'⚠ '+esc(err)+'.':'🔑 Bekannter Room'+(st.t&&!st.seen?' (zuletzt angemeldet '+dtfmt(st.t)+(st.role?' als '+esc(st.role):'')+')':'')+' – noch nicht in dieser Verbindung angemeldet.'}</span><button class="sm" id="btnRoomSync" ${S.connected?'':'disabled'}>↻ Anmelden${pw?'':' (ohne Passwort)'}</button>${form}`}
+  else{cls='need';h=`<span class="rbt">🏠 <b>Room-Server</b> – Beiträge nimmt er nur nach Anmeldung an. Passwort gibt's beim Betreiber (Standard bei neuen Rooms: <span class="mono">hello</span>). Leer lassen = nur mitlesen, falls der Room das erlaubt.${err?'<br><span class="snr-r">⚠ '+esc(err)+'</span>':''}</span>${form}`}
+  if(st.known||st.live)h+=`<button class="sm" id="btnRoomForget" title="Gemerkte Anmeldung/Passwort löschen">🗑</button>`;
+  const sig=k+'|'+cls+'|'+h;if(bar.dataset.sig===sig&&!bar.hidden)return; // unverändert: nicht neu zeichnen (Eingabe/Häkchen bleiben)
+  bar.className='roombar'+(cls?' '+cls:'');bar.innerHTML=h;bar.hidden=false;bar.dataset.k=k;bar.dataset.sig=sig;
+  if(old&&$('#roomPw')){$('#roomPw').value=old.v;if(old.f)$('#roomPw').focus()}
+  const j=$('#btnRoomJoin');if(j)j.onclick=()=>roomJoin(k);
+  const ip=$('#roomPw');if(ip)ip.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();roomJoin(k)}};
+  const y=$('#btnRoomSync');if(y)y.onclick=()=>roomResync(k);
+  const fg=$('#btnRoomForget');if(fg)fg.onclick=()=>roomForget(k);
 }
 async function admLogout(){
   const s=admCur();if(!s)return;

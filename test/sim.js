@@ -15,6 +15,8 @@ const NODES=[
   {name:'Anna Handy',type:1,k:key('anna-phone'),lat:0,lon:0},
 ];
 const REP=NODES[0];
+// optionaler Room-Server (window.__SIM_ROOM vor dem Simulator setzen): Room-Passwort „hello“, allow.read.only über __sim.roomRO
+if(window.__SIM_ROOM)NODES.push({name:'RGB-Spelunke',type:3,k:key('room-spelunke'),lat:49.24,lon:6.98});
 const st={logged:{},queue:[],now:()=>Math.floor(Date.now()/1000),settings:{name:'SaarRepeater Völklingen',lat:'49.25',lon:'6.85','owner.info':'SaarMesh|mathias','tx':'22',repeat:'on','advert.interval':'120','flood.advert.interval':'12','flood.max':'64','guest.password':'gast',radio:'869.6179809,62.5,8,8'},
   calls:[],telem:0,telemCount:0,aa:0x1e,aah:0,radio:[869618,62500,8,8],lat:49250000,lon:6870000,locp:1,vars:{gps:'0'},varLog:[],name:'Mathias Test',
   regions:[{name:'*',parent:null,flood:true},{name:'saarlorlux',parent:'*',flood:true},{name:'saarland',parent:'saarlorlux',flood:true,home:true},{name:'lux',parent:'saarlorlux',flood:false}]};
@@ -84,7 +86,14 @@ class FakeWS{
       case 10:{const m=st.queue.shift();return this.emit(m||W().u8(10).out())}
       case 26:{ // Login
         const p=f.slice(1,33),pw=dec.decode(f.slice(33));const tag=st.now();this.emit(this.sent(tag));
-        const pre=p.slice(0,6);
+        const pre=p.slice(0,6);const rn=byPrefix(pre);
+        if(rn&&rn.type===3&&pw!=='geheim'){ // Room: falsches Passwort → keine Antwort (außer allow.read.only)
+          let perm=null;if(pw==='hello')perm=2;else if(pw===''&&st.roomPerm!=null)perm=st.roomPerm;else if(st.roomRO)perm=0;
+          st.roomLogins=(st.roomLogins||0)+1;(st.roomPws||(st.roomPws=[])).push(pw);if(perm==null)return;st.roomPerm=perm;
+          this.emit(W().u8(0x85).u8(perm===0?2:0).b(pre).u32(st.now()).u8(perm).u8(2).out(),500);
+          if(perm>=0&&!st.roomPushed){st.roomPushed=true;const post=W().u8(16).i8(20).u8(0).u8(0).b(pre).u8(1).u8(2).u32(st.now()-60).b(NODES[4].k.slice(0,4)).s('Willkommen in der Spelunke').out();
+            setTimeout(()=>{st.queue.push(post);this.emit(W().u8(0x83).out())},900)}
+          return}
         if(pw==='geheim'){st.logged[hex(p)]='admin';this.emit(W().u8(0x85).u8(1).b(pre).u32(st.now()+400).u8(3).u8(2).out(),500)}
         else if(pw==='gast'||pw===''){st.logged[hex(p)]='guest';this.emit(W().u8(0x85).u8(0).b(pre).u32(st.now()).u8(0).u8(2).out(),500)}
         else this.emit(W().u8(0x86).u8(0).b(pre).out(),500);return}
@@ -99,7 +108,10 @@ class FakeWS{
         else if(d[0]===7)rep=W().s('v1.13.0\nSaarRepeater Völklingen\nSaarMesh|mathias').out();
         this.emit(W().u8(0x8C).u8(0).u32(tag).b(rep).out(),700);return}
       case 2:{ // Textnachricht / CLI
-        const tt=f[1],pre=f.slice(7,13),text=dec.decode(f.slice(13));this.emit(this.sent(0,1200));
+        const tt=f[1],pre=f.slice(7,13),text=dec.decode(f.slice(13));const rn=byPrefix(pre);
+        if(rn&&rn.type===3&&tt===0){const ack=tagOf();this.emit(this.sent(ack,1200));(st.roomPosts||(st.roomPosts=[])).push(text);
+          if(st.roomPerm>=2)this.emit(W().u8(0x82).u32(ack).u32(900).out(),700);return} // ohne Anmeldung/nur lesen: kein ACK
+        this.emit(this.sent(0,1200));
         if(tt!==1)return;
         let r='Unknown command';const s=st.settings;
         if(st.logged[hex(byPrefix(pre).k)]!=='admin')return; // nicht angemeldet → keine Antwort
